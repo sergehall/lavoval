@@ -18,6 +18,12 @@ export type AuthFormState = {
   email: string;
 };
 
+export type RegisterFormState = {
+  error: string | null;
+  email: string;
+  registered: boolean;
+};
+
 export async function loginAction(_previousState: AuthFormState, formData: FormData) {
   const email = String(formData.get('email') ?? '');
   const parsed = loginRequestSchema.safeParse({
@@ -54,17 +60,49 @@ export async function loginAction(_previousState: AuthFormState, formData: FormD
   }
 }
 
-export async function registerAction(formData: FormData) {
-  const payload = registerRequestSchema.parse({
+export async function registerAction(_previousState: RegisterFormState, formData: FormData) {
+  const email = String(formData.get('email') ?? '');
+  const parsed = registerRequestSchema.safeParse({
     email: formData.get('email'),
     password: formData.get('password'),
     firstName: formData.get('firstName'),
     lastName: formData.get('lastName'),
   });
 
-  const response = await register(payload);
-  await persistSession(response.data);
-  redirect('/account');
+  if (!parsed.success) {
+    return {
+      error: formatRegisterValidationError(parsed.error),
+      email,
+      registered: false,
+    };
+  }
+
+  try {
+    await register(parsed.data);
+
+    return {
+      error: null,
+      email: parsed.data.email,
+      registered: true,
+    };
+  } catch (error) {
+    if (error instanceof ApiError) {
+      return {
+        error:
+          error.status === 409
+            ? 'An account with this email already exists.'
+            : error.message || 'Could not create your account right now. Please try again.',
+        email,
+        registered: false,
+      };
+    }
+
+    return {
+      error: 'Could not create your account right now. Please try again.',
+      email,
+      registered: false,
+    };
+  }
 }
 
 export async function logoutAction() {
@@ -86,6 +124,27 @@ function formatAuthValidationError(error: z.ZodError) {
 
   if (firstIssue.path[0] === 'password') {
     return 'Password must be at least 8 characters.';
+  }
+
+  return firstIssue.message;
+}
+
+function formatRegisterValidationError(error: z.ZodError) {
+  const firstIssue = error.issues[0];
+  if (!firstIssue) {
+    return 'Please review the registration details and try again.';
+  }
+
+  if (firstIssue.path[0] === 'email') {
+    return 'Enter a valid email address.';
+  }
+
+  if (firstIssue.path[0] === 'password') {
+    return 'Password must be at least 12 characters.';
+  }
+
+  if (firstIssue.path[0] === 'firstName' || firstIssue.path[0] === 'lastName') {
+    return 'First and last name must be at least 2 characters.';
   }
 
   return firstIssue.message;

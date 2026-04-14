@@ -17,8 +17,14 @@ function matchesQuery(skill: SkillSummary, query: string) {
   return buildSkillSearchText(skill).includes(query);
 }
 
-export function SkillsCatalog({ skills }: { skills: SkillSummary[] }) {
-  const [query, setQuery] = useState('');
+export function SkillsCatalog({
+  skills,
+  initialQuery = '',
+}: {
+  skills: SkillSummary[];
+  initialQuery?: string;
+}) {
+  const [query, setQuery] = useState(initialQuery);
   const deferredQuery = useDeferredValue(query.trim().toLowerCase());
 
   const filteredSkills = skills.filter((skill) => matchesQuery(skill, deferredQuery));

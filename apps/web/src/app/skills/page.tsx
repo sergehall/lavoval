@@ -18,8 +18,14 @@ export const metadata: Metadata = {
   },
 };
 
-export default async function SkillsPage() {
+export default async function SkillsPage({
+  searchParams,
+}: {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const { data: skills } = await fetchSkills();
+  const params = searchParams ? await searchParams : {};
+  const initialQuery = Array.isArray(params.q) ? params.q[0] ?? '' : params.q ?? '';
 
   return (
     <div className="stack stack--lg">
@@ -32,7 +38,7 @@ export default async function SkillsPage() {
           </p>
         </div>
       </Card>
-      <SkillsCatalog skills={skills} />
+      <SkillsCatalog skills={skills} initialQuery={initialQuery} />
     </div>
   );
 }

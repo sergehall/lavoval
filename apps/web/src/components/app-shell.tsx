@@ -7,6 +7,7 @@ import type { SessionUser } from '@lavoval/contracts';
 import { accountNavigation, publicNavigation } from '@/shared/lib/navigation';
 import { Button } from '@/shared/ui/button';
 import { logoutAction } from '@/features/auth/actions';
+import { GuestEntryBar } from '@/components/guest-entry-bar';
 
 export function AppShell({ children, user }: PropsWithChildren<{ user?: SessionUser }>) {
   const pathname = usePathname();
@@ -38,14 +39,7 @@ export function AppShell({ children, user }: PropsWithChildren<{ user?: SessionU
               </Button>
             </form>
           ) : (
-            <div className="site-auth-actions">
-              <Link href="/login" className="site-nav__link site-nav__link--subtle">
-                Sign in
-              </Link>
-              <Link href="/register" className="site-nav__link site-nav__link--cta">
-                Create account
-              </Link>
-            </div>
+            <GuestEntryBar />
           )}
         </div>
       </header>
