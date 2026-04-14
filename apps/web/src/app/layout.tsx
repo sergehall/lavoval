@@ -2,23 +2,48 @@ import type { Metadata } from 'next';
 import './globals.css';
 import { AppShell } from '@/components/app-shell';
 import { getSession } from '@/shared/api/server-client';
+import { env } from '@/shared/config/env';
+
+const siteDescription =
+  'Lavoval is a skill-exchange marketplace for the AI era where people publish expertise, discover trusted specialists, and turn human know-how into reusable skill offers, practical modules, and run-ready workflows.';
 
 export const metadata: Metadata = {
-  metadataBase: new URL('https://lavoval.com'),
+  metadataBase: new URL(env.appUrl),
+  applicationName: 'Lavoval',
+  manifest: '/manifest.webmanifest',
 
   title: {
-    default: 'Lavoval',
+    default: 'Lavoval | Skill Exchange Marketplace For The AI Era',
     template: '%s | Lavoval',
   },
 
-  description:
-    'A skill-exchange marketplace for the AI era where people publish expertise, discover each other, and turn human know-how into reusable modules.',
+  description: siteDescription,
+  keywords: [
+    'skill exchange marketplace',
+    'AI era skills',
+    'human expertise platform',
+    'knowledge marketplace',
+    'peer to peer learning',
+    'skill offers',
+    'expertise discovery',
+    'lavoval',
+  ],
+  category: 'education',
+  creator: 'Lavoval',
+  publisher: 'Lavoval',
+  alternates: {
+    canonical: '/',
+  },
+  formatDetection: {
+    email: false,
+    address: false,
+    telephone: false,
+  },
 
   openGraph: {
     title: 'Lavoval',
-    description:
-      'A skill-exchange marketplace for the AI era where people publish expertise, discover each other, and turn human know-how into reusable modules.',
-    url: 'https://lavoval.com',
+    description: siteDescription,
+    url: env.appUrl,
     siteName: 'Lavoval',
     images: [{ url: '/og-image.png', width: 1200, height: 630 }],
     locale: 'en_US',
@@ -28,8 +53,7 @@ export const metadata: Metadata = {
   twitter: {
     card: 'summary_large_image',
     title: 'Lavoval',
-    description:
-      'A skill-exchange marketplace for the AI era where people publish expertise, discover each other, and turn human know-how into reusable modules.',
+    description: siteDescription,
     images: ['/og-image.png'],
   },
 
@@ -39,16 +63,20 @@ export const metadata: Metadata = {
       { url: '/favicon-16x16.png', sizes: '16x16', type: 'image/png' },
       { url: '/favicon-32x32.png', sizes: '32x32', type: 'image/png' },
     ],
+    shortcut: ['/favicon.ico'],
     apple: '/apple-touch-icon.png',
-    other: [
-      { rel: 'android-chrome-192x192', url: '/android-chrome-192x192.png' },
-      { rel: 'android-chrome-512x512', url: '/android-chrome-512x512.png' },
-    ],
   },
 
   robots: {
     index: true,
     follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      'max-image-preview': 'large',
+      'max-snippet': -1,
+      'max-video-preview': -1,
+    },
   },
 };
 

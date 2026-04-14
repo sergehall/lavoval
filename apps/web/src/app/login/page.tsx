@@ -1,8 +1,18 @@
+import type { Metadata } from 'next';
 import Link from 'next/link';
 import { loginAction } from '@/features/auth/actions';
 import { AuthCard } from '@/features/auth/auth-card';
 import { Button } from '@/shared/ui/button';
 import { Input } from '@/shared/ui/input';
+
+export const metadata: Metadata = {
+  title: 'Sign In',
+  description: 'Sign in to your Lavoval account to manage skills, runs, and marketplace activity.',
+  robots: {
+    index: false,
+    follow: false,
+  },
+};
 
 export default function LoginPage() {
   return (

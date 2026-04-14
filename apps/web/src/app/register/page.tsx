@@ -1,8 +1,18 @@
+import type { Metadata } from 'next';
 import Link from 'next/link';
 import { registerAction } from '@/features/auth/actions';
 import { AuthCard } from '@/features/auth/auth-card';
 import { Button } from '@/shared/ui/button';
 import { Input } from '@/shared/ui/input';
+
+export const metadata: Metadata = {
+  title: 'Create Account',
+  description: 'Create a Lavoval account to publish expertise, discover specialists, and join the skill exchange marketplace.',
+  robots: {
+    index: false,
+    follow: false,
+  },
+};
 
 export default function RegisterPage() {
   return (

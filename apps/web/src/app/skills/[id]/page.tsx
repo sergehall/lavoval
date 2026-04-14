@@ -1,3 +1,4 @@
+import type { Metadata } from 'next';
 import Link from 'next/link';
 import { Badge } from '@/shared/ui/badge';
 import { Card } from '@/shared/ui/card';
@@ -7,6 +8,63 @@ import { SkillMarkdown } from '@/features/skills/skill-markdown';
 import { RunSkillForm } from '@/features/runtime/run-skill-form';
 import { runSkillAction } from '@/features/runtime/actions';
 import type { SkillDetail } from '@lavoval/registry';
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}): Promise<Metadata> {
+  const { id } = await params;
+
+  try {
+    const { data: skill } = await fetchSkillById(id);
+
+    if (skill.status !== 'published' || skill.visibility !== 'public') {
+      return {
+        title: 'Skill Offer Unavailable',
+        description: 'This Lavoval skill offer is private, archived, or not currently published.',
+        robots: {
+          index: false,
+          follow: false,
+        },
+      };
+    }
+
+    const description =
+      skill.summary ||
+      `Explore ${skill.title} on Lavoval, a human skill marketplace for AI-era expertise.`;
+
+    return {
+      title: `${skill.title} By ${skill.creator.firstName} ${skill.creator.lastName}`,
+      description,
+      alternates: {
+        canonical: `/skills/${skill.id}`,
+      },
+      openGraph: {
+        title: `${skill.title} | Lavoval`,
+        description,
+        url: `/skills/${skill.id}`,
+      },
+      twitter: {
+        title: `${skill.title} | Lavoval`,
+        description,
+      },
+    };
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 404) {
+      return {
+        title: 'Skill Offer Not Found',
+        description: 'This Lavoval skill offer could not be found.',
+        robots: {
+          index: false,
+          follow: false,
+        },
+      };
+    }
+
+    throw error;
+  }
+}
 
 export default async function PublicSkillDetailPage({
   params,
@@ -40,8 +98,8 @@ export default async function PublicSkillDetailPage({
           <Badge tone="warning">Not publicly available</Badge>
           <h1>This skill offer is private or not published yet.</h1>
           <p className="muted">
-            Public marketplace pages only open records that are both <strong>published</strong>{' '}
-            and <strong>public</strong>. If you are the author, open this item from{' '}
+            Public marketplace pages only open records that are both <strong>published</strong> and{' '}
+            <strong>public</strong>. If you are the author, open this item from{' '}
             <strong>My Offers</strong> and change its visibility or status.
           </p>
           <div className="toolbar">
@@ -100,7 +158,10 @@ export default async function PublicSkillDetailPage({
       </Card>
       <Card>
         {session ? (
-          <RunSkillForm action={runSkillAction.bind(null, skill.id)} entrypoint={skill.entrypoint} />
+          <RunSkillForm
+            action={runSkillAction.bind(null, skill.id)}
+            entrypoint={skill.entrypoint}
+          />
         ) : (
           <div className="stack stack--md">
             <h2>Sign in to run this skill</h2>

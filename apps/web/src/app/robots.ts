@@ -1,12 +1,13 @@
 import type { MetadataRoute } from 'next';
+import { env } from '@/shared/config/env';
 
 export default function robots(): MetadataRoute.Robots {
   return {
     rules: {
       userAgent: '*',
       allow: '/',
-      disallow: ['/admin/', '/account/'],
+      disallow: ['/admin', '/admin/', '/account', '/account/'],
     },
-    sitemap: 'https://lavoval.com/sitemap.xml',
+    sitemap: `${env.appUrl}/sitemap.xml`,
   };
 }

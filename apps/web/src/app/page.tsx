@@ -1,3 +1,4 @@
+import type { Metadata } from 'next';
 import Link from 'next/link';
 import { Card } from '@/shared/ui/card';
 import { Button } from '@/shared/ui/button';
@@ -8,6 +9,26 @@ const publicHighlights = [
   'Scaffold for authorship, modules, progress, and governance',
 ];
 
+export const metadata: Metadata = {
+  title: 'Human Skill Marketplace For AI-Era Expertise',
+  description:
+    'Discover Lavoval, a marketplace for exchanging real human expertise in the age of AI. Publish skill offers, explore trusted specialists, and turn practical knowledge into reusable modules and execution-ready workflows.',
+  alternates: {
+    canonical: '/',
+  },
+  openGraph: {
+    title: 'Lavoval | Human Skill Marketplace For AI-Era Expertise',
+    description:
+      'Publish expertise, discover trusted people, and package practical know-how into reusable skill offers for an AI-shaped world.',
+    url: '/',
+  },
+  twitter: {
+    title: 'Lavoval | Human Skill Marketplace For AI-Era Expertise',
+    description:
+      'Publish expertise, discover trusted people, and package practical know-how into reusable skill offers for an AI-shaped world.',
+  },
+};
+
 export default function LandingPage() {
   return (
     <div className="stack stack--lg">
@@ -17,8 +38,8 @@ export default function LandingPage() {
           <h1>Exchange real human skills in the age of AI.</h1>
           <p>
             Lavoval is a growth-ready foundation for a platform where users publish expertise,
-            discover other people's strengths, and turn practical knowledge into exchangeable
-            skill pages and modules.
+            discover other people&apos;s strengths, and turn practical knowledge into exchangeable skill
+            pages and modules.
           </p>
           <div className="toolbar">
             <Link href="/register">
