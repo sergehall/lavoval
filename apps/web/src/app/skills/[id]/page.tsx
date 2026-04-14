@@ -1,9 +1,11 @@
 import Link from 'next/link';
 import { Badge } from '@/shared/ui/badge';
 import { Card } from '@/shared/ui/card';
-import { ApiError, fetchSkillById } from '@/shared/api/server-client';
+import { ApiError, fetchSkillById, getSession } from '@/shared/api/server-client';
 import { formatDate } from '@/shared/lib/utils';
 import { SkillMarkdown } from '@/features/skills/skill-markdown';
+import { RunSkillForm } from '@/features/runtime/run-skill-form';
+import { runSkillAction } from '@/features/runtime/actions';
 import type { SkillDetail } from '@lavoval/contracts';
 
 export default async function PublicSkillDetailPage({
@@ -12,6 +14,7 @@ export default async function PublicSkillDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
+  const session = await getSession();
 
   // Data fetching is isolated inside try/catch — no JSX here.
   // The rule react-hooks/error-boundaries disallows returning JSX from
@@ -94,6 +97,27 @@ export default async function PublicSkillDetailPage({
             ))}
           </div>
         </div>
+      </Card>
+      <Card>
+        {session ? (
+          <RunSkillForm action={runSkillAction.bind(null, skill.id)} entrypoint={skill.entrypoint} />
+        ) : (
+          <div className="stack stack--md">
+            <h2>Sign in to run this skill</h2>
+            <p className="muted">
+              Runtime execution is available for signed-in users. Join the marketplace to run this
+              skill and keep a history of your results.
+            </p>
+            <div className="toolbar">
+              <Link href="/login" className="site-nav__link site-nav__link--cta">
+                Sign in
+              </Link>
+              <Link href="/register" className="site-nav__link site-nav__link--subtle">
+                Create account
+              </Link>
+            </div>
+          </div>
+        )}
       </Card>
     </div>
   );

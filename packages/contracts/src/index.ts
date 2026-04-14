@@ -9,6 +9,9 @@ export type AccountStatus = z.infer<typeof accountStatusSchema>;
 export const skillStatusSchema = z.enum(['draft', 'published', 'archived']);
 export type SkillStatus = z.infer<typeof skillStatusSchema>;
 
+export const skillRunStatusSchema = z.enum(['queued', 'running', 'completed', 'failed']);
+export type SkillRunStatus = z.infer<typeof skillRunStatusSchema>;
+
 export const sessionUserSchema = z.object({
   id: z.string().uuid(),
   email: z.string().email(),
@@ -78,6 +81,26 @@ export const skillDetailSchema = skillSummarySchema.extend({
   modules: z.array(skillModuleSchema)
 });
 export type SkillDetail = z.infer<typeof skillDetailSchema>;
+
+export const skillRunSchema = z.object({
+  id: z.string().uuid(),
+  skillId: z.string().uuid(),
+  userId: z.string().uuid(),
+  status: skillRunStatusSchema,
+  input: z.record(z.string(), z.unknown()),
+  output: z.record(z.string(), z.unknown()).optional(),
+  errorMessage: z.string().nullable().optional(),
+  startedAt: z.string().nullable().optional(),
+  finishedAt: z.string().nullable().optional(),
+  createdAt: z.string(),
+});
+export type SkillRun = z.infer<typeof skillRunSchema>;
+
+export const runtimeRunRequestSchema = z.object({
+  skillId: z.string().uuid(),
+  input: z.record(z.string(), z.unknown()),
+});
+export type RuntimeRunRequest = z.infer<typeof runtimeRunRequestSchema>;
 
 export const loginRequestSchema = z.object({
   email: z.string().email(),

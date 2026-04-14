@@ -15,6 +15,7 @@ import (
 
 var (
 	ErrRuntimeEntrypointNotFound = errors.New("runtime entrypoint not found")
+	ErrSkillRunForbidden         = errors.New("skill run access forbidden")
 )
 
 type RuntimeService struct {
@@ -95,6 +96,27 @@ func (s *RuntimeService) Run(ctx context.Context, userID string, input RuntimeRu
 	}
 
 	return updatedRun, nil
+}
+
+func (s *RuntimeService) ListByUser(ctx context.Context, userID string) ([]domain.SkillRun, error) {
+	runs, err := s.runs.ListByUserID(ctx, userID)
+	if err != nil {
+		return nil, fmt.Errorf("list skill runs: %w", err)
+	}
+
+	return runs, nil
+}
+
+func (s *RuntimeService) FindByIDForUser(ctx context.Context, id string, userID string) (domain.SkillRun, error) {
+	run, err := s.runs.FindByID(ctx, id)
+	if err != nil {
+		return domain.SkillRun{}, fmt.Errorf("find skill run: %w", err)
+	}
+	if run.UserID != userID {
+		return domain.SkillRun{}, ErrSkillRunForbidden
+	}
+
+	return run, nil
 }
 
 func normalizeMap(input map[string]any) map[string]any {

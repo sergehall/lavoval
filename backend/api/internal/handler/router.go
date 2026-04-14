@@ -57,6 +57,8 @@ func NewRouter(cfg config.Config, tokens auth.TokenManager, authService *service
 			private.Get("/me/skills/{skillID}", mySkillsHandler.Get)
 			private.Patch("/me/skills/{skillID}", mySkillsHandler.Update)
 			private.Delete("/me/skills/{skillID}", mySkillsHandler.Delete)
+			private.Get("/runtime/runs", runtimeHandler.List)
+			private.Get("/runtime/runs/{runID}", runtimeHandler.Get)
 			private.Post("/runtime/run", runtimeHandler.Run)
 		})
 

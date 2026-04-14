@@ -16,6 +16,7 @@ export function accountNavigation(user: SessionUser): NavigationItem[] {
     { href: '/account', label: 'Home' },
     { href: '/skills', label: 'Explore Skills' },
     { href: '/account/my-skills', label: 'My Offers' },
+    { href: '/account/runs', label: 'Runs' },
     { href: '/account/profile', label: 'Identity' },
   ];
 

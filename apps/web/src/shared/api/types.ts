@@ -2,6 +2,7 @@ import type {
   AuthResponse,
   Profile,
   SkillDetail,
+  SkillRun,
   SkillSummary,
   SessionUser,
 } from '@lavoval/contracts';
@@ -29,3 +30,4 @@ export type UsersListItem = SessionUser & {
 };
 
 export type SkillPayload = SkillDetail;
+export type SkillRunPayload = SkillRun;

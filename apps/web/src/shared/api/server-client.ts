@@ -9,8 +9,10 @@ import type {
   ProfileUpdateRequest,
   RegisterRequest,
   SkillDetail,
+  SkillRun,
   SkillMutationRequest,
   SkillSummary,
+  RuntimeRunRequest,
 } from '@lavoval/contracts';
 import { env } from '@/shared/config/env';
 import type { ApiEnvelope, SessionState, UsersListItem } from './types';
@@ -168,6 +170,26 @@ export async function deleteMySkill(token: string, id: string) {
 
 export async function fetchAdminUsers(token: string) {
   return request<ApiEnvelope<UsersListItem[]>>('/api/v1/admin/users', {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
+export async function runSkill(token: string, payload: RuntimeRunRequest) {
+  return request<ApiEnvelope<SkillRun>>('/api/v1/runtime/run', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function fetchSkillRuns(token: string) {
+  return request<ApiEnvelope<SkillRun[]>>('/api/v1/runtime/runs', {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
+export async function fetchSkillRunById(token: string, runID: string) {
+  return request<ApiEnvelope<SkillRun>>(`/api/v1/runtime/runs/${runID}`, {
     headers: { Authorization: `Bearer ${token}` },
   });
 }
