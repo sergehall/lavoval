@@ -5,7 +5,7 @@ Lavoval is organized as a growth-oriented fullstack workspace for a skill-exchan
 ## Core boundaries
 
 - `apps/web`: Next.js App Router frontend with public, authenticated account, and admin route trees.
-- `backend/api`: Go REST API with handlers, services, repositories, auth, middleware, and PostgreSQL integration.
+- `apps/api`: Go REST API with handlers, services, repositories, auth, middleware, and PostgreSQL integration.
 - `packages/contracts`: Typed TypeScript contracts for frontend-facing request and response shapes.
 - `infrastructure`: Dockerfiles, database migrations, and seed data.
 - `docs`: Product and technical onboarding documentation.

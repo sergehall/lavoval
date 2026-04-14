@@ -23,7 +23,7 @@ format-web:
 ## goimports = gofmt + organised import groups (stdlib / third-party / local).
 ## Install once: go install golang.org/x/tools/cmd/goimports@latest
 format-api:
-	cd backend/api && goimports -w -local github.com/sergehall/lavoval \
+	cd apps/api && goimports -w -local github.com/sergehall/lavoval \
 		$$(find . -name '*.go' -not -path './vendor/*')
 
 ## Lint all code (frontend + backend)
@@ -34,12 +34,12 @@ lint-web:
 
 ## Requires golangci-lint. Install: https://golangci-lint.run/usage/install/
 lint-api:
-	cd backend/api && golangci-lint run ./...
+	cd apps/api && golangci-lint run ./...
 
 test: test-backend test-frontend
 
 test-backend:
-	cd backend/api && go test ./...
+	cd apps/api && go test ./...
 
 test-frontend:
 	pnpm --dir apps/web test --run

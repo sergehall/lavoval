@@ -61,7 +61,7 @@ infra.on('exit', (code) => {
   }
 
   const api = run('api', 'go', ['run', './cmd/server'], {
-    cwd: path.join(rootDir, 'backend/api')
+    cwd: path.join(rootDir, 'apps/api')
   });
 
   const web = run('web', 'pnpm', ['run', 'dev:web']);

@@ -24,7 +24,7 @@ In AI-heavy workflows, the app positions human skill as something discoverable, 
 ## Architecture summary
 
 - `apps/web` owns marketplace presentation, route protection, server actions, reusable UI primitives, and typed API calls.
-- `backend/api` owns HTTP transport, validation, auth, business logic, and database access.
+- `apps/api` owns HTTP transport, validation, auth, business logic, and database access.
 - `packages/contracts` defines frontend-safe contracts and schemas for predictable API usage.
 - `infrastructure` contains Docker assets, migrations, and seeds.
 - `docs` documents architecture and API boundaries.
@@ -36,7 +36,7 @@ A fuller explanation lives in [docs/architecture.md](./docs/architecture.md).
 ```text
 lavoval/
 ├── apps/web
-├── backend/api
+├── apps/api
 ├── packages/contracts
 ├── infrastructure/docker
 ├── infrastructure/db/migrations
@@ -149,7 +149,7 @@ pnpm --dir apps/web test
 Backend tests:
 
 ```bash
-cd backend/api && go test ./...
+cd apps/api && go test ./...
 ```
 
 Included examples cover:

@@ -3,7 +3,7 @@
 import type { Route } from 'next';
 import Link from 'next/link';
 import { useDeferredValue, useMemo, useState } from 'react';
-import type { SkillRun } from '@lavoval/contracts';
+import type { SkillRun } from '@lavoval/contracts/runtime';
 import { Badge } from '@/shared/ui/badge';
 import { Button } from '@/shared/ui/button';
 import { Card } from '@/shared/ui/card';

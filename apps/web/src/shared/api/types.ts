@@ -2,10 +2,10 @@ import type {
   AuthResponse,
   Profile,
   SkillDetail,
-  SkillRun,
   SkillSummary,
   SessionUser,
 } from '@lavoval/contracts';
+import type { SkillRun } from '@lavoval/contracts/runtime';
 
 export type ApiEnvelope<T> = {
   data: T;

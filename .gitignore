@@ -5,8 +5,9 @@ node_modules
 coverage
 
 # Go
-backend/api/bin
-backend/api/.cache
+apps/api/bin
+apps/api/.cache
+apps/api/server
 
 # Env
 .env

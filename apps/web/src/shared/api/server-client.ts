@@ -10,11 +10,10 @@ import type {
   ProfileUpdateRequest,
   RegisterRequest,
   SkillDetail,
-  SkillRun,
   SkillMutationRequest,
   SkillSummary,
-  RuntimeRunRequest,
 } from '@lavoval/contracts';
+import type { RuntimeRunRequest, SkillRun } from '@lavoval/contracts/runtime';
 import { env } from '@/shared/config/env';
 import type { ApiEnvelope, SessionState, UsersListItem } from './types';
 

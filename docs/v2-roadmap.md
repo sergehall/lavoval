@@ -34,7 +34,7 @@ throwaway prototype.
 
 ### Backend
 
-- `Go` API in `backend/api`
+- `Go` API in `apps/api`
 - Layered architecture: handlers, services, repositories, middleware
 - JWT-based auth
 - RBAC with `user` and `admin`
@@ -126,7 +126,7 @@ The main rule is: do not perform a cosmetic rewrite before runtime exists.
 
 Goal: add the missing product capability first.
 
-- Keep `backend/api` in place temporarily
+- Keep the Go backend in a single app boundary while runtime is introduced
 - Add runtime execution as new modules inside the current Go backend
 - Add `skill_runs`
 - Add mock executors
@@ -139,7 +139,7 @@ This gives real product value without destabilizing the repository.
 
 Goal: move from a working monolith to a cleaner platform layout.
 
-- Move `backend/api` to `apps/api`
+- Move the backend filesystem layout to `apps/api`
 - Rename infrastructure paths from `infrastructure` to `infra` only when scripts and docs are
   updated in the same pass
 - Extract runtime logic into `packages/engine`
@@ -257,7 +257,7 @@ Save run results in PostgreSQL.
 - Show status, timestamps, and output/error previews
 - Allow users to inspect their own runs
 
-### 9. `refactor(api): move backend/api to apps/api`
+### 9. `refactor(api): move backend into apps/api`
 
 - Update scripts
 - Update Dockerfiles
