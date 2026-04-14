@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -31,7 +32,7 @@ func (r *SkillRepository) ListByCreatorID(ctx context.Context, creatorID string)
 
 func (r *SkillRepository) list(ctx context.Context, clause string, args ...any) ([]domain.Skill, error) {
 	query := `
-		SELECT s.id, s.slug, s.title, s.summary, s.description, s.status, s.visibility, s.created_by,
+		SELECT s.id, s.slug, s.title, s.summary, s.description, s.provider, s.entrypoint, s.config_json, s.status, s.visibility, s.created_by,
 		       u.email, p.first_name, p.last_name,
 		       s.created_at, s.updated_at, COUNT(m.id) AS modules_count
 		FROM skills s
@@ -51,12 +52,16 @@ func (r *SkillRepository) list(ctx context.Context, clause string, args ...any) 
 	skills := make([]domain.Skill, 0)
 	for rows.Next() {
 		var skill domain.Skill
+		var configRaw []byte
 		if err := rows.Scan(
 			&skill.ID,
 			&skill.Slug,
 			&skill.Title,
 			&skill.Summary,
 			&skill.Description,
+			&skill.Provider,
+			&skill.Entrypoint,
+			&configRaw,
 			&skill.Status,
 			&skill.Visibility,
 			&skill.CreatedBy,
@@ -69,6 +74,11 @@ func (r *SkillRepository) list(ctx context.Context, clause string, args ...any) 
 		); err != nil {
 			return nil, fmt.Errorf("scan skill: %w", err)
 		}
+		config, err := decodeSkillConfig(configRaw)
+		if err != nil {
+			return nil, fmt.Errorf("decode skill config: %w", err)
+		}
+		skill.Config = config
 		skill.Creator.ID = skill.CreatedBy
 		skills = append(skills, skill)
 	}
@@ -77,7 +87,7 @@ func (r *SkillRepository) list(ctx context.Context, clause string, args ...any) 
 
 func (r *SkillRepository) FindByID(ctx context.Context, id string) (domain.Skill, error) {
 	query := `
-		SELECT s.id, s.slug, s.title, s.summary, s.description, s.status, s.visibility, s.created_by,
+		SELECT s.id, s.slug, s.title, s.summary, s.description, s.provider, s.entrypoint, s.config_json, s.status, s.visibility, s.created_by,
 		       u.email, p.first_name, p.last_name,
 		       s.created_at, s.updated_at
 		FROM skills s
@@ -86,12 +96,16 @@ func (r *SkillRepository) FindByID(ctx context.Context, id string) (domain.Skill
 		WHERE s.id = $1 AND s.deleted_at IS NULL`
 
 	var skill domain.Skill
+	var configRaw []byte
 	if err := r.pool.QueryRow(ctx, query, id).Scan(
 		&skill.ID,
 		&skill.Slug,
 		&skill.Title,
 		&skill.Summary,
 		&skill.Description,
+		&skill.Provider,
+		&skill.Entrypoint,
+		&configRaw,
 		&skill.Status,
 		&skill.Visibility,
 		&skill.CreatedBy,
@@ -103,6 +117,11 @@ func (r *SkillRepository) FindByID(ctx context.Context, id string) (domain.Skill
 	); err != nil {
 		return domain.Skill{}, fmt.Errorf("find skill: %w", err)
 	}
+	config, err := decodeSkillConfig(configRaw)
+	if err != nil {
+		return domain.Skill{}, fmt.Errorf("decode skill config: %w", err)
+	}
+	skill.Config = config
 	skill.Creator.ID = skill.CreatedBy
 
 	modules, err := r.findModules(ctx, id)
@@ -141,10 +160,10 @@ func (r *SkillRepository) findModules(ctx context.Context, skillID string) ([]do
 
 func (r *SkillRepository) Create(ctx context.Context, skill domain.Skill) (domain.Skill, error) {
 	query := `
-		INSERT INTO skills (id, slug, title, summary, description, status, visibility, created_by)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+		INSERT INTO skills (id, slug, title, summary, description, provider, entrypoint, config_json, status, visibility, created_by)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
 		RETURNING created_at, updated_at`
-	if err := r.pool.QueryRow(ctx, query, skill.ID, skill.Slug, skill.Title, skill.Summary, skill.Description, skill.Status, skill.Visibility, skill.CreatedBy).Scan(&skill.CreatedAt, &skill.UpdatedAt); err != nil {
+	if err := r.pool.QueryRow(ctx, query, skill.ID, skill.Slug, skill.Title, skill.Summary, skill.Description, skill.Provider, skill.Entrypoint, skill.Config, skill.Status, skill.Visibility, skill.CreatedBy).Scan(&skill.CreatedAt, &skill.UpdatedAt); err != nil {
 		return domain.Skill{}, fmt.Errorf("create skill: %w", err)
 	}
 	return skill, nil
@@ -153,13 +172,29 @@ func (r *SkillRepository) Create(ctx context.Context, skill domain.Skill) (domai
 func (r *SkillRepository) Update(ctx context.Context, skill domain.Skill) (domain.Skill, error) {
 	query := `
 		UPDATE skills
-		SET slug = $2, title = $3, summary = $4, description = $5, status = $6, visibility = $7, updated_at = NOW()
+		SET slug = $2, title = $3, summary = $4, description = $5, provider = $6, entrypoint = $7, config_json = $8, status = $9, visibility = $10, updated_at = NOW()
 		WHERE id = $1 AND deleted_at IS NULL
 		RETURNING created_by, created_at, updated_at`
-	if err := r.pool.QueryRow(ctx, query, skill.ID, skill.Slug, skill.Title, skill.Summary, skill.Description, skill.Status, skill.Visibility).Scan(&skill.CreatedBy, &skill.CreatedAt, &skill.UpdatedAt); err != nil {
+	if err := r.pool.QueryRow(ctx, query, skill.ID, skill.Slug, skill.Title, skill.Summary, skill.Description, skill.Provider, skill.Entrypoint, skill.Config, skill.Status, skill.Visibility).Scan(&skill.CreatedBy, &skill.CreatedAt, &skill.UpdatedAt); err != nil {
 		return domain.Skill{}, fmt.Errorf("update skill: %w", err)
 	}
 	return skill, nil
+}
+
+func decodeSkillConfig(raw []byte) (map[string]any, error) {
+	if len(raw) == 0 {
+		return map[string]any{}, nil
+	}
+
+	var decoded map[string]any
+	if err := json.Unmarshal(raw, &decoded); err != nil {
+		return nil, err
+	}
+	if decoded == nil {
+		return map[string]any{}, nil
+	}
+
+	return decoded, nil
 }
 
 func (r *SkillRepository) SoftDelete(ctx context.Context, id string) error {

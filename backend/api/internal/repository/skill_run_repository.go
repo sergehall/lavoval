@@ -1,0 +1,167 @@
+package repository
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+
+	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/sergehall/lavoval/backend/api/internal/domain"
+)
+
+type SkillRunRepository struct {
+	pool *pgxpool.Pool
+}
+
+func NewSkillRunRepository(pool *pgxpool.Pool) *SkillRunRepository {
+	return &SkillRunRepository{pool: pool}
+}
+
+func (r *SkillRunRepository) Create(ctx context.Context, run domain.SkillRun) (domain.SkillRun, error) {
+	query := `
+		INSERT INTO skill_runs (
+			id, skill_id, user_id, status, input_json, output_json, error_message, started_at, finished_at
+		)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+		RETURNING created_at`
+
+	if err := r.pool.QueryRow(
+		ctx,
+		query,
+		run.ID,
+		run.SkillID,
+		run.UserID,
+		run.Status,
+		run.Input,
+		run.Output,
+		run.ErrorMessage,
+		run.StartedAt,
+		run.FinishedAt,
+	).Scan(&run.CreatedAt); err != nil {
+		return domain.SkillRun{}, fmt.Errorf("create skill run: %w", err)
+	}
+
+	return run, nil
+}
+
+func (r *SkillRunRepository) Update(ctx context.Context, run domain.SkillRun) (domain.SkillRun, error) {
+	query := `
+		UPDATE skill_runs
+		SET status = $2,
+		    input_json = $3,
+		    output_json = $4,
+		    error_message = $5,
+		    started_at = $6,
+		    finished_at = $7
+		WHERE id = $1
+		RETURNING skill_id, user_id, created_at`
+
+	if err := r.pool.QueryRow(
+		ctx,
+		query,
+		run.ID,
+		run.Status,
+		run.Input,
+		run.Output,
+		run.ErrorMessage,
+		run.StartedAt,
+		run.FinishedAt,
+	).Scan(&run.SkillID, &run.UserID, &run.CreatedAt); err != nil {
+		return domain.SkillRun{}, fmt.Errorf("update skill run: %w", err)
+	}
+
+	return run, nil
+}
+
+func (r *SkillRunRepository) FindByID(ctx context.Context, id string) (domain.SkillRun, error) {
+	query := `
+		SELECT id, skill_id, user_id, status, input_json, output_json, error_message, started_at, finished_at, created_at
+		FROM skill_runs
+		WHERE id = $1`
+
+	row := r.pool.QueryRow(ctx, query, id)
+	run, err := scanSkillRun(row.Scan)
+	if err != nil {
+		return domain.SkillRun{}, fmt.Errorf("find skill run: %w", err)
+	}
+
+	return run, nil
+}
+
+func (r *SkillRunRepository) ListByUserID(ctx context.Context, userID string) ([]domain.SkillRun, error) {
+	query := `
+		SELECT id, skill_id, user_id, status, input_json, output_json, error_message, started_at, finished_at, created_at
+		FROM skill_runs
+		WHERE user_id = $1
+		ORDER BY created_at DESC`
+
+	rows, err := r.pool.Query(ctx, query, userID)
+	if err != nil {
+		return nil, fmt.Errorf("list skill runs: %w", err)
+	}
+	defer rows.Close()
+
+	runs := make([]domain.SkillRun, 0)
+	for rows.Next() {
+		run, scanErr := scanSkillRun(rows.Scan)
+		if scanErr != nil {
+			return nil, fmt.Errorf("scan skill run: %w", scanErr)
+		}
+		runs = append(runs, run)
+	}
+
+	return runs, rows.Err()
+}
+
+type scannerFn func(dest ...any) error
+
+func scanSkillRun(scan scannerFn) (domain.SkillRun, error) {
+	var run domain.SkillRun
+	var inputRaw []byte
+	var outputRaw []byte
+
+	if err := scan(
+		&run.ID,
+		&run.SkillID,
+		&run.UserID,
+		&run.Status,
+		&inputRaw,
+		&outputRaw,
+		&run.ErrorMessage,
+		&run.StartedAt,
+		&run.FinishedAt,
+		&run.CreatedAt,
+	); err != nil {
+		return domain.SkillRun{}, err
+	}
+
+	input, err := decodeJSONMap(inputRaw)
+	if err != nil {
+		return domain.SkillRun{}, fmt.Errorf("decode input json: %w", err)
+	}
+	output, err := decodeJSONMap(outputRaw)
+	if err != nil {
+		return domain.SkillRun{}, fmt.Errorf("decode output json: %w", err)
+	}
+
+	run.Input = input
+	run.Output = output
+	return run, nil
+}
+
+func decodeJSONMap(raw []byte) (map[string]any, error) {
+	if len(raw) == 0 {
+		return map[string]any{}, nil
+	}
+
+	var decoded map[string]any
+	if err := json.Unmarshal(raw, &decoded); err != nil {
+		return nil, err
+	}
+	if decoded == nil {
+		return map[string]any{}, nil
+	}
+
+	return decoded, nil
+}

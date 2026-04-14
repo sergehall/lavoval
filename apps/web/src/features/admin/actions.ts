@@ -9,6 +9,15 @@ import {
   updateAdminSkill,
 } from '@/shared/api/server-client';
 
+function parseSkillConfig(raw: FormDataEntryValue | null) {
+  const value = String(raw ?? '').trim();
+  if (!value) {
+    return {};
+  }
+
+  return JSON.parse(value) as Record<string, unknown>;
+}
+
 export async function createSkillAction(formData: FormData) {
   const session = await requireAdminSession();
   const payload = skillMutationSchema.parse({
@@ -16,6 +25,9 @@ export async function createSkillAction(formData: FormData) {
     title: formData.get('title'),
     summary: formData.get('summary'),
     description: formData.get('description'),
+    provider: formData.get('provider'),
+    entrypoint: formData.get('entrypoint'),
+    config: parseSkillConfig(formData.get('config')),
     status: formData.get('status'),
     visibility: formData.get('visibility'),
   });
@@ -31,6 +43,9 @@ export async function updateSkillAction(skillID: string, formData: FormData) {
     title: formData.get('title'),
     summary: formData.get('summary'),
     description: formData.get('description'),
+    provider: formData.get('provider'),
+    entrypoint: formData.get('entrypoint'),
+    config: parseSkillConfig(formData.get('config')),
     status: formData.get('status'),
     visibility: formData.get('visibility'),
   });

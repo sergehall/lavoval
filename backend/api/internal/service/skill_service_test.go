@@ -43,6 +43,9 @@ func TestSkillServiceCreateAssignsActorID(t *testing.T) {
 		Title:       "Clean Architecture",
 		Summary:     "Use clear boundaries for sustainable product growth.",
 		Description: "Learn how to separate application layers and keep product systems maintainable over time.",
+		Provider:    "internal",
+		Entrypoint:  "echo",
+		Config:      map[string]any{"mode": "test"},
 		Status:      domain.SkillStatusDraft,
 		Visibility:  domain.VisibilityPrivate,
 	})
@@ -51,5 +54,8 @@ func TestSkillServiceCreateAssignsActorID(t *testing.T) {
 	}
 	if result.CreatedBy != "admin-1" {
 		t.Fatalf("expected actor to be attached, got %s", result.CreatedBy)
+	}
+	if result.Provider != "internal" {
+		t.Fatalf("expected provider to be preserved, got %s", result.Provider)
 	}
 }

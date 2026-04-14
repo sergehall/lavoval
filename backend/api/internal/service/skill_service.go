@@ -23,6 +23,9 @@ type SkillMutationInput struct {
 	Title       string             `json:"title" validate:"required,min=3"`
 	Summary     string             `json:"summary" validate:"required,min=10"`
 	Description string             `json:"description" validate:"required,min=20"`
+	Provider    string             `json:"provider" validate:"required,min=2"`
+	Entrypoint  string             `json:"entrypoint" validate:"required,min=2"`
+	Config      map[string]any     `json:"config"`
 	Status      domain.SkillStatus `json:"status" validate:"required,oneof=draft published archived"`
 	Visibility  domain.Visibility  `json:"visibility" validate:"required,oneof=public private"`
 }
@@ -73,6 +76,9 @@ func (s *SkillService) Create(ctx context.Context, actorID string, input SkillMu
 		Title:       input.Title,
 		Summary:     input.Summary,
 		Description: input.Description,
+		Provider:    input.Provider,
+		Entrypoint:  input.Entrypoint,
+		Config:      input.Config,
 		Status:      input.Status,
 		Visibility:  input.Visibility,
 		CreatedBy:   actorID,
@@ -92,6 +98,9 @@ func (s *SkillService) Update(ctx context.Context, id string, input SkillMutatio
 		Title:       input.Title,
 		Summary:     input.Summary,
 		Description: input.Description,
+		Provider:    input.Provider,
+		Entrypoint:  input.Entrypoint,
+		Config:      input.Config,
 		Status:      input.Status,
 		Visibility:  input.Visibility,
 	}
@@ -115,6 +124,9 @@ func (s *SkillService) UpdateOwnedByCreator(ctx context.Context, id string, crea
 		Title:       input.Title,
 		Summary:     input.Summary,
 		Description: input.Description,
+		Provider:    input.Provider,
+		Entrypoint:  input.Entrypoint,
+		Config:      input.Config,
 		Status:      input.Status,
 		Visibility:  input.Visibility,
 	})

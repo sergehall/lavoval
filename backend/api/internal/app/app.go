@@ -12,6 +12,7 @@ import (
 	"github.com/sergehall/lavoval/backend/api/internal/config"
 	"github.com/sergehall/lavoval/backend/api/internal/handler"
 	"github.com/sergehall/lavoval/backend/api/internal/repository"
+	appRuntime "github.com/sergehall/lavoval/backend/api/internal/runtime"
 	"github.com/sergehall/lavoval/backend/api/internal/service"
 )
 
@@ -40,13 +41,16 @@ func New() (*Application, error) {
 	profileRepo := repository.NewProfileRepository(pool)
 	skillRepo := repository.NewSkillRepository(pool)
 	enrollmentRepo := repository.NewEnrollmentRepository(pool)
+	skillRunRepo := repository.NewSkillRunRepository(pool)
+	runtimeRegistry := appRuntime.DefaultRegistry()
 
 	authService := service.NewAuthService(userRepo, profileRepo, tokenManager, cfg)
 	profileService := service.NewProfileService(profileRepo)
 	skillService := service.NewSkillService(skillRepo, enrollmentRepo)
+	runtimeService := service.NewRuntimeService(skillRepo, skillRunRepo, runtimeRegistry)
 	adminService := service.NewAdminService(userRepo, skillRepo)
 
-	router := handler.NewRouter(cfg, tokenManager, authService, profileService, skillService, adminService)
+	router := handler.NewRouter(cfg, tokenManager, authService, profileService, skillService, runtimeService, adminService)
 
 	server := &http.Server{
 		Addr:              cfg.HTTPAddr,

@@ -32,3 +32,10 @@ type SkillStore interface {
 type EnrollmentStore interface {
 	ListByUserID(context.Context, string) ([]domain.Enrollment, error)
 }
+
+type SkillRunStore interface {
+	Create(context.Context, domain.SkillRun) (domain.SkillRun, error)
+	Update(context.Context, domain.SkillRun) (domain.SkillRun, error)
+	FindByID(context.Context, string) (domain.SkillRun, error)
+	ListByUserID(context.Context, string) ([]domain.SkillRun, error)
+}

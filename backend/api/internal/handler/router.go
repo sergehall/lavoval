@@ -15,7 +15,7 @@ import (
 	"github.com/sergehall/lavoval/backend/api/internal/service"
 )
 
-func NewRouter(cfg config.Config, tokens auth.TokenManager, authService *service.AuthService, profileService *service.ProfileService, skillService *service.SkillService, adminService *service.AdminService) http.Handler {
+func NewRouter(cfg config.Config, tokens auth.TokenManager, authService *service.AuthService, profileService *service.ProfileService, skillService *service.SkillService, runtimeService *service.RuntimeService, adminService *service.AdminService) http.Handler {
 	validate := validator.New(validator.WithRequiredStructEnabled())
 	r := chi.NewRouter()
 	r.Use(chimiddleware.RealIP)
@@ -28,6 +28,7 @@ func NewRouter(cfg config.Config, tokens auth.TokenManager, authService *service
 	meHandler := NewMeHandler(validate, profileService)
 	skillHandler := NewSkillHandler(validate, skillService)
 	mySkillsHandler := NewMySkillsHandler(validate, skillService)
+	runtimeHandler := NewRuntimeHandler(validate, runtimeService)
 	adminHandler := NewAdminHandler(validate, adminService, skillService)
 
 	r.Get("/healthz", func(w http.ResponseWriter, r *http.Request) {
@@ -56,6 +57,7 @@ func NewRouter(cfg config.Config, tokens auth.TokenManager, authService *service
 			private.Get("/me/skills/{skillID}", mySkillsHandler.Get)
 			private.Patch("/me/skills/{skillID}", mySkillsHandler.Update)
 			private.Delete("/me/skills/{skillID}", mySkillsHandler.Delete)
+			private.Post("/runtime/run", runtimeHandler.Run)
 		})
 
 		api.Route("/admin", func(admin chi.Router) {

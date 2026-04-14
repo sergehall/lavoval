@@ -12,6 +12,8 @@ type Visibility string
 
 type EnrollmentStatus string
 
+type SkillRunStatus string
+
 const (
 	RoleUser  Role = "user"
 	RoleAdmin Role = "admin"
@@ -30,6 +32,11 @@ const (
 	EnrollmentStatusAssigned   EnrollmentStatus = "assigned"
 	EnrollmentStatusInProgress EnrollmentStatus = "in_progress"
 	EnrollmentStatusCompleted  EnrollmentStatus = "completed"
+
+	SkillRunStatusQueued    SkillRunStatus = "queued"
+	SkillRunStatusRunning   SkillRunStatus = "running"
+	SkillRunStatusCompleted SkillRunStatus = "completed"
+	SkillRunStatusFailed    SkillRunStatus = "failed"
 )
 
 type User struct {
@@ -54,19 +61,22 @@ type Profile struct {
 }
 
 type Skill struct {
-	ID           string      `json:"id"`
-	Slug         string      `json:"slug"`
-	Title        string      `json:"title"`
-	Summary      string      `json:"summary"`
-	Description  string      `json:"description"`
-	Status       SkillStatus `json:"status"`
-	Visibility   Visibility  `json:"visibility"`
-	CreatedBy    string      `json:"createdBy"`
-	Creator      Creator     `json:"creator"`
-	Modules      []Module    `json:"modules,omitempty"`
-	ModulesCount int         `json:"modulesCount"`
-	CreatedAt    time.Time   `json:"createdAt"`
-	UpdatedAt    time.Time   `json:"updatedAt"`
+	ID           string         `json:"id"`
+	Slug         string         `json:"slug"`
+	Title        string         `json:"title"`
+	Summary      string         `json:"summary"`
+	Description  string         `json:"description"`
+	Provider     string         `json:"provider"`
+	Entrypoint   string         `json:"entrypoint"`
+	Config       map[string]any `json:"config"`
+	Status       SkillStatus    `json:"status"`
+	Visibility   Visibility     `json:"visibility"`
+	CreatedBy    string         `json:"createdBy"`
+	Creator      Creator        `json:"creator"`
+	Modules      []Module       `json:"modules,omitempty"`
+	ModulesCount int            `json:"modulesCount"`
+	CreatedAt    time.Time      `json:"createdAt"`
+	UpdatedAt    time.Time      `json:"updatedAt"`
 }
 
 type Creator struct {
@@ -97,4 +107,17 @@ type Enrollment struct {
 	ProgressPercent int              `json:"progressPercent"`
 	AssignedAt      time.Time        `json:"assignedAt"`
 	CompletedAt     *time.Time       `json:"completedAt,omitempty"`
+}
+
+type SkillRun struct {
+	ID           string                 `json:"id"`
+	SkillID      string                 `json:"skillId"`
+	UserID       string                 `json:"userId"`
+	Status       SkillRunStatus         `json:"status"`
+	Input        map[string]any         `json:"input"`
+	Output       map[string]any         `json:"output,omitempty"`
+	ErrorMessage *string                `json:"errorMessage,omitempty"`
+	StartedAt    *time.Time             `json:"startedAt,omitempty"`
+	FinishedAt   *time.Time             `json:"finishedAt,omitempty"`
+	CreatedAt    time.Time              `json:"createdAt"`
 }

@@ -61,6 +61,9 @@ export const skillSummarySchema = z.object({
   slug: z.string().min(2),
   title: z.string().min(2),
   summary: z.string().min(2),
+  provider: z.string().min(2),
+  entrypoint: z.string().min(2),
+  config: z.record(z.string(), z.unknown()),
   status: skillStatusSchema,
   visibility: z.enum(['public', 'private']),
   creator: skillCreatorSchema,
@@ -103,6 +106,9 @@ export const skillMutationSchema = z.object({
   title: z.string().min(3),
   summary: z.string().min(10),
   description: z.string().min(20),
+  provider: z.string().min(2),
+  entrypoint: z.string().min(2),
+  config: z.record(z.string(), z.unknown()),
   status: skillStatusSchema,
   visibility: z.enum(['public', 'private'])
 });

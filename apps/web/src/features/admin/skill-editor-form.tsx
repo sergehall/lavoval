@@ -55,6 +55,30 @@ export function SkillEditorForm({
           required
         />
       </label>
+      <label>
+        <FieldLabel
+          label="Provider"
+          hint="Defines which execution provider this skill uses. For the first runtime milestone, keep this as `internal` so built-in executors can handle the request."
+        />
+        <Input
+          name="provider"
+          defaultValue={skill?.provider ?? 'internal'}
+          placeholder="internal"
+          required
+        />
+      </label>
+      <label>
+        <FieldLabel
+          label="Entrypoint"
+          hint="Defines the executor key used by runtime lookup. Good starter values are `echo`, `text-summary-mock`, and `keyword-extract-mock`."
+        />
+        <Input
+          name="entrypoint"
+          defaultValue={skill?.entrypoint ?? 'echo'}
+          placeholder="echo"
+          required
+        />
+      </label>
       <label className="form-grid__full">
         <FieldLabel
           label="Summary"
@@ -99,6 +123,23 @@ After working through this offer, someone will be able to...`}
         <span className="muted">
           Use markdown here. This becomes the full marketplace page for the offer: context,
           audience, outcomes, structure, and any key notes.
+        </span>
+      </label>
+      <label className="form-grid__full">
+        <FieldLabel
+          label="Runtime config"
+          hint="Defines executor-specific configuration as JSON. Keep this valid JSON so runtime can persist and pass it into the selected entrypoint."
+        />
+        <Textarea
+          name="config"
+          defaultValue={JSON.stringify(skill?.config ?? {}, null, 2)}
+          placeholder={`{
+  "maxTokens": 500
+}`}
+          rows={6}
+        />
+        <span className="muted">
+          Use valid JSON here. For the first mock executors, an empty object is completely fine.
         </span>
       </label>
       <label>
