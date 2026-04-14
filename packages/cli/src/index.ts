@@ -61,13 +61,14 @@ Usage:
   lavoval auth whoami
   lavoval auth logout
   lavoval skills list [--api-url URL]
-  lavoval skills search <query> [--api-url URL]
+  lavoval skills search <query> [--status draft|published|archived] [--api-url URL]
   lavoval skills get <skill-id> [--api-url URL]
   lavoval runs list [--token TOKEN] [--api-url URL]
   lavoval runs get <run-id> [--token TOKEN] [--api-url URL]
-  lavoval runs replay <run-id> [--token TOKEN] [--api-url URL]
+  lavoval runs replay <run-id> [--as-json] [--token TOKEN] [--api-url URL]
   lavoval admin runs list [--token TOKEN] [--api-url URL]
   lavoval admin runs failures [--token TOKEN] [--api-url URL]
+  lavoval admin runs stats [--token TOKEN] [--api-url URL]
   lavoval admin runs get <run-id> [--token TOKEN] [--api-url URL]
   lavoval run <skill-id> [--text TEXT] [--token TOKEN] [--api-url URL]
   lavoval skill run <skill-id> [--text TEXT] [--token TOKEN] [--api-url URL]
@@ -81,6 +82,10 @@ Environment:
 function readStringFlag(flags: ParsedArgs['flags'], name: string) {
   const value = flags[name];
   return typeof value === 'string' ? value : undefined;
+}
+
+function hasBooleanFlag(flags: ParsedArgs['flags'], name: string) {
+  return flags[name] === true;
 }
 
 function sessionFilePath(flags: ParsedArgs['flags']) {
@@ -173,6 +178,37 @@ function printRunList(runs: Array<{ id: string; status: string; createdAt: strin
   }
 }
 
+function printRunStats(runs: Array<{ status: string; skill: { entrypoint: string } }>) {
+  const stats = {
+    total: runs.length,
+    queued: 0,
+    running: 0,
+    completed: 0,
+    failed: 0,
+  };
+  const byEntrypoint = new Map<string, number>();
+
+  for (const run of runs) {
+    if (run.status in stats) {
+      stats[run.status as keyof typeof stats] += 1;
+    }
+    byEntrypoint.set(run.skill.entrypoint, (byEntrypoint.get(run.skill.entrypoint) ?? 0) + 1);
+  }
+
+  process.stdout.write(`Total runs: ${stats.total}\n`);
+  process.stdout.write(`Queued: ${stats.queued}\n`);
+  process.stdout.write(`Running: ${stats.running}\n`);
+  process.stdout.write(`Completed: ${stats.completed}\n`);
+  process.stdout.write(`Failed: ${stats.failed}\n`);
+
+  if (byEntrypoint.size > 0) {
+    process.stdout.write('By entrypoint:\n');
+    for (const [entrypoint, count] of [...byEntrypoint.entries()].sort((a, b) => b[1] - a[1])) {
+      process.stdout.write(`  ${entrypoint}: ${count}\n`);
+    }
+  }
+}
+
 function printSkillDetail(skill: {
   id: string;
   title: string;
@@ -250,7 +286,12 @@ async function handleSkillsSearch(parsed: ParsedArgs, query: string) {
   const { client } = await resolveClientContext(parsed.flags);
   const response = await client.skills.list();
   const normalized = query.trim().toLowerCase();
-  const filtered = response.data.filter((skill) => buildSkillSearchText(skill).includes(normalized));
+  const statusFilter = readStringFlag(parsed.flags, 'status');
+  const filtered = response.data.filter(
+    (skill) =>
+      buildSkillSearchText(skill).includes(normalized) &&
+      (!statusFilter || skill.status === statusFilter),
+  );
   printSkillList(filtered);
 }
 
@@ -281,6 +322,10 @@ async function handleRunReplay(parsed: ParsedArgs, runId: string) {
   );
 
   process.stdout.write(`Replayed run ${runId}.\n`);
+  if (hasBooleanFlag(parsed.flags, 'as-json')) {
+    process.stdout.write(`${JSON.stringify(replay.data, null, 2)}\n`);
+    return;
+  }
   printRunDetail(replay.data);
 }
 
@@ -297,6 +342,13 @@ async function handleAdminRunsFailures(parsed: ParsedArgs) {
   const response = await client.admin.runs({ token });
   const failures = response.data.filter((run) => run.status === 'failed');
   printRunList(failures);
+}
+
+async function handleAdminRunsStats(parsed: ParsedArgs) {
+  const { client } = await resolveClientContext(parsed.flags);
+  const token = await requireToken(parsed.flags);
+  const response = await client.admin.runs({ token });
+  printRunStats(response.data);
 }
 
 async function handleAdminRunGet(parsed: ParsedArgs, runId: string) {
@@ -472,6 +524,11 @@ async function main() {
 
   if (command === 'admin' && subcommand === 'runs' && rest[0] === 'failures') {
     await handleAdminRunsFailures(parsed);
+    return;
+  }
+
+  if (command === 'admin' && subcommand === 'runs' && rest[0] === 'stats') {
+    await handleAdminRunsStats(parsed);
     return;
   }
 
