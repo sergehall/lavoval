@@ -1,3 +1,40 @@
+import type {
+  AuthResponse,
+  LoginRequest,
+  Profile,
+  ProfileUpdateRequest,
+  RegisterRequest,
+  SessionUser,
+} from '@lavoval/contracts';
+import type { RuntimeRunRequest, SkillRun } from '@lavoval/contracts/runtime';
+import type { SkillDetail, SkillMutationRequest, SkillSummary } from '@lavoval/registry';
+
+export type ApiEnvelope<T> = {
+  data: T;
+  meta?: Record<string, unknown>;
+};
+
+export type ApiClientRequestOptions = {
+  token?: string;
+  headers?: HeadersInit;
+};
+
+export type ApiClientConfig = {
+  baseUrl: string;
+  fetchFn?: typeof fetch;
+  defaultHeaders?: HeadersInit;
+};
+
+export class ApiClientError extends Error {
+  constructor(
+    message: string,
+    public readonly status: number,
+  ) {
+    super(message);
+    this.name = 'ApiClientError';
+  }
+}
+
 export const apiPaths = {
   auth: {
     login: () => '/api/v1/auth/login',
@@ -27,3 +64,172 @@ export const apiPaths = {
     runDetail: (id: string) => `/api/v1/admin/runs/${id}`,
   },
 } as const;
+
+function mergeHeaders(...sets: Array<HeadersInit | undefined>) {
+  const headers = new Headers();
+
+  for (const set of sets) {
+    if (!set) {
+      continue;
+    }
+    const normalized = new Headers(set);
+    for (const [key, value] of normalized.entries()) {
+      headers.set(key, value);
+    }
+  }
+
+  return headers;
+}
+
+type UsersListItem = SessionUser & {
+  status: string;
+  createdAt: string;
+};
+
+export function createApiClient(config: ApiClientConfig) {
+  const fetchFn = config.fetchFn ?? fetch;
+
+  async function request<T>(path: string, init?: RequestInit, options?: ApiClientRequestOptions) {
+    const headers = mergeHeaders(
+      { 'content-type': 'application/json' },
+      config.defaultHeaders,
+      options?.headers,
+      init?.headers,
+      options?.token ? { Authorization: `Bearer ${options.token}` } : undefined,
+    );
+
+    const response = await fetchFn(`${config.baseUrl}${path}`, {
+      ...init,
+      headers,
+      cache: 'no-store',
+    });
+
+    if (!response.ok) {
+      const payload = await response.json().catch(() => ({ error: { message: 'Unknown error' } }));
+      throw new ApiClientError(payload?.error?.message ?? 'Request failed', response.status);
+    }
+
+    return response.json() as Promise<ApiEnvelope<T>>;
+  }
+
+  return {
+    request,
+    auth: {
+      login(payload: LoginRequest) {
+        return request<AuthResponse>(apiPaths.auth.login(), {
+          method: 'POST',
+          body: JSON.stringify(payload),
+        });
+      },
+      register(payload: RegisterRequest) {
+        return request<AuthResponse>(apiPaths.auth.register(), {
+          method: 'POST',
+          body: JSON.stringify(payload),
+        });
+      },
+      logout(options: ApiClientRequestOptions) {
+        return request<{ success: boolean }>(apiPaths.auth.logout(), { method: 'POST' }, options);
+      },
+    },
+    me: {
+      profile(options: ApiClientRequestOptions) {
+        return request<Profile>(apiPaths.me.profile(), undefined, options);
+      },
+      updateProfile(payload: ProfileUpdateRequest, options: ApiClientRequestOptions) {
+        return request<Profile>(
+          apiPaths.me.updateProfile(),
+          { method: 'PATCH', body: JSON.stringify(payload) },
+          options,
+        );
+      },
+      skills(options: ApiClientRequestOptions) {
+        return request<SkillSummary[]>(apiPaths.me.skills(), undefined, options);
+      },
+      skill(id: string, options: ApiClientRequestOptions) {
+        return request<SkillDetail>(apiPaths.me.skill(id), undefined, options);
+      },
+      createSkill(payload: SkillMutationRequest, options: ApiClientRequestOptions) {
+        return request<SkillDetail>(
+          apiPaths.me.skills(),
+          { method: 'POST', body: JSON.stringify(payload) },
+          options,
+        );
+      },
+      updateSkill(id: string, payload: SkillMutationRequest, options: ApiClientRequestOptions) {
+        return request<SkillDetail>(
+          apiPaths.me.skill(id),
+          { method: 'PATCH', body: JSON.stringify(payload) },
+          options,
+        );
+      },
+      deleteSkill(id: string, options: ApiClientRequestOptions) {
+        return request<{ success: boolean }>(
+          apiPaths.me.skill(id),
+          { method: 'DELETE' },
+          options,
+        );
+      },
+    },
+    skills: {
+      list(options?: ApiClientRequestOptions) {
+        return request<SkillSummary[]>(apiPaths.skills.list(), undefined, options);
+      },
+      detail(id: string, options?: ApiClientRequestOptions) {
+        return request<SkillDetail>(apiPaths.skills.detail(id), undefined, options);
+      },
+    },
+    runtime: {
+      run(payload: RuntimeRunRequest, options: ApiClientRequestOptions) {
+        return request<SkillRun>(
+          apiPaths.runtime.run(),
+          { method: 'POST', body: JSON.stringify(payload) },
+          options,
+        );
+      },
+      runs(options: ApiClientRequestOptions) {
+        return request<SkillRun[]>(apiPaths.runtime.runs(), undefined, options);
+      },
+      runDetail(id: string, options: ApiClientRequestOptions) {
+        return request<SkillRun>(apiPaths.runtime.runDetail(id), undefined, options);
+      },
+    },
+    admin: {
+      users(options: ApiClientRequestOptions) {
+        return request<UsersListItem[]>(apiPaths.admin.users(), undefined, options);
+      },
+      skills(options: ApiClientRequestOptions) {
+        return request<SkillSummary[]>(apiPaths.admin.skills(), undefined, options);
+      },
+      skill(id: string, options: ApiClientRequestOptions) {
+        return request<SkillDetail>(apiPaths.admin.skill(id), undefined, options);
+      },
+      createSkill(payload: SkillMutationRequest, options: ApiClientRequestOptions) {
+        return request<SkillDetail>(
+          apiPaths.admin.skills(),
+          { method: 'POST', body: JSON.stringify(payload) },
+          options,
+        );
+      },
+      updateSkill(id: string, payload: SkillMutationRequest, options: ApiClientRequestOptions) {
+        return request<SkillDetail>(
+          apiPaths.admin.skill(id),
+          { method: 'PATCH', body: JSON.stringify(payload) },
+          options,
+        );
+      },
+      deleteSkill(id: string, options: ApiClientRequestOptions) {
+        return request<{ success: boolean }>(
+          apiPaths.admin.skill(id),
+          { method: 'DELETE' },
+          options,
+        );
+      },
+      runs(options: ApiClientRequestOptions) {
+        return request<SkillRun[]>(apiPaths.admin.runs(), undefined, options);
+      },
+      runDetail(id: string, options: ApiClientRequestOptions) {
+        return request<SkillRun>(apiPaths.admin.runDetail(id), undefined, options);
+      },
+    },
+  };
+}

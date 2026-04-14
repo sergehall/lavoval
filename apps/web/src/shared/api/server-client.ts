@@ -2,7 +2,7 @@ import 'server-only';
 
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
-import { apiPaths } from '@lavoval/sdk';
+import { ApiClientError, createApiClient } from '@lavoval/sdk';
 import type {
   AuthResponse,
   LoginRequest,
@@ -31,179 +31,201 @@ export class ApiError extends Error {
   }
 }
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(`${env.apiUrl}${path}`, {
-    ...init,
-    headers: {
-      'content-type': 'application/json',
-      ...(init?.headers ?? {}),
-    },
-    cache: 'no-store',
-  });
+const apiClient = createApiClient({
+  baseUrl: env.apiUrl,
+  fetchFn: fetch,
+});
 
-  if (!response.ok) {
-    const payload = await response.json().catch(() => ({ error: { message: 'Unknown error' } }));
-    throw new ApiError(payload?.error?.message ?? 'Request failed', response.status);
+function mapApiError(error: unknown): never {
+  if (error instanceof ApiClientError) {
+    throw new ApiError(error.message, error.status);
   }
 
-  return response.json() as Promise<T>;
+  throw error;
 }
 
 export async function login(payload: LoginRequest) {
-  return request<ApiEnvelope<AuthResponse>>(apiPaths.auth.login(), {
-    method: 'POST',
-    body: JSON.stringify(payload),
-  });
+  try {
+    return await apiClient.auth.login(payload);
+  } catch (error) {
+    mapApiError(error);
+  }
 }
 
 export async function register(payload: RegisterRequest) {
-  return request<ApiEnvelope<AuthResponse>>(apiPaths.auth.register(), {
-    method: 'POST',
-    body: JSON.stringify(payload),
-  });
+  try {
+    return await apiClient.auth.register(payload);
+  } catch (error) {
+    mapApiError(error);
+  }
 }
 
 export async function logout(token: string) {
-  return request<ApiEnvelope<{ success: boolean }>>(apiPaths.auth.logout(), {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-  });
+  try {
+    return await apiClient.auth.logout({ token });
+  } catch (error) {
+    mapApiError(error);
+  }
 }
 
 export async function fetchProfile(token: string) {
-  return request<ApiEnvelope<Profile>>(apiPaths.me.profile(), {
-    headers: { Authorization: `Bearer ${token}` },
-  });
+  try {
+    return await apiClient.me.profile({ token });
+  } catch (error) {
+    mapApiError(error);
+  }
 }
 
 export async function updateProfile(token: string, payload: ProfileUpdateRequest) {
-  return request<ApiEnvelope<Profile>>(apiPaths.me.updateProfile(), {
-    method: 'PATCH',
-    headers: { Authorization: `Bearer ${token}` },
-    body: JSON.stringify(payload),
-  });
+  try {
+    return await apiClient.me.updateProfile(payload, { token });
+  } catch (error) {
+    mapApiError(error);
+  }
 }
 
 export async function fetchSkills(token?: string) {
-  return request<ApiEnvelope<SkillSummary[]>>(apiPaths.skills.list(), {
-    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-  });
+  try {
+    return await apiClient.skills.list(token ? { token } : undefined);
+  } catch (error) {
+    mapApiError(error);
+  }
 }
 
 export async function fetchMySkills(token: string) {
-  return request<ApiEnvelope<SkillSummary[]>>(apiPaths.me.skills(), {
-    headers: { Authorization: `Bearer ${token}` },
-  });
+  try {
+    return await apiClient.me.skills({ token });
+  } catch (error) {
+    mapApiError(error);
+  }
 }
 
 export async function fetchSkillById(id: string, token?: string) {
-  return request<ApiEnvelope<SkillDetail>>(apiPaths.skills.detail(id), {
-    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-  });
+  try {
+    return await apiClient.skills.detail(id, token ? { token } : undefined);
+  } catch (error) {
+    mapApiError(error);
+  }
 }
 
 export async function fetchMySkillById(token: string, id: string) {
-  return request<ApiEnvelope<SkillDetail>>(apiPaths.me.skill(id), {
-    headers: { Authorization: `Bearer ${token}` },
-  });
+  try {
+    return await apiClient.me.skill(id, { token });
+  } catch (error) {
+    mapApiError(error);
+  }
 }
 
 export async function fetchAdminSkills(token: string) {
-  return request<ApiEnvelope<SkillSummary[]>>(apiPaths.admin.skills(), {
-    headers: { Authorization: `Bearer ${token}` },
-  });
+  try {
+    return await apiClient.admin.skills({ token });
+  } catch (error) {
+    mapApiError(error);
+  }
 }
 
 export async function fetchAdminSkillById(token: string, id: string) {
-  return request<ApiEnvelope<SkillDetail>>(apiPaths.admin.skill(id), {
-    headers: { Authorization: `Bearer ${token}` },
-  });
+  try {
+    return await apiClient.admin.skill(id, { token });
+  } catch (error) {
+    mapApiError(error);
+  }
 }
 
 export async function createAdminSkill(token: string, payload: SkillMutationRequest) {
-  return request<ApiEnvelope<SkillDetail>>(apiPaths.admin.skills(), {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${token}` },
-    body: JSON.stringify(payload),
-  });
+  try {
+    return await apiClient.admin.createSkill(payload, { token });
+  } catch (error) {
+    mapApiError(error);
+  }
 }
 
 export async function createMySkill(token: string, payload: SkillMutationRequest) {
-  return request<ApiEnvelope<SkillDetail>>(apiPaths.me.skills(), {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${token}` },
-    body: JSON.stringify(payload),
-  });
+  try {
+    return await apiClient.me.createSkill(payload, { token });
+  } catch (error) {
+    mapApiError(error);
+  }
 }
 
 export async function updateAdminSkill(token: string, id: string, payload: SkillMutationRequest) {
-  return request<ApiEnvelope<SkillDetail>>(apiPaths.admin.skill(id), {
-    method: 'PATCH',
-    headers: { Authorization: `Bearer ${token}` },
-    body: JSON.stringify(payload),
-  });
+  try {
+    return await apiClient.admin.updateSkill(id, payload, { token });
+  } catch (error) {
+    mapApiError(error);
+  }
 }
 
 export async function updateMySkill(token: string, id: string, payload: SkillMutationRequest) {
-  return request<ApiEnvelope<SkillDetail>>(apiPaths.me.skill(id), {
-    method: 'PATCH',
-    headers: { Authorization: `Bearer ${token}` },
-    body: JSON.stringify(payload),
-  });
+  try {
+    return await apiClient.me.updateSkill(id, payload, { token });
+  } catch (error) {
+    mapApiError(error);
+  }
 }
 
 export async function deleteAdminSkill(token: string, id: string) {
-  return request<ApiEnvelope<{ success: boolean }>>(apiPaths.admin.skill(id), {
-    method: 'DELETE',
-    headers: { Authorization: `Bearer ${token}` },
-  });
+  try {
+    return await apiClient.admin.deleteSkill(id, { token });
+  } catch (error) {
+    mapApiError(error);
+  }
 }
 
 export async function deleteMySkill(token: string, id: string) {
-  return request<ApiEnvelope<{ success: boolean }>>(apiPaths.me.skill(id), {
-    method: 'DELETE',
-    headers: { Authorization: `Bearer ${token}` },
-  });
+  try {
+    return await apiClient.me.deleteSkill(id, { token });
+  } catch (error) {
+    mapApiError(error);
+  }
 }
 
 export async function fetchAdminUsers(token: string) {
-  return request<ApiEnvelope<UsersListItem[]>>(apiPaths.admin.users(), {
-    headers: { Authorization: `Bearer ${token}` },
-  });
+  try {
+    return (await apiClient.admin.users({ token })) as ApiEnvelope<UsersListItem[]>;
+  } catch (error) {
+    mapApiError(error);
+  }
 }
 
 export async function runSkill(token: string, payload: RuntimeRunRequest) {
-  return request<ApiEnvelope<SkillRun>>(apiPaths.runtime.run(), {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${token}` },
-    body: JSON.stringify(payload),
-  });
+  try {
+    return await apiClient.runtime.run(payload, { token });
+  } catch (error) {
+    mapApiError(error);
+  }
 }
 
 export async function fetchSkillRuns(token: string) {
-  return request<ApiEnvelope<SkillRun[]>>(apiPaths.runtime.runs(), {
-    headers: { Authorization: `Bearer ${token}` },
-  });
+  try {
+    return await apiClient.runtime.runs({ token });
+  } catch (error) {
+    mapApiError(error);
+  }
 }
 
 export async function fetchSkillRunById(token: string, runID: string) {
-  return request<ApiEnvelope<SkillRun>>(apiPaths.runtime.runDetail(runID), {
-    headers: { Authorization: `Bearer ${token}` },
-  });
+  try {
+    return await apiClient.runtime.runDetail(runID, { token });
+  } catch (error) {
+    mapApiError(error);
+  }
 }
 
 export async function fetchAdminRuns(token: string) {
-  return request<ApiEnvelope<SkillRun[]>>(apiPaths.admin.runs(), {
-    headers: { Authorization: `Bearer ${token}` },
-  });
+  try {
+    return await apiClient.admin.runs({ token });
+  } catch (error) {
+    mapApiError(error);
+  }
 }
 
 export async function fetchAdminRunById(token: string, runID: string) {
-  return request<ApiEnvelope<SkillRun>>(apiPaths.admin.runDetail(runID), {
-    headers: { Authorization: `Bearer ${token}` },
-  });
+  try {
+    return await apiClient.admin.runDetail(runID, { token });
+  } catch (error) {
+    mapApiError(error);
+  }
 }
 
 export async function persistSession(authResponse: AuthResponse) {

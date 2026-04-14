@@ -1,4 +1,19 @@
 import { z } from 'zod';
+export {
+  defaultSkillProvider,
+  formatSkillConfig,
+  parseSkillConfig,
+  suggestedSkillEntrypoints,
+} from '@lavoval/registry';
+export type {
+  SkillCreator,
+  SkillDetail,
+  SkillModule,
+  SkillMutationRequest,
+  SkillProvider,
+  SkillSummary,
+  SkillVisibility,
+} from '@lavoval/registry';
 
 export {
   runtimeRunRequestSchema,
@@ -61,7 +76,6 @@ export const skillModuleSchema = z.object({
   createdAt: z.string(),
   updatedAt: z.string()
 });
-export type SkillModule = z.infer<typeof skillModuleSchema>;
 
 export const skillCreatorSchema = z.object({
   id: z.string().uuid(),
@@ -69,7 +83,6 @@ export const skillCreatorSchema = z.object({
   firstName: z.string().min(1),
   lastName: z.string().min(1)
 });
-export type SkillCreator = z.infer<typeof skillCreatorSchema>;
 
 export const skillSummarySchema = z.object({
   id: z.string().uuid(),
@@ -86,13 +99,23 @@ export const skillSummarySchema = z.object({
   updatedAt: z.string(),
   modulesCount: z.number().int().nonnegative()
 });
-export type SkillSummary = z.infer<typeof skillSummarySchema>;
 
 export const skillDetailSchema = skillSummarySchema.extend({
   description: z.string(),
   modules: z.array(skillModuleSchema)
 });
-export type SkillDetail = z.infer<typeof skillDetailSchema>;
+
+export const skillMutationSchema = z.object({
+  slug: z.string().min(2),
+  title: z.string().min(3),
+  summary: z.string().min(10),
+  description: z.string().min(20),
+  provider: z.string().min(2),
+  entrypoint: z.string().min(2),
+  config: z.record(z.string(), z.unknown()),
+  status: skillStatusSchema,
+  visibility: z.enum(['public', 'private'])
+});
 
 export const loginRequestSchema = z.object({
   email: z.string().email(),
@@ -115,19 +138,6 @@ export const profileUpdateSchema = z.object({
   timezone: z.string().min(2)
 });
 export type ProfileUpdateRequest = z.infer<typeof profileUpdateSchema>;
-
-export const skillMutationSchema = z.object({
-  slug: z.string().min(2),
-  title: z.string().min(3),
-  summary: z.string().min(10),
-  description: z.string().min(20),
-  provider: z.string().min(2),
-  entrypoint: z.string().min(2),
-  config: z.record(z.string(), z.unknown()),
-  status: skillStatusSchema,
-  visibility: z.enum(['public', 'private'])
-});
-export type SkillMutationRequest = z.infer<typeof skillMutationSchema>;
 
 export const apiEnvelopeSchema = <T extends z.ZodTypeAny>(schema: T) => z.object({
   data: schema,

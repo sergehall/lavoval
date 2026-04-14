@@ -2,7 +2,8 @@
 
 import Link from 'next/link';
 import { useDeferredValue, useState } from 'react';
-import type { SkillSummary } from '@lavoval/contracts';
+import { buildSkillSearchText } from '@lavoval/registry';
+import type { SkillSummary } from '@lavoval/registry';
 import { Badge } from '@/shared/ui/badge';
 import { Card } from '@/shared/ui/card';
 import { Input } from '@/shared/ui/input';
@@ -13,18 +14,7 @@ function matchesQuery(skill: SkillSummary, query: string) {
     return true;
   }
 
-  const haystack = [
-    skill.title,
-    skill.slug,
-    skill.summary,
-    skill.creator.firstName,
-    skill.creator.lastName,
-    skill.creator.email,
-  ]
-    .join(' ')
-    .toLowerCase();
-
-  return haystack.includes(query);
+  return buildSkillSearchText(skill).includes(query);
 }
 
 export function SkillsCatalog({ skills }: { skills: SkillSummary[] }) {

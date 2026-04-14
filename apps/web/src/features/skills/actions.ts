@@ -2,21 +2,13 @@
 
 import { revalidatePath } from 'next/cache';
 import { skillMutationSchema } from '@lavoval/contracts';
+import { parseSkillConfig } from '@lavoval/registry';
 import {
   createMySkill,
   deleteMySkill,
   requireSession,
   updateMySkill,
 } from '@/shared/api/server-client';
-
-function parseSkillConfig(raw: FormDataEntryValue | null) {
-  const value = String(raw ?? '').trim();
-  if (!value) {
-    return {};
-  }
-
-  return JSON.parse(value) as Record<string, unknown>;
-}
 
 export async function createOwnSkillAction(formData: FormData) {
   const session = await requireSession();

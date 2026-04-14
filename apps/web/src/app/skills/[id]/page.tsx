@@ -6,7 +6,7 @@ import { formatDate } from '@/shared/lib/utils';
 import { SkillMarkdown } from '@/features/skills/skill-markdown';
 import { RunSkillForm } from '@/features/runtime/run-skill-form';
 import { runSkillAction } from '@/features/runtime/actions';
-import type { SkillDetail } from '@lavoval/contracts';
+import type { SkillDetail } from '@lavoval/registry';
 
 export default async function PublicSkillDetailPage({
   params,

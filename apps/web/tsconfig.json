@@ -22,8 +22,12 @@
     "types": ["vitest/globals", "@testing-library/jest-dom"],
     "paths": {
       "@/*": ["./src/*"],
+      "@lavoval/contracts": ["../../packages/contracts/src/index.ts"],
+      "@lavoval/contracts/runtime": ["../../packages/contracts/src/runtime.ts"],
       "@lavoval/engine": ["../../packages/engine/src/index.ts"],
-      "@lavoval/sdk": ["../../packages/sdk/src/index.ts"]
+      "@lavoval/registry": ["../../packages/registry/src/index.ts"],
+      "@lavoval/sdk": ["../../packages/sdk/src/index.ts"],
+      "zod": ["../../node_modules/zod"]
     }
   },
   "include": [

@@ -1,4 +1,9 @@
-import type { SkillDetail } from '@lavoval/contracts';
+import {
+  defaultSkillProvider,
+  formatSkillConfig,
+  suggestedSkillEntrypoints,
+} from '@lavoval/registry';
+import type { SkillDetail } from '@lavoval/registry';
 import { Button } from '@/shared/ui/button';
 import { Input } from '@/shared/ui/input';
 import { Textarea } from '@/shared/ui/textarea';
@@ -62,8 +67,8 @@ export function SkillEditorForm({
         />
         <Input
           name="provider"
-          defaultValue={skill?.provider ?? 'internal'}
-          placeholder="internal"
+          defaultValue={skill?.provider ?? defaultSkillProvider}
+          placeholder={defaultSkillProvider}
           required
         />
       </label>
@@ -74,10 +79,13 @@ export function SkillEditorForm({
         />
         <Input
           name="entrypoint"
-          defaultValue={skill?.entrypoint ?? 'echo'}
-          placeholder="echo"
+          defaultValue={skill?.entrypoint ?? suggestedSkillEntrypoints[0]}
+          placeholder={suggestedSkillEntrypoints[0]}
           required
         />
+        <span className="muted">
+          Suggested starter entrypoints: {suggestedSkillEntrypoints.join(', ')}.
+        </span>
       </label>
       <label className="form-grid__full">
         <FieldLabel
@@ -132,7 +140,7 @@ After working through this offer, someone will be able to...`}
         />
         <Textarea
           name="config"
-          defaultValue={JSON.stringify(skill?.config ?? {}, null, 2)}
+          defaultValue={formatSkillConfig(skill?.config)}
           placeholder={`{
   "maxTokens": 500
 }`}
