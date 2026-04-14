@@ -1,0 +1,42 @@
+{
+  "name": "lavoval",
+  "private": true,
+  "packageManager": "pnpm@10.1.0",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "infra:up": "docker compose --env-file .env.local up -d",
+    "infra:down": "docker compose --env-file .env.local stop",
+    "infra:logs": "docker compose --env-file .env.local logs -f",
+    "db:migrate": "bash ./scripts/db-migrate.sh",
+    "db:migrate:status": "bash ./scripts/db-migrate-status.sh",
+    "db:seed": "bash ./scripts/db-seed.sh",
+
+    "dev": "pnpm run dev:stack",
+    "dev:stack": "node ./scripts/dev-stack.mjs",
+    "dev:stack:stop": "node ./scripts/dev-stack-stop.mjs",
+    "dev:web": "pnpm --dir apps/web dev",
+    "dev:api": "cd backend/api && go run ./cmd/server",
+
+    "build": "pnpm run build:web",
+    "build:web": "pnpm --dir apps/web build",
+
+    "test": "pnpm run test:web && pnpm run test:api",
+    "test:web": "pnpm --dir apps/web test",
+    "test:api": "cd backend/api && go test ./...",
+
+    "lint": "pnpm run lint:web && pnpm run lint:api",
+    "lint:web": "pnpm --dir apps/web lint",
+    "lint:api": "cd backend/api && golangci-lint run ./...",
+
+    "format": "pnpm run format:web && pnpm run format:api",
+    "format:web": "pnpm --filter @lavoval/web format",
+    "format:api": "cd backend/api && golangci-lint fmt ./...",
+
+    "format:check": "pnpm run format:check:web && pnpm run format:check:api",
+    "format:check:web": "pnpm --dir apps/web exec prettier --check \"src/**/*.{ts,tsx,css}\"",
+    "format:check:api": "cd backend/api && golangci-lint fmt --diff ./..."
+  }
+}

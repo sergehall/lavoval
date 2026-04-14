@@ -1,0 +1,61 @@
+version: "2"
+
+run:
+  timeout: 5m
+  modules-download-mode: readonly
+
+# ------------------------------------------------------------------
+# Formatters (golangci-lint v2 separates formatters from linters)
+# Auto-fix with: golangci-lint fmt
+# ------------------------------------------------------------------
+formatters:
+  enable:
+    - gofmt      # canonical Go formatting (tabs, brace style, spacing)
+    - goimports  # gofmt + organised import groups (stdlib / third-party / local)
+
+  settings:
+    goimports:
+      # Groups local imports into a separate section below third-party deps.
+      local-prefixes:
+        - github.com/sergehall/lavoval
+
+# ------------------------------------------------------------------
+# Linters
+# ------------------------------------------------------------------
+linters:
+  disable-all: true
+  enable:
+    - govet         # reports suspicious constructs (printf mismatches, etc.)
+    - staticcheck   # comprehensive static analysis (SA*, S*, ST* checks)
+    - errcheck      # ensures errors are not silently discarded
+    - revive        # opinionated linter — successor to golint
+    - ineffassign   # detects assignments whose value is never used
+    - misspell      # spell-check identifiers and comments
+    - unused        # reports unused exported and unexported code
+
+  settings:
+    govet:
+      # Note: shadow is intentionally disabled — it fires on idiomatic
+      # if err := f(); err != nil { ... } patterns common in Go.
+      disable:
+        - shadow
+
+    revive:
+      rules:
+        # exported (doc comments) is omitted intentionally — adding
+        # godoc to every symbol is a separate, incremental task.
+        - name: var-naming        # names follow Go conventions (MixedCaps, no underscores)
+        - name: errorf            # prefer fmt.Errorf over errors.New(fmt.Sprintf(...))
+        - name: empty-block       # no empty code blocks
+        - name: unreachable-code  # flag code after return / panic / continue
+
+    misspell:
+      locale: US
+
+    errcheck:
+      check-type-assertions: true   # flag unchecked type assertions x.(T)
+      check-blank: true             # flag errors assigned to _
+
+issues:
+  max-issues-per-linter: 0   # report all issues, not just the first 50
+  max-same-issues: 0

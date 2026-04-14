@@ -1,0 +1,39 @@
+{
+  "name": "@lavoval/web",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node ./scripts/dev-with-open.mjs",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint src",
+    "test": "vitest",
+    "format": "prettier --write \"src/**/*.{ts,tsx,css}\" \"*.{json,md,mjs}\""
+  },
+  "dependencies": {
+    "@lavoval/contracts": "workspace:*",
+    "@hookform/resolvers": "^3.10.0",
+    "clsx": "^2.1.1",
+    "next": "^16.1.0",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "react-hook-form": "^7.55.0",
+    "react-markdown": "^10.1.0",
+    "zod": "^3.24.2"
+  },
+  "devDependencies": {
+    "@testing-library/jest-dom": "^6.6.3",
+    "@testing-library/react": "^16.2.0",
+    "@types/node": "^22.13.10",
+    "@types/react": "^19.1.2",
+    "@types/react-dom": "^19.1.2",
+    "eslint": "^9.22.0",
+    "eslint-config-next": "^16.1.0",
+    "eslint-config-prettier": "^10.1.8",
+    "jsdom": "^26.0.0",
+    "prettier": "^3.5.3",
+    "typescript": "^5.8.2",
+    "vitest": "^3.0.8"
+  }
+}

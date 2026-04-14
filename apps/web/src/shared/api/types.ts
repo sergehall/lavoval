@@ -1,0 +1,31 @@
+import type {
+  AuthResponse,
+  Profile,
+  SkillDetail,
+  SkillSummary,
+  SessionUser,
+} from '@lavoval/contracts';
+
+export type ApiEnvelope<T> = {
+  data: T;
+  meta?: Record<string, unknown>;
+};
+
+export type AuthTokens = Pick<AuthResponse, 'accessToken' | 'refreshToken'>;
+export type SessionState = {
+  user: SessionUser;
+  accessToken: string;
+  refreshToken: string;
+};
+
+export type DashboardSummary = {
+  profile: Profile;
+  skills: SkillSummary[];
+};
+
+export type UsersListItem = SessionUser & {
+  status: string;
+  createdAt: string;
+};
+
+export type SkillPayload = SkillDetail;

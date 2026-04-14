@@ -1,0 +1,22 @@
+# Dependencies
+node_modules
+
+# Next.js build output
+.next
+out
+
+# Build artifacts
+dist
+build
+
+# Lock files — never format these
+pnpm-lock.yaml
+package-lock.json
+yarn.lock
+
+# Go files — formatted by gofmt, not Prettier
+*.go
+go.sum
+
+# Generated files
+next-env.d.ts
