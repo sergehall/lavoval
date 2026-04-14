@@ -61,14 +61,14 @@ Usage:
   lavoval auth whoami
   lavoval auth logout
   lavoval skills list [--api-url URL]
-  lavoval skills search <query> [--status draft|published|archived] [--api-url URL]
+  lavoval skills search <query> [--status draft|published|archived] [--creator TEXT] [--api-url URL]
   lavoval skills get <skill-id> [--api-url URL]
   lavoval runs list [--token TOKEN] [--api-url URL]
   lavoval runs get <run-id> [--token TOKEN] [--api-url URL]
-  lavoval runs replay <run-id> [--as-json] [--token TOKEN] [--api-url URL]
+  lavoval runs replay <run-id> [--text TEXT] [--as-json] [--token TOKEN] [--api-url URL]
   lavoval admin runs list [--token TOKEN] [--api-url URL]
   lavoval admin runs failures [--token TOKEN] [--api-url URL]
-  lavoval admin runs stats [--token TOKEN] [--api-url URL]
+  lavoval admin runs stats [--entrypoint NAME] [--token TOKEN] [--api-url URL]
   lavoval admin runs get <run-id> [--token TOKEN] [--api-url URL]
   lavoval run <skill-id> [--text TEXT] [--token TOKEN] [--api-url URL]
   lavoval skill run <skill-id> [--text TEXT] [--token TOKEN] [--api-url URL]
@@ -287,10 +287,16 @@ async function handleSkillsSearch(parsed: ParsedArgs, query: string) {
   const response = await client.skills.list();
   const normalized = query.trim().toLowerCase();
   const statusFilter = readStringFlag(parsed.flags, 'status');
+  const creatorFilter = readStringFlag(parsed.flags, 'creator')?.trim().toLowerCase();
   const filtered = response.data.filter(
     (skill) =>
       buildSkillSearchText(skill).includes(normalized) &&
-      (!statusFilter || skill.status === statusFilter),
+      (!statusFilter || skill.status === statusFilter) &&
+      (!creatorFilter ||
+        [skill.creator.firstName, skill.creator.lastName, skill.creator.email]
+          .join(' ')
+          .toLowerCase()
+          .includes(creatorFilter)),
   );
   printSkillList(filtered);
 }
@@ -313,15 +319,24 @@ async function handleRunReplay(parsed: ParsedArgs, runId: string) {
   const { client } = await resolveClientContext(parsed.flags);
   const token = await requireToken(parsed.flags);
   const existing = await client.runtime.runDetail(runId, { token });
+  const overrideText = readStringFlag(parsed.flags, 'text');
   const replay = await client.runtime.run(
     {
       skillId: existing.data.skillId,
-      input: existing.data.input,
+      input: overrideText
+        ? {
+            ...(existing.data.input ?? {}),
+            text: overrideText,
+          }
+        : existing.data.input,
     },
     { token },
   );
 
   process.stdout.write(`Replayed run ${runId}.\n`);
+  if (overrideText) {
+    process.stdout.write(`Replay override: text=${JSON.stringify(overrideText)}\n`);
+  }
   if (hasBooleanFlag(parsed.flags, 'as-json')) {
     process.stdout.write(`${JSON.stringify(replay.data, null, 2)}\n`);
     return;
@@ -348,7 +363,16 @@ async function handleAdminRunsStats(parsed: ParsedArgs) {
   const { client } = await resolveClientContext(parsed.flags);
   const token = await requireToken(parsed.flags);
   const response = await client.admin.runs({ token });
-  printRunStats(response.data);
+  const entrypointFilter = readStringFlag(parsed.flags, 'entrypoint');
+  const filtered = entrypointFilter
+    ? response.data.filter((run) => run.skill.entrypoint === entrypointFilter)
+    : response.data;
+
+  if (entrypointFilter) {
+    process.stdout.write(`Stats filter: entrypoint=${entrypointFilter}\n`);
+  }
+
+  printRunStats(filtered);
 }
 
 async function handleAdminRunGet(parsed: ParsedArgs, runId: string) {
