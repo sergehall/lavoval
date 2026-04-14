@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { Card } from '@/shared/ui/card';
 import {
   fetchAdminSkills,
+  fetchAdminRuns,
   fetchAdminUsers,
   requireAdminSession,
   withValidSession,
@@ -9,13 +10,14 @@ import {
 
 export default async function AdminDashboardPage() {
   const session = await requireAdminSession();
-  const { users, skills } = await withValidSession(async (activeSession) => {
-    const [{ data: users }, { data: skills }] = await Promise.all([
+  const { users, skills, runs } = await withValidSession(async (activeSession) => {
+    const [{ data: users }, { data: skills }, { data: runs }] = await Promise.all([
       fetchAdminUsers(activeSession.accessToken),
       fetchAdminSkills(activeSession.accessToken),
+      fetchAdminRuns(activeSession.accessToken),
     ]);
 
-    return { users, skills };
+    return { users, skills, runs };
   });
 
   return (
@@ -40,10 +42,10 @@ export default async function AdminDashboardPage() {
           </p>
         </Card>
         <Card>
-          <h2>Roadmap ready</h2>
+          <h2>{runs.length}</h2>
           <p>
-            Audit logs, moderation queues, approvals, analytics, and notifications can all layer on
-            this governance surface.
+            Runtime executions recorded across the marketplace, ready for observability, failure
+            triage, and future audit trails.
           </p>
         </Card>
       </section>
@@ -53,6 +55,9 @@ export default async function AdminDashboardPage() {
         </Link>
         <Link href="/admin/skills" className="muted">
           Govern offers
+        </Link>
+        <Link href="/admin/runs" className="muted">
+          Observe runtime
         </Link>
       </div>
     </div>

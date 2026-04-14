@@ -1,3 +1,4 @@
+import { getRuntimePreset } from '@lavoval/engine';
 import { Button } from '@/shared/ui/button';
 import { Textarea } from '@/shared/ui/textarea';
 
@@ -8,24 +9,31 @@ export function RunSkillForm({
   action: (formData: FormData) => void | Promise<void>;
   entrypoint: string;
 }) {
+  const preset = getRuntimePreset(entrypoint);
+
   return (
     <form action={action} className="stack stack--md">
       <div className="stack stack--sm">
         <h2>Run this skill</h2>
         <p className="muted">
-          This skill uses the <strong>{entrypoint}</strong> runtime entrypoint. For the current v2
-          milestone, mock executors mostly work with a single text input.
+          This skill uses the <strong>{preset.entrypoint}</strong> runtime entrypoint.{' '}
+          {preset.description}
         </p>
+        <BadgeLike>{preset.outputHint}</BadgeLike>
       </div>
       <label>
-        <span>Input text</span>
+        <span>{preset.inputLabel}</span>
         <Textarea
           name="text"
           rows={6}
-          placeholder="Paste a prompt, paragraph, notes, or source text to run through this skill."
+          placeholder={preset.inputPlaceholder}
         />
       </label>
       <Button type="submit">Run skill</Button>
     </form>
   );
+}
+
+function BadgeLike({ children }: { children: string }) {
+  return <span className="badge badge--neutral">{children}</span>;
 }

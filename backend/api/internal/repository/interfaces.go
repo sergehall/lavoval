@@ -38,4 +38,5 @@ type SkillRunStore interface {
 	Update(context.Context, domain.SkillRun) (domain.SkillRun, error)
 	FindByID(context.Context, string) (domain.SkillRun, error)
 	ListByUserID(context.Context, string) ([]domain.SkillRun, error)
+	ListAll(context.Context) ([]domain.SkillRun, error)
 }

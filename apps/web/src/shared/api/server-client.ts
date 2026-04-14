@@ -2,6 +2,7 @@ import 'server-only';
 
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
+import { apiPaths } from '@lavoval/sdk';
 import type {
   AuthResponse,
   LoginRequest,
@@ -50,21 +51,21 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export async function login(payload: LoginRequest) {
-  return request<ApiEnvelope<AuthResponse>>('/api/v1/auth/login', {
+  return request<ApiEnvelope<AuthResponse>>(apiPaths.auth.login(), {
     method: 'POST',
     body: JSON.stringify(payload),
   });
 }
 
 export async function register(payload: RegisterRequest) {
-  return request<ApiEnvelope<AuthResponse>>('/api/v1/auth/register', {
+  return request<ApiEnvelope<AuthResponse>>(apiPaths.auth.register(), {
     method: 'POST',
     body: JSON.stringify(payload),
   });
 }
 
 export async function logout(token: string) {
-  return request<ApiEnvelope<{ success: boolean }>>('/api/v1/auth/logout', {
+  return request<ApiEnvelope<{ success: boolean }>>(apiPaths.auth.logout(), {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${token}`,
@@ -73,13 +74,13 @@ export async function logout(token: string) {
 }
 
 export async function fetchProfile(token: string) {
-  return request<ApiEnvelope<Profile>>('/api/v1/me', {
+  return request<ApiEnvelope<Profile>>(apiPaths.me.profile(), {
     headers: { Authorization: `Bearer ${token}` },
   });
 }
 
 export async function updateProfile(token: string, payload: ProfileUpdateRequest) {
-  return request<ApiEnvelope<Profile>>('/api/v1/me/profile', {
+  return request<ApiEnvelope<Profile>>(apiPaths.me.updateProfile(), {
     method: 'PATCH',
     headers: { Authorization: `Bearer ${token}` },
     body: JSON.stringify(payload),
@@ -87,43 +88,43 @@ export async function updateProfile(token: string, payload: ProfileUpdateRequest
 }
 
 export async function fetchSkills(token?: string) {
-  return request<ApiEnvelope<SkillSummary[]>>('/api/v1/skills', {
+  return request<ApiEnvelope<SkillSummary[]>>(apiPaths.skills.list(), {
     headers: token ? { Authorization: `Bearer ${token}` } : undefined,
   });
 }
 
 export async function fetchMySkills(token: string) {
-  return request<ApiEnvelope<SkillSummary[]>>('/api/v1/me/skills', {
+  return request<ApiEnvelope<SkillSummary[]>>(apiPaths.me.skills(), {
     headers: { Authorization: `Bearer ${token}` },
   });
 }
 
 export async function fetchSkillById(id: string, token?: string) {
-  return request<ApiEnvelope<SkillDetail>>(`/api/v1/skills/${id}`, {
+  return request<ApiEnvelope<SkillDetail>>(apiPaths.skills.detail(id), {
     headers: token ? { Authorization: `Bearer ${token}` } : undefined,
   });
 }
 
 export async function fetchMySkillById(token: string, id: string) {
-  return request<ApiEnvelope<SkillDetail>>(`/api/v1/me/skills/${id}`, {
+  return request<ApiEnvelope<SkillDetail>>(apiPaths.me.skill(id), {
     headers: { Authorization: `Bearer ${token}` },
   });
 }
 
 export async function fetchAdminSkills(token: string) {
-  return request<ApiEnvelope<SkillSummary[]>>('/api/v1/admin/skills', {
+  return request<ApiEnvelope<SkillSummary[]>>(apiPaths.admin.skills(), {
     headers: { Authorization: `Bearer ${token}` },
   });
 }
 
 export async function fetchAdminSkillById(token: string, id: string) {
-  return request<ApiEnvelope<SkillDetail>>(`/api/v1/admin/skills/${id}`, {
+  return request<ApiEnvelope<SkillDetail>>(apiPaths.admin.skill(id), {
     headers: { Authorization: `Bearer ${token}` },
   });
 }
 
 export async function createAdminSkill(token: string, payload: SkillMutationRequest) {
-  return request<ApiEnvelope<SkillDetail>>('/api/v1/admin/skills', {
+  return request<ApiEnvelope<SkillDetail>>(apiPaths.admin.skills(), {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}` },
     body: JSON.stringify(payload),
@@ -131,7 +132,7 @@ export async function createAdminSkill(token: string, payload: SkillMutationRequ
 }
 
 export async function createMySkill(token: string, payload: SkillMutationRequest) {
-  return request<ApiEnvelope<SkillDetail>>('/api/v1/me/skills', {
+  return request<ApiEnvelope<SkillDetail>>(apiPaths.me.skills(), {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}` },
     body: JSON.stringify(payload),
@@ -139,7 +140,7 @@ export async function createMySkill(token: string, payload: SkillMutationRequest
 }
 
 export async function updateAdminSkill(token: string, id: string, payload: SkillMutationRequest) {
-  return request<ApiEnvelope<SkillDetail>>(`/api/v1/admin/skills/${id}`, {
+  return request<ApiEnvelope<SkillDetail>>(apiPaths.admin.skill(id), {
     method: 'PATCH',
     headers: { Authorization: `Bearer ${token}` },
     body: JSON.stringify(payload),
@@ -147,7 +148,7 @@ export async function updateAdminSkill(token: string, id: string, payload: Skill
 }
 
 export async function updateMySkill(token: string, id: string, payload: SkillMutationRequest) {
-  return request<ApiEnvelope<SkillDetail>>(`/api/v1/me/skills/${id}`, {
+  return request<ApiEnvelope<SkillDetail>>(apiPaths.me.skill(id), {
     method: 'PATCH',
     headers: { Authorization: `Bearer ${token}` },
     body: JSON.stringify(payload),
@@ -155,27 +156,27 @@ export async function updateMySkill(token: string, id: string, payload: SkillMut
 }
 
 export async function deleteAdminSkill(token: string, id: string) {
-  return request<ApiEnvelope<{ success: boolean }>>(`/api/v1/admin/skills/${id}`, {
+  return request<ApiEnvelope<{ success: boolean }>>(apiPaths.admin.skill(id), {
     method: 'DELETE',
     headers: { Authorization: `Bearer ${token}` },
   });
 }
 
 export async function deleteMySkill(token: string, id: string) {
-  return request<ApiEnvelope<{ success: boolean }>>(`/api/v1/me/skills/${id}`, {
+  return request<ApiEnvelope<{ success: boolean }>>(apiPaths.me.skill(id), {
     method: 'DELETE',
     headers: { Authorization: `Bearer ${token}` },
   });
 }
 
 export async function fetchAdminUsers(token: string) {
-  return request<ApiEnvelope<UsersListItem[]>>('/api/v1/admin/users', {
+  return request<ApiEnvelope<UsersListItem[]>>(apiPaths.admin.users(), {
     headers: { Authorization: `Bearer ${token}` },
   });
 }
 
 export async function runSkill(token: string, payload: RuntimeRunRequest) {
-  return request<ApiEnvelope<SkillRun>>('/api/v1/runtime/run', {
+  return request<ApiEnvelope<SkillRun>>(apiPaths.runtime.run(), {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}` },
     body: JSON.stringify(payload),
@@ -183,13 +184,25 @@ export async function runSkill(token: string, payload: RuntimeRunRequest) {
 }
 
 export async function fetchSkillRuns(token: string) {
-  return request<ApiEnvelope<SkillRun[]>>('/api/v1/runtime/runs', {
+  return request<ApiEnvelope<SkillRun[]>>(apiPaths.runtime.runs(), {
     headers: { Authorization: `Bearer ${token}` },
   });
 }
 
 export async function fetchSkillRunById(token: string, runID: string) {
-  return request<ApiEnvelope<SkillRun>>(`/api/v1/runtime/runs/${runID}`, {
+  return request<ApiEnvelope<SkillRun>>(apiPaths.runtime.runDetail(runID), {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
+export async function fetchAdminRuns(token: string) {
+  return request<ApiEnvelope<SkillRun[]>>(apiPaths.admin.runs(), {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
+export async function fetchAdminRunById(token: string, runID: string) {
+  return request<ApiEnvelope<SkillRun>>(apiPaths.admin.runDetail(runID), {
     headers: { Authorization: `Bearer ${token}` },
   });
 }

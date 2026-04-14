@@ -128,6 +128,24 @@ func (s *RuntimeService) FindByIDForUser(ctx context.Context, id string, userID 
 	return run, nil
 }
 
+func (s *RuntimeService) ListAll(ctx context.Context) ([]domain.SkillRun, error) {
+	runs, err := s.runs.ListAll(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("list all skill runs: %w", err)
+	}
+
+	return runs, nil
+}
+
+func (s *RuntimeService) FindByID(ctx context.Context, id string) (domain.SkillRun, error) {
+	run, err := s.runs.FindByID(ctx, id)
+	if err != nil {
+		return domain.SkillRun{}, fmt.Errorf("find skill run: %w", err)
+	}
+
+	return run, nil
+}
+
 func normalizeMap(input map[string]any) map[string]any {
 	if input == nil {
 		return map[string]any{}

@@ -21,7 +21,9 @@
     "baseUrl": ".",
     "types": ["vitest/globals", "@testing-library/jest-dom"],
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@lavoval/engine": ["../../packages/engine/src/index.ts"],
+      "@lavoval/sdk": ["../../packages/sdk/src/index.ts"]
     }
   },
   "include": [

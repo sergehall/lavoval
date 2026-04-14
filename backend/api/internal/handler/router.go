@@ -68,6 +68,8 @@ func NewRouter(cfg config.Config, tokens auth.TokenManager, authService *service
 			admin.Get("/users", adminHandler.ListUsers)
 			admin.Get("/skills", adminHandler.ListSkills)
 			admin.Get("/skills/{skillID}", adminHandler.GetSkill)
+			admin.Get("/runs", runtimeHandler.ListAll)
+			admin.Get("/runs/{runID}", runtimeHandler.GetAny)
 			admin.Post("/skills", adminHandler.CreateSkill)
 			admin.Patch("/skills/{skillID}", adminHandler.UpdateSkill)
 			admin.Delete("/skills/{skillID}", adminHandler.DeleteSkill)

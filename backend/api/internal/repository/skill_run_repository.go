@@ -93,31 +93,11 @@ func (r *SkillRunRepository) FindByID(ctx context.Context, id string) (domain.Sk
 }
 
 func (r *SkillRunRepository) ListByUserID(ctx context.Context, userID string) ([]domain.SkillRun, error) {
-	query := `
-		SELECT r.id, r.skill_id, r.user_id,
-		       s.id, s.slug, s.title, s.entrypoint,
-		       r.status, r.input_json, r.output_json, r.error_message, r.started_at, r.finished_at, r.created_at
-		FROM skill_runs r
-		INNER JOIN skills s ON s.id = r.skill_id
-		WHERE r.user_id = $1
-		ORDER BY r.created_at DESC`
+	return r.list(ctx, `WHERE r.user_id = $1`, userID)
+}
 
-	rows, err := r.pool.Query(ctx, query, userID)
-	if err != nil {
-		return nil, fmt.Errorf("list skill runs: %w", err)
-	}
-	defer rows.Close()
-
-	runs := make([]domain.SkillRun, 0)
-	for rows.Next() {
-		run, scanErr := scanSkillRun(rows.Scan)
-		if scanErr != nil {
-			return nil, fmt.Errorf("scan skill run: %w", scanErr)
-		}
-		runs = append(runs, run)
-	}
-
-	return runs, rows.Err()
+func (r *SkillRunRepository) ListAll(ctx context.Context) ([]domain.SkillRun, error) {
+	return r.list(ctx, "")
 }
 
 type scannerFn func(dest ...any) error
@@ -187,4 +167,32 @@ func finalizeSkillRun(run *domain.SkillRun) {
 		duration := run.FinishedAt.Sub(*run.StartedAt).Milliseconds()
 		run.Meta.DurationMs = &duration
 	}
+}
+
+func (r *SkillRunRepository) list(ctx context.Context, clause string, args ...any) ([]domain.SkillRun, error) {
+	query := `
+		SELECT r.id, r.skill_id, r.user_id,
+		       s.id, s.slug, s.title, s.entrypoint,
+		       r.status, r.input_json, r.output_json, r.error_message, r.started_at, r.finished_at, r.created_at
+		FROM skill_runs r
+		INNER JOIN skills s ON s.id = r.skill_id
+		` + clause + `
+		ORDER BY r.created_at DESC`
+
+	rows, err := r.pool.Query(ctx, query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("list skill runs: %w", err)
+	}
+	defer rows.Close()
+
+	runs := make([]domain.SkillRun, 0)
+	for rows.Next() {
+		run, scanErr := scanSkillRun(rows.Scan)
+		if scanErr != nil {
+			return nil, fmt.Errorf("scan skill run: %w", scanErr)
+		}
+		runs = append(runs, run)
+	}
+
+	return runs, rows.Err()
 }

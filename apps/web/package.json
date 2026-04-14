@@ -13,6 +13,8 @@
   },
   "dependencies": {
     "@lavoval/contracts": "workspace:*",
+    "@lavoval/engine": "workspace:*",
+    "@lavoval/sdk": "workspace:*",
     "@hookform/resolvers": "^3.10.0",
     "clsx": "^2.1.1",
     "next": "^16.1.0",

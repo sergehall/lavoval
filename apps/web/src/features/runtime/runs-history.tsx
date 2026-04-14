@@ -1,5 +1,6 @@
 'use client';
 
+import type { Route } from 'next';
 import Link from 'next/link';
 import { useDeferredValue, useMemo, useState } from 'react';
 import type { SkillRun } from '@lavoval/contracts';
@@ -68,7 +69,13 @@ function trimPreview(value: string, maxLength = 120) {
   return value.length > maxLength ? `${value.slice(0, maxLength).trim()}...` : value;
 }
 
-export function RunsHistory({ runs }: { runs: SkillRun[] }) {
+export function RunsHistory({
+  runs,
+  detailBasePath = '/account/runs',
+}: {
+  runs: SkillRun[];
+  detailBasePath?: '/account/runs' | '/admin/runs';
+}) {
   const [statusFilter, setStatusFilter] = useState<'all' | SkillRun['status']>('all');
   const [query, setQuery] = useState('');
   const deferredQuery = useDeferredValue(query.trim().toLowerCase());
@@ -134,7 +141,7 @@ export function RunsHistory({ runs }: { runs: SkillRun[] }) {
                   {run.meta.durationMs ? <span>{run.meta.durationMs} ms</span> : null}
                 </div>
                 <p>{extractPreview(run.output)}</p>
-                <Link href={`/account/runs/${run.id}`} className="muted">
+                <Link href={`${detailBasePath}/${run.id}` as Route} className="muted">
                   Open run details
                 </Link>
               </article>

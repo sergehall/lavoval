@@ -76,3 +76,23 @@ func (h *RuntimeHandler) Get(w http.ResponseWriter, r *http.Request) {
 
 	httpx.JSON(w, http.StatusOK, run)
 }
+
+func (h *RuntimeHandler) ListAll(w http.ResponseWriter, r *http.Request) {
+	runs, err := h.service.ListAll(r.Context())
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "skill_runs_load_failed", "Could not load skill runs")
+		return
+	}
+
+	httpx.JSON(w, http.StatusOK, runs)
+}
+
+func (h *RuntimeHandler) GetAny(w http.ResponseWriter, r *http.Request) {
+	run, err := h.service.FindByID(r.Context(), chi.URLParam(r, "runID"))
+	if err != nil {
+		httpx.Error(w, http.StatusNotFound, "skill_run_not_found", "Skill run not found")
+		return
+	}
+
+	httpx.JSON(w, http.StatusOK, run)
+}

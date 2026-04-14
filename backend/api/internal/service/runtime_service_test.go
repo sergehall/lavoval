@@ -70,6 +70,10 @@ func (s *skillRunStoreStub) ListByUserID(context.Context, string) ([]domain.Skil
 	return []domain.SkillRun{}, nil
 }
 
+func (s *skillRunStoreStub) ListAll(context.Context) ([]domain.SkillRun, error) {
+	return []domain.SkillRun{}, nil
+}
+
 type registryStub struct {
 	executor appRuntime.Executor
 	err      error
