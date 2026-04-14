@@ -1,9 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { loginAction } from '@/features/auth/actions';
 import { AuthCard } from '@/features/auth/auth-card';
-import { Button } from '@/shared/ui/button';
-import { Input } from '@/shared/ui/input';
+import { LoginForm } from '@/features/auth/login-form';
 
 export const metadata: Metadata = {
   title: 'Sign In',
@@ -20,25 +18,7 @@ export default function LoginPage() {
       title="Sign in"
       description="Return to your skill exchange space to publish expertise, discover people, and manage your marketplace identity."
     >
-      <form action={loginAction} className="stack stack--md">
-        <label>
-          <span>Email</span>
-          <Input type="email" name="email" placeholder="admin@lavoval.local" required />
-        </label>
-        <label>
-          <span>Password</span>
-          <Input
-            type="password"
-            name="password"
-            placeholder="Your secure password"
-            required
-            minLength={8}
-          />
-        </label>
-        <Button type="submit" fullWidth>
-          Enter Lavoval
-        </Button>
-      </form>
+      <LoginForm />
       <div className="inline-actions">
         <Link href="/register" className="muted">
           Join the marketplace
