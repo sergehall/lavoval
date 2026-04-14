@@ -110,31 +110,32 @@ type Enrollment struct {
 }
 
 type SkillRun struct {
-	ID           string                 `json:"id"`
-	SkillID      string                 `json:"skillId"`
-	UserID       string                 `json:"userId"`
-	Skill        SkillRunSkill          `json:"skill"`
-	Status       SkillRunStatus         `json:"status"`
-	Input        map[string]any         `json:"input"`
-	Output       map[string]any         `json:"output,omitempty"`
-	Meta         SkillRunMeta           `json:"meta"`
-	ErrorMessage *string                `json:"errorMessage,omitempty"`
-	StartedAt    *time.Time             `json:"startedAt,omitempty"`
-	FinishedAt   *time.Time             `json:"finishedAt,omitempty"`
-	CreatedAt    time.Time              `json:"createdAt"`
+	ID           string         `json:"id"`
+	SkillID      string         `json:"skillId"`
+	UserID       string         `json:"userId"`
+	Skill        SkillRunSkill  `json:"skill"`
+	Status       SkillRunStatus `json:"status"`
+	Input        map[string]any `json:"input"`
+	Output       map[string]any `json:"output,omitempty"`
+	Meta         SkillRunMeta   `json:"meta"`
+	ErrorMessage *string        `json:"errorMessage,omitempty"`
+	StartedAt    *time.Time     `json:"startedAt,omitempty"`
+	FinishedAt   *time.Time     `json:"finishedAt,omitempty"`
+	CreatedAt    time.Time      `json:"createdAt"`
 }
 
 type SkillRunSkill struct {
-	ID         string `json:"id"`
-	Slug       string `json:"slug"`
-	Title      string `json:"title"`
-	Entrypoint string `json:"entrypoint"`
+	ID         string  `json:"id"`
+	Slug       string  `json:"slug"`
+	Title      string  `json:"title"`
+	Entrypoint string  `json:"entrypoint"`
+	Creator    Creator `json:"creator"`
 }
 
 type SkillRunMeta struct {
-	DurationMs     *int64 `json:"durationMs,omitempty"`
-	HasOutput      bool   `json:"hasOutput"`
-	HasError       bool   `json:"hasError"`
-	InputKeysCount int    `json:"inputKeysCount"`
-	OutputKeysCount int   `json:"outputKeysCount"`
+	DurationMs      *int64 `json:"durationMs,omitempty"`
+	HasOutput       bool   `json:"hasOutput"`
+	HasError        bool   `json:"hasError"`
+	InputKeysCount  int    `json:"inputKeysCount"`
+	OutputKeysCount int    `json:"outputKeysCount"`
 }

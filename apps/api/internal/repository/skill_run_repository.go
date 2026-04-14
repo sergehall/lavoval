@@ -78,9 +78,12 @@ func (r *SkillRunRepository) FindByID(ctx context.Context, id string) (domain.Sk
 	query := `
 		SELECT r.id, r.skill_id, r.user_id,
 		       s.id, s.slug, s.title, s.entrypoint,
+		       u.id, u.email, p.first_name, p.last_name,
 		       r.status, r.input_json, r.output_json, r.error_message, r.started_at, r.finished_at, r.created_at
 		FROM skill_runs r
 		INNER JOIN skills s ON s.id = r.skill_id
+		INNER JOIN users u ON u.id = s.created_by
+		INNER JOIN profiles p ON p.user_id = u.id AND p.deleted_at IS NULL
 		WHERE r.id = $1`
 
 	row := r.pool.QueryRow(ctx, query, id)
@@ -115,6 +118,10 @@ func scanSkillRun(scan scannerFn) (domain.SkillRun, error) {
 		&run.Skill.Slug,
 		&run.Skill.Title,
 		&run.Skill.Entrypoint,
+		&run.Skill.Creator.ID,
+		&run.Skill.Creator.Email,
+		&run.Skill.Creator.FirstName,
+		&run.Skill.Creator.LastName,
 		&run.Status,
 		&inputRaw,
 		&outputRaw,
@@ -173,9 +180,12 @@ func (r *SkillRunRepository) list(ctx context.Context, clause string, args ...an
 	query := `
 		SELECT r.id, r.skill_id, r.user_id,
 		       s.id, s.slug, s.title, s.entrypoint,
+		       u.id, u.email, p.first_name, p.last_name,
 		       r.status, r.input_json, r.output_json, r.error_message, r.started_at, r.finished_at, r.created_at
 		FROM skill_runs r
 		INNER JOIN skills s ON s.id = r.skill_id
+		INNER JOIN users u ON u.id = s.created_by
+		INNER JOIN profiles p ON p.user_id = u.id AND p.deleted_at IS NULL
 		` + clause + `
 		ORDER BY r.created_at DESC`
 

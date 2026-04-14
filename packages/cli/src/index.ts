@@ -61,14 +61,14 @@ Usage:
   lavoval auth whoami
   lavoval auth logout
   lavoval skills list [--api-url URL]
-  lavoval skills search <query> [--status draft|published|archived] [--creator TEXT] [--api-url URL]
+  lavoval skills search <query> [--status draft|published|archived] [--creator TEXT] [--entrypoint NAME] [--api-url URL]
   lavoval skills get <skill-id> [--api-url URL]
   lavoval runs list [--token TOKEN] [--api-url URL]
   lavoval runs get <run-id> [--token TOKEN] [--api-url URL]
-  lavoval runs replay <run-id> [--text TEXT] [--as-json] [--token TOKEN] [--api-url URL]
+  lavoval runs replay <run-id> [--text TEXT] [--config JSON] [--as-json] [--token TOKEN] [--api-url URL]
   lavoval admin runs list [--token TOKEN] [--api-url URL]
   lavoval admin runs failures [--token TOKEN] [--api-url URL]
-  lavoval admin runs stats [--entrypoint NAME] [--token TOKEN] [--api-url URL]
+  lavoval admin runs stats [--entrypoint NAME] [--creator TEXT] [--token TOKEN] [--api-url URL]
   lavoval admin runs get <run-id> [--token TOKEN] [--api-url URL]
   lavoval run <skill-id> [--text TEXT] [--token TOKEN] [--api-url URL]
   lavoval skill run <skill-id> [--text TEXT] [--token TOKEN] [--api-url URL]
@@ -86,6 +86,26 @@ function readStringFlag(flags: ParsedArgs['flags'], name: string) {
 
 function hasBooleanFlag(flags: ParsedArgs['flags'], name: string) {
   return flags[name] === true;
+}
+
+function readJSONObjectFlag(flags: ParsedArgs['flags'], name: string) {
+  const raw = readStringFlag(flags, name);
+  if (!raw) {
+    return undefined;
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    throw new Error(`Flag --${name} must be valid JSON.`);
+  }
+
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    throw new Error(`Flag --${name} must be a JSON object.`);
+  }
+
+  return parsed as Record<string, unknown>;
 }
 
 function sessionFilePath(flags: ParsedArgs['flags']) {
@@ -288,10 +308,12 @@ async function handleSkillsSearch(parsed: ParsedArgs, query: string) {
   const normalized = query.trim().toLowerCase();
   const statusFilter = readStringFlag(parsed.flags, 'status');
   const creatorFilter = readStringFlag(parsed.flags, 'creator')?.trim().toLowerCase();
+  const entrypointFilter = readStringFlag(parsed.flags, 'entrypoint');
   const filtered = response.data.filter(
     (skill) =>
       buildSkillSearchText(skill).includes(normalized) &&
       (!statusFilter || skill.status === statusFilter) &&
+      (!entrypointFilter || skill.entrypoint === entrypointFilter) &&
       (!creatorFilter ||
         [skill.creator.firstName, skill.creator.lastName, skill.creator.email]
           .join(' ')
@@ -320,15 +342,15 @@ async function handleRunReplay(parsed: ParsedArgs, runId: string) {
   const token = await requireToken(parsed.flags);
   const existing = await client.runtime.runDetail(runId, { token });
   const overrideText = readStringFlag(parsed.flags, 'text');
+  const overrideConfig = readJSONObjectFlag(parsed.flags, 'config');
   const replay = await client.runtime.run(
     {
       skillId: existing.data.skillId,
-      input: overrideText
-        ? {
-            ...(existing.data.input ?? {}),
-            text: overrideText,
-          }
-        : existing.data.input,
+      input: {
+        ...(existing.data.input ?? {}),
+        ...(overrideConfig ?? {}),
+        ...(overrideText ? { text: overrideText } : {}),
+      },
     },
     { token },
   );
@@ -336,6 +358,9 @@ async function handleRunReplay(parsed: ParsedArgs, runId: string) {
   process.stdout.write(`Replayed run ${runId}.\n`);
   if (overrideText) {
     process.stdout.write(`Replay override: text=${JSON.stringify(overrideText)}\n`);
+  }
+  if (overrideConfig) {
+    process.stdout.write(`Replay override config: ${JSON.stringify(overrideConfig)}\n`);
   }
   if (hasBooleanFlag(parsed.flags, 'as-json')) {
     process.stdout.write(`${JSON.stringify(replay.data, null, 2)}\n`);
@@ -364,12 +389,22 @@ async function handleAdminRunsStats(parsed: ParsedArgs) {
   const token = await requireToken(parsed.flags);
   const response = await client.admin.runs({ token });
   const entrypointFilter = readStringFlag(parsed.flags, 'entrypoint');
-  const filtered = entrypointFilter
-    ? response.data.filter((run) => run.skill.entrypoint === entrypointFilter)
-    : response.data;
+  const creatorFilter = readStringFlag(parsed.flags, 'creator')?.trim().toLowerCase();
+  const filtered = response.data.filter(
+    (run) =>
+      (!entrypointFilter || run.skill.entrypoint === entrypointFilter) &&
+      (!creatorFilter ||
+        [run.skill.creator.firstName, run.skill.creator.lastName, run.skill.creator.email]
+          .join(' ')
+          .toLowerCase()
+          .includes(creatorFilter)),
+  );
 
   if (entrypointFilter) {
     process.stdout.write(`Stats filter: entrypoint=${entrypointFilter}\n`);
+  }
+  if (creatorFilter) {
+    process.stdout.write(`Stats filter: creator=${creatorFilter}\n`);
   }
 
   printRunStats(filtered);

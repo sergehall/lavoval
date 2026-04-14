@@ -1,5 +1,12 @@
 import { z } from 'zod';
 
+const runtimeSkillCreatorSchema = z.object({
+  id: z.string().uuid(),
+  email: z.string().email(),
+  firstName: z.string().min(1),
+  lastName: z.string().min(1),
+});
+
 export const skillRunStatusSchema = z.enum(['queued', 'running', 'completed', 'failed']);
 export type SkillRunStatus = z.infer<typeof skillRunStatusSchema>;
 
@@ -8,6 +15,7 @@ export const skillRunSkillSchema = z.object({
   slug: z.string().min(2),
   title: z.string().min(2),
   entrypoint: z.string().min(2),
+  creator: runtimeSkillCreatorSchema,
 });
 export type SkillRunSkill = z.infer<typeof skillRunSkillSchema>;
 

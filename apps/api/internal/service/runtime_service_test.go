@@ -45,6 +45,12 @@ func (s *skillRunStoreStub) FindByID(context.Context, string) (domain.SkillRun, 
 			Slug:       "echo-skill",
 			Title:      "Echo Skill",
 			Entrypoint: "echo",
+			Creator: domain.Creator{
+				ID:        "creator-1",
+				Email:     "creator@lavoval.local",
+				FirstName: "Echo",
+				LastName:  "Maker",
+			},
 		}
 		run.Meta.HasOutput = len(run.Output) > 0
 		run.Meta.HasError = run.ErrorMessage != nil
@@ -59,6 +65,12 @@ func (s *skillRunStoreStub) FindByID(context.Context, string) (domain.SkillRun, 
 			Slug:       "echo-skill",
 			Title:      "Echo Skill",
 			Entrypoint: "echo",
+			Creator: domain.Creator{
+				ID:        "creator-1",
+				Email:     "creator@lavoval.local",
+				FirstName: "Echo",
+				LastName:  "Maker",
+			},
 		}
 		run.Meta.InputKeysCount = len(run.Input)
 		return run, nil
