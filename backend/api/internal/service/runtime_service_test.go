@@ -38,6 +38,31 @@ func (s *skillRunStoreStub) Update(_ context.Context, run domain.SkillRun) (doma
 }
 
 func (s *skillRunStoreStub) FindByID(context.Context, string) (domain.SkillRun, error) {
+	if len(s.updated) > 0 {
+		run := s.updated[len(s.updated)-1]
+		run.Skill = domain.SkillRunSkill{
+			ID:         run.SkillID,
+			Slug:       "echo-skill",
+			Title:      "Echo Skill",
+			Entrypoint: "echo",
+		}
+		run.Meta.HasOutput = len(run.Output) > 0
+		run.Meta.HasError = run.ErrorMessage != nil
+		run.Meta.InputKeysCount = len(run.Input)
+		run.Meta.OutputKeysCount = len(run.Output)
+		return run, nil
+	}
+	if len(s.created) > 0 {
+		run := s.created[len(s.created)-1]
+		run.Skill = domain.SkillRunSkill{
+			ID:         run.SkillID,
+			Slug:       "echo-skill",
+			Title:      "Echo Skill",
+			Entrypoint: "echo",
+		}
+		run.Meta.InputKeysCount = len(run.Input)
+		return run, nil
+	}
 	return domain.SkillRun{}, nil
 }
 

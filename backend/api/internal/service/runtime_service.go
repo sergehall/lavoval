@@ -84,7 +84,11 @@ func (s *RuntimeService) Run(ctx context.Context, userID string, input RuntimeRu
 		if updateErr != nil {
 			return domain.SkillRun{}, fmt.Errorf("update failed skill run: %w", updateErr)
 		}
-		return updatedRun, nil
+		runWithDetails, findErr := s.runs.FindByID(ctx, updatedRun.ID)
+		if findErr != nil {
+			return domain.SkillRun{}, fmt.Errorf("reload failed skill run: %w", findErr)
+		}
+		return runWithDetails, nil
 	}
 
 	createdRun.Status = domain.SkillRunStatusCompleted
@@ -95,7 +99,12 @@ func (s *RuntimeService) Run(ctx context.Context, userID string, input RuntimeRu
 		return domain.SkillRun{}, fmt.Errorf("update completed skill run: %w", err)
 	}
 
-	return updatedRun, nil
+	runWithDetails, err := s.runs.FindByID(ctx, updatedRun.ID)
+	if err != nil {
+		return domain.SkillRun{}, fmt.Errorf("reload completed skill run: %w", err)
+	}
+
+	return runWithDetails, nil
 }
 
 func (s *RuntimeService) ListByUser(ctx context.Context, userID string) ([]domain.SkillRun, error) {

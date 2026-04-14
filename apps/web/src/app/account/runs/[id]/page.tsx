@@ -26,10 +26,21 @@ export default async function RunDetailPage({ params }: { params: Promise<{ id: 
       </div>
 
       <Card>
+        <div className="stack stack--sm">
+          <h2>{run.skill.title}</h2>
+          <div className="inline-actions muted">
+            <span>Slug: {run.skill.slug}</span>
+            <span>Entrypoint: {run.skill.entrypoint}</span>
+          </div>
+        </div>
+      </Card>
+
+      <Card>
         <div className="inline-actions muted">
           <span>Run ID: {run.id}</span>
           <span>Skill ID: {run.skillId}</span>
           <span>Created {formatDate(run.createdAt)}</span>
+          {run.meta.durationMs ? <span>Duration: {run.meta.durationMs} ms</span> : null}
         </div>
       </Card>
 

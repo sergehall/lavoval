@@ -76,9 +76,12 @@ func (r *SkillRunRepository) Update(ctx context.Context, run domain.SkillRun) (d
 
 func (r *SkillRunRepository) FindByID(ctx context.Context, id string) (domain.SkillRun, error) {
 	query := `
-		SELECT id, skill_id, user_id, status, input_json, output_json, error_message, started_at, finished_at, created_at
-		FROM skill_runs
-		WHERE id = $1`
+		SELECT r.id, r.skill_id, r.user_id,
+		       s.id, s.slug, s.title, s.entrypoint,
+		       r.status, r.input_json, r.output_json, r.error_message, r.started_at, r.finished_at, r.created_at
+		FROM skill_runs r
+		INNER JOIN skills s ON s.id = r.skill_id
+		WHERE r.id = $1`
 
 	row := r.pool.QueryRow(ctx, query, id)
 	run, err := scanSkillRun(row.Scan)
@@ -91,10 +94,13 @@ func (r *SkillRunRepository) FindByID(ctx context.Context, id string) (domain.Sk
 
 func (r *SkillRunRepository) ListByUserID(ctx context.Context, userID string) ([]domain.SkillRun, error) {
 	query := `
-		SELECT id, skill_id, user_id, status, input_json, output_json, error_message, started_at, finished_at, created_at
-		FROM skill_runs
-		WHERE user_id = $1
-		ORDER BY created_at DESC`
+		SELECT r.id, r.skill_id, r.user_id,
+		       s.id, s.slug, s.title, s.entrypoint,
+		       r.status, r.input_json, r.output_json, r.error_message, r.started_at, r.finished_at, r.created_at
+		FROM skill_runs r
+		INNER JOIN skills s ON s.id = r.skill_id
+		WHERE r.user_id = $1
+		ORDER BY r.created_at DESC`
 
 	rows, err := r.pool.Query(ctx, query, userID)
 	if err != nil {
@@ -125,6 +131,10 @@ func scanSkillRun(scan scannerFn) (domain.SkillRun, error) {
 		&run.ID,
 		&run.SkillID,
 		&run.UserID,
+		&run.Skill.ID,
+		&run.Skill.Slug,
+		&run.Skill.Title,
+		&run.Skill.Entrypoint,
 		&run.Status,
 		&inputRaw,
 		&outputRaw,
@@ -147,6 +157,7 @@ func scanSkillRun(scan scannerFn) (domain.SkillRun, error) {
 
 	run.Input = input
 	run.Output = output
+	finalizeSkillRun(&run)
 	return run, nil
 }
 
@@ -164,4 +175,16 @@ func decodeJSONMap(raw []byte) (map[string]any, error) {
 	}
 
 	return decoded, nil
+}
+
+func finalizeSkillRun(run *domain.SkillRun) {
+	run.Meta.InputKeysCount = len(run.Input)
+	run.Meta.OutputKeysCount = len(run.Output)
+	run.Meta.HasOutput = len(run.Output) > 0
+	run.Meta.HasError = run.ErrorMessage != nil && *run.ErrorMessage != ""
+
+	if run.StartedAt != nil && run.FinishedAt != nil {
+		duration := run.FinishedAt.Sub(*run.StartedAt).Milliseconds()
+		run.Meta.DurationMs = &duration
+	}
 }
