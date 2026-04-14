@@ -14,10 +14,10 @@ export default async function MySkillsPage() {
       <Card>
         <div className="stack stack--md">
           <div className="section-heading">
-            <h2>New draft</h2>
-            <Badge tone="warning">Stored in your account</Badge>
+            <h2>Create a new skill offer</h2>
+            <Badge tone="warning">Private until you publish</Badge>
           </div>
-          <SkillEditorForm action={createOwnSkillAction} submitLabel="Create draft" />
+          <SkillEditorForm action={createOwnSkillAction} submitLabel="Create offer draft" />
         </div>
       </Card>
       <Card>
@@ -39,7 +39,7 @@ export default async function MySkillsPage() {
                 <span>Updated {formatDate(skill.updatedAt)}</span>
               </div>
               <Link href={`/account/my-skills/${skill.id}`} className="muted">
-                Edit draft
+                Edit offer
               </Link>
             </article>
           ))}

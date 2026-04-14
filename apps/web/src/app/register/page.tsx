@@ -8,7 +8,7 @@ export default function RegisterPage() {
   return (
     <AuthCard
       title="Create account"
-      description="Register a new operator account for skill discovery and delivery."
+      description="Create your presence in the marketplace and start exchanging real-world skills in the age of AI."
     >
       <form action={registerAction} className="stack stack--md">
         <div className="form-grid">
@@ -30,11 +30,11 @@ export default function RegisterPage() {
           <Input type="password" name="password" required minLength={12} />
         </label>
         <Button type="submit" fullWidth>
-          Create account
+          Create my profile
         </Button>
       </form>
       <Link href="/login" className="muted">
-        Already have an account?
+        Already part of Lavoval?
       </Link>
     </AuthCard>
   );

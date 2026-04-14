@@ -35,18 +35,18 @@ export default async function PublicSkillDetailPage({
       <Card>
         <div className="empty-state stack stack--md">
           <Badge tone="warning">Not publicly available</Badge>
-          <h1>This skill is private or not published yet.</h1>
+          <h1>This skill offer is private or not published yet.</h1>
           <p className="muted">
-            Public skill pages only open records that are both <strong>published</strong> and{' '}
-            <strong>public</strong>. If you are the author, open this item from{' '}
-            <strong>My Skills</strong> and change its visibility or status.
+            Public marketplace pages only open records that are both <strong>published</strong>{' '}
+            and <strong>public</strong>. If you are the author, open this item from{' '}
+            <strong>My Offers</strong> and change its visibility or status.
           </p>
           <div className="toolbar">
             <Link href="/skills" className="site-nav__link site-nav__link--subtle">
-              Back to skills
+              Back to marketplace
             </Link>
             <Link href="/account/my-skills" className="site-nav__link site-nav__link--cta">
-              Open My Skills
+              Open My Offers
             </Link>
           </div>
         </div>
@@ -62,7 +62,7 @@ export default async function PublicSkillDetailPage({
           <p>{skill.summary}</p>
           <div className="inline-actions muted">
             <span>
-              By {skill.creator.firstName} {skill.creator.lastName} ({skill.creator.email})
+              Offered by {skill.creator.firstName} {skill.creator.lastName} ({skill.creator.email})
             </span>
             <span>Updated {formatDate(skill.updatedAt)}</span>
           </div>
@@ -71,14 +71,14 @@ export default async function PublicSkillDetailPage({
       </section>
       <Card>
         <div className="stack stack--md">
-          <h2>Overview</h2>
+          <h2>What this person is offering</h2>
           <SkillMarkdown content={skill.description} />
         </div>
       </Card>
       <Card>
         <div className="stack stack--md">
           <div className="section-heading">
-            <h2>Modules</h2>
+            <h2>Exchange structure</h2>
             <span className="muted">{skill.modules.length} items</span>
           </div>
           <div className="data-list">

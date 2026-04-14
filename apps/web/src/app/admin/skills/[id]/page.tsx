@@ -12,10 +12,10 @@ export default async function AdminSkillEditPage({ params }: { params: Promise<{
   return (
     <div className="stack stack--lg">
       <div className="stack stack--sm">
-        <h1>Edit skill</h1>
+        <h1>Review skill offer</h1>
         <p className="muted">
-          Update publishing state, content shape, and visibility while preserving a stable admin
-          workflow.
+          Update publishing state, content framing, and visibility while preserving a consistent
+          governance workflow for the marketplace.
         </p>
       </div>
       <Card>

@@ -12,10 +12,10 @@ export default async function MySkillEditPage({ params }: { params: Promise<{ id
   return (
     <div className="stack stack--lg">
       <div className="stack stack--sm">
-        <h1>Edit My Skill</h1>
+        <h1>Edit my skill offer</h1>
         <p className="muted">
-          Keep drafts private, switch to published when ready, and archive when the record is no
-          longer active.
+          Shape how your expertise appears in the marketplace, keep it private while refining it,
+          and publish when it is ready for discovery.
         </p>
       </div>
       <Card>
@@ -23,8 +23,8 @@ export default async function MySkillEditPage({ params }: { params: Promise<{ id
           skill={skill}
           action={updateOwnSkillAction.bind(null, skill.id)}
           archiveAction={deleteOwnSkillAction.bind(null, skill.id)}
-          submitLabel="Save changes"
-          archiveLabel="Archive draft"
+          submitLabel="Save offer"
+          archiveLabel="Archive offer"
         />
       </Card>
     </div>

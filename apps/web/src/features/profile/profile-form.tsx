@@ -21,10 +21,15 @@ export function ProfileForm({ profile }: { profile: Profile }) {
       </label>
       <label className="form-grid__full">
         <span>Bio</span>
-        <Textarea name="bio" defaultValue={profile.bio ?? ''} rows={6} />
+        <Textarea
+          name="bio"
+          defaultValue={profile.bio ?? ''}
+          rows={6}
+          placeholder="Share what you know, how you learned it, and why someone would want to exchange knowledge with you."
+        />
       </label>
       <div className="form-grid__full">
-        <Button type="submit">Update profile</Button>
+        <Button type="submit">Save identity</Button>
       </div>
     </form>
   );

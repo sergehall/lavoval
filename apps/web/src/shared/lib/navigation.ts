@@ -7,20 +7,20 @@ export type NavigationItem = {
 };
 
 export const publicNavigation: NavigationItem[] = [
-  { href: '/', label: 'Overview' },
-  { href: '/skills', label: 'Skills' },
+  { href: '/', label: 'Marketplace' },
+  { href: '/skills', label: 'Explore Skills' },
 ];
 
 export function accountNavigation(user: SessionUser): NavigationItem[] {
   const items: NavigationItem[] = [
-    { href: '/account', label: 'Dashboard' },
-    { href: '/skills', label: 'Skills' },
-    { href: '/account/my-skills', label: 'My Skills' },
-    { href: '/account/profile', label: 'Profile' },
+    { href: '/account', label: 'Home' },
+    { href: '/skills', label: 'Explore Skills' },
+    { href: '/account/my-skills', label: 'My Offers' },
+    { href: '/account/profile', label: 'Identity' },
   ];
 
   if (user.role === 'admin') {
-    items.push({ href: '/admin', label: 'Admin' });
+    items.push({ href: '/admin', label: 'Governance' });
   }
 
   return items;

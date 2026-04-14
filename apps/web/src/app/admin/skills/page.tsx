@@ -14,17 +14,17 @@ export default async function AdminSkillsPage() {
     <div className="stack stack--lg">
       <div className="section-heading">
         <div className="stack stack--sm">
-          <h1>Skills administration</h1>
+          <h1>Skill offer governance</h1>
           <p className="muted">
-            Create and maintain the catalog while keeping room for moderation, pagination, and
-            analytics.
+            Create and steward public offers while preserving room for moderation, ranking,
+            pagination, and marketplace analytics.
           </p>
         </div>
       </div>
       <Card>
         <div className="stack stack--md">
-          <h2>Create new skill</h2>
-          <SkillEditorForm action={createSkillAction} />
+          <h2>Create a managed offer</h2>
+          <SkillEditorForm action={createSkillAction} submitLabel="Create managed offer" />
         </div>
       </Card>
       <Card>
@@ -43,7 +43,7 @@ export default async function AdminSkillsPage() {
               <div className="inline-actions">
                 <span className="muted">Visibility: {skill.visibility}</span>
                 <Link href={`/admin/skills/${skill.id}`} className="muted">
-                  Edit skill
+                  Review offer
                 </Link>
               </div>
             </article>

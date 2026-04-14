@@ -17,7 +17,7 @@ export function AppShell({ children, user }: PropsWithChildren<{ user?: SessionU
       <header className="site-header">
         <Link href="/" className="brand-mark">
           <span className="brand-mark__label">Lavoval</span>
-          <span className="brand-mark__caption">Skill operations platform</span>
+          <span className="brand-mark__caption">Human skill exchange for the AI era</span>
         </Link>
         <nav className="site-nav site-nav--primary">
           {navigation.map((item) => (

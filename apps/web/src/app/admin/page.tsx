@@ -21,38 +21,38 @@ export default async function AdminDashboardPage() {
   return (
     <div className="stack stack--lg">
       <div className="stack stack--sm">
-        <h1>Admin dashboard</h1>
+        <h1>Marketplace governance</h1>
         <p className="muted">
-          Manage users, monitor catalog growth, and prepare the system for richer governance
-          controls.
+          Steward trust across the exchange: monitor people, oversee published offers, and keep the
+          marketplace healthy as it grows.
         </p>
       </div>
       <section className="grid">
         <Card>
           <h2>{users.length}</h2>
-          <p>Registered users ready for future permissions matrix and moderation workflows.</p>
+          <p>Registered people participating in the exchange and ready for richer trust controls.</p>
         </Card>
         <Card>
           <h2>{skills.length}</h2>
           <p>
-            Skill records under operational management with soft delete and status lifecycle
+            Skill offers under governance with lifecycle states, visibility controls, and archive
             support.
           </p>
         </Card>
         <Card>
           <h2>Roadmap ready</h2>
           <p>
-            Audit logs, analytics, approvals, and notifications can be layered on the same admin
-            surface.
+            Audit logs, moderation queues, approvals, analytics, and notifications can all layer on
+            this governance surface.
           </p>
         </Card>
       </section>
       <div className="inline-actions">
         <Link href="/admin/users" className="muted">
-          Review users
+          Review people
         </Link>
         <Link href="/admin/skills" className="muted">
-          Manage skills
+          Govern offers
         </Link>
       </div>
     </div>

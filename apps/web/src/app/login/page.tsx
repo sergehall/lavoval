@@ -8,7 +8,7 @@ export default function LoginPage() {
   return (
     <AuthCard
       title="Sign in"
-      description="Access your skills workspace, progress, and admin tooling."
+      description="Return to your skill exchange space to publish expertise, discover people, and manage your marketplace identity."
     >
       <form action={loginAction} className="stack stack--md">
         <label>
@@ -26,12 +26,12 @@ export default function LoginPage() {
           />
         </label>
         <Button type="submit" fullWidth>
-          Continue
+          Enter Lavoval
         </Button>
       </form>
       <div className="inline-actions">
         <Link href="/register" className="muted">
-          Create account
+          Join the marketplace
         </Link>
         <Link href="/forgot-password" className="muted">
           Forgot password?

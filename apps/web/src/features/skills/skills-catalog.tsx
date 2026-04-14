@@ -42,11 +42,15 @@ export function SkillsCatalog({ skills }: { skills: SkillSummary[] }) {
             className="skills-search__input"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="Search by title, slug, summary, or author..."
+            placeholder="Search by skill, topic, creator, or signal from the summary..."
           />
           <div className="inline-actions muted skills-search__meta">
             <span>{filteredSkills.length} matches</span>
-            {deferredQuery ? <span>for “{query}”</span> : <span>{skills.length} total skills</span>}
+            {deferredQuery ? (
+              <span>for “{query}”</span>
+            ) : (
+              <span>{skills.length} public skill offers</span>
+            )}
           </div>
         </div>
       </Card>
@@ -67,20 +71,20 @@ export function SkillsCatalog({ skills }: { skills: SkillSummary[] }) {
                 </div>
                 <div className="inline-actions muted">
                   <span>
-                    By {skill.creator.firstName} {skill.creator.lastName}
+                    Offered by {skill.creator.firstName} {skill.creator.lastName}
                   </span>
                   <span>{skill.modulesCount} modules</span>
                   <span>Updated {formatDate(skill.updatedAt)}</span>
                 </div>
                 <Link href={`/skills/${skill.id}`} className="muted">
-                  Open skill
+                  View offer
                 </Link>
               </article>
             ))
           ) : (
             <div className="empty-state stack stack--md">
               <Badge tone="warning">No matches</Badge>
-              <h2>No skills matched your search.</h2>
+              <h2>No public skill offers matched your search.</h2>
               <p className="muted">
                 Try a broader phrase, part of the slug, a keyword from the summary, or the author
                 name.

@@ -4,11 +4,11 @@ export default function ForgotPasswordPage() {
   return (
     <AuthCard
       title="Recovery flow placeholder"
-      description="The foundation is ready for email verification, magic links, or password reset orchestration."
+      description="Account recovery will help people safely regain access to their marketplace identity, authored skills, and trusted exchange history."
     >
       <p className="muted">
-        Add email delivery, rate limiting, reset tokens, and activity logging here without reshaping
-        the rest of the application.
+        Add email delivery, rate limiting, reset tokens, and activity logging here without
+        reshaping the rest of the product foundation.
       </p>
     </AuthCard>
   );

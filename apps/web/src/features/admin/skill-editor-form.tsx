@@ -46,7 +46,7 @@ export function SkillEditorForm({
       <label>
         <FieldLabel
           label="Title"
-          hint="Defines the display name shown in the catalog, detail page, and account views. Keep it short, clear, and readable as a product-facing title."
+          hint="Defines the marketplace-facing name shown in discovery, detail, and account views. Keep it short, clear, and compelling as an offer title."
         />
         <Input
           name="title"
@@ -58,12 +58,12 @@ export function SkillEditorForm({
       <label className="form-grid__full">
         <FieldLabel
           label="Summary"
-          hint="Defines the short preview used in cards and lists. Recommended format: 1-2 sentences covering what the skill teaches, who it is for, and the value it gives."
+          hint="Defines the short preview used in cards and lists. Recommended format: 1-2 sentences covering what the offer teaches, who it helps, and why it matters."
         />
         <Textarea
           name="summary"
           defaultValue={skill?.summary}
-          placeholder="A short 1-2 sentence description that explains what this skill teaches and who it is for."
+          placeholder="A short 1-2 sentence description explaining what this offer helps someone learn and why it is valuable."
           required
           rows={3}
         />
@@ -71,35 +71,40 @@ export function SkillEditorForm({
       <label className="form-grid__full">
         <FieldLabel
           label="Description"
-          hint="Defines the main skill overview in markdown. Use it for goals, audience, outcomes, structure, references, and any content that should appear on the full skill page."
+          hint="Defines the main offer overview in markdown. Use it for context, audience, outcomes, structure, exchange expectations, references, and any content that should appear on the full page."
         />
         <Textarea
           name="description"
           defaultValue={skill?.description}
           placeholder={`# What you will learn
 
-This skill helps users understand...
+This offer helps people learn...
+
+## Why it matters now
+
+- AI-native teams who still need human judgment
+- Operators who want reusable practical know-how
 
 ## Who it is for
 
-- Beginners who need...
-- Teams who want...
+- People trying to level up quickly
+- Teams looking for real-world experience
 
 ## Expected outcome
 
-After completing this skill, the user will be able to...`}
+After working through this offer, someone will be able to...`}
           required
           rows={10}
         />
         <span className="muted">
-          Use markdown here. This is the full skill overview page: goals, audience, outcomes,
-          structure, and any key notes.
+          Use markdown here. This becomes the full marketplace page for the offer: context,
+          audience, outcomes, structure, and any key notes.
         </span>
       </label>
       <label>
         <FieldLabel
           label="Status"
-          hint="Controls lifecycle state. `Draft` keeps the record in progress, `Published` makes it usable in the product, and `Archived` removes it from active circulation."
+          hint="Controls lifecycle state. `Draft` keeps the offer in progress, `Published` makes it discoverable, and `Archived` removes it from active circulation."
         />
         <select name="status" defaultValue={skill?.status ?? 'draft'} className="input">
           <option value="draft">Draft</option>
@@ -110,7 +115,7 @@ After completing this skill, the user will be able to...`}
       <label>
         <FieldLabel
           label="Visibility"
-          hint="Controls audience scope. `Private` keeps the skill inside account and admin workflows. `Public` allows it to appear in the public catalog once ready."
+          hint="Controls audience scope. `Private` keeps the offer inside account and governance workflows. `Public` allows it to appear in the marketplace once ready."
         />
         <select name="visibility" defaultValue={skill?.visibility ?? 'private'} className="input">
           <option value="private">Private</option>
@@ -118,7 +123,7 @@ After completing this skill, the user will be able to...`}
         </select>
       </label>
       <div className="form-grid__full toolbar">
-        <Button type="submit">{submitLabel ?? (skill ? 'Save skill' : 'Create skill')}</Button>
+        <Button type="submit">{submitLabel ?? (skill ? 'Save offer' : 'Create offer')}</Button>
         {skill && archiveAction ? (
           <button className="button button--danger" formAction={archiveAction}>
             {archiveLabel}
