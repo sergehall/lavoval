@@ -5,6 +5,7 @@ import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import process from 'node:process';
 import { createApiClient, resolveAccessToken, resolveApiBaseUrl } from '../../sdk/src/index.ts';
+import { buildSkillSearchText } from '../../registry/src/index.ts';
 
 type ParsedArgs = {
   positionals: string[];
@@ -60,10 +61,13 @@ Usage:
   lavoval auth whoami
   lavoval auth logout
   lavoval skills list [--api-url URL]
+  lavoval skills search <query> [--api-url URL]
   lavoval skills get <skill-id> [--api-url URL]
   lavoval runs list [--token TOKEN] [--api-url URL]
   lavoval runs get <run-id> [--token TOKEN] [--api-url URL]
+  lavoval runs replay <run-id> [--token TOKEN] [--api-url URL]
   lavoval admin runs list [--token TOKEN] [--api-url URL]
+  lavoval admin runs failures [--token TOKEN] [--api-url URL]
   lavoval admin runs get <run-id> [--token TOKEN] [--api-url URL]
   lavoval run <skill-id> [--text TEXT] [--token TOKEN] [--api-url URL]
   lavoval skill run <skill-id> [--text TEXT] [--token TOKEN] [--api-url URL]
@@ -242,6 +246,14 @@ async function handleSkillsGet(parsed: ParsedArgs, skillId: string) {
   printSkillDetail(response.data);
 }
 
+async function handleSkillsSearch(parsed: ParsedArgs, query: string) {
+  const { client } = await resolveClientContext(parsed.flags);
+  const response = await client.skills.list();
+  const normalized = query.trim().toLowerCase();
+  const filtered = response.data.filter((skill) => buildSkillSearchText(skill).includes(normalized));
+  printSkillList(filtered);
+}
+
 async function handleRunsList(parsed: ParsedArgs) {
   const { client } = await resolveClientContext(parsed.flags);
   const token = await requireToken(parsed.flags);
@@ -256,11 +268,35 @@ async function handleRunGet(parsed: ParsedArgs, runId: string) {
   printRunDetail(response.data);
 }
 
+async function handleRunReplay(parsed: ParsedArgs, runId: string) {
+  const { client } = await resolveClientContext(parsed.flags);
+  const token = await requireToken(parsed.flags);
+  const existing = await client.runtime.runDetail(runId, { token });
+  const replay = await client.runtime.run(
+    {
+      skillId: existing.data.skillId,
+      input: existing.data.input,
+    },
+    { token },
+  );
+
+  process.stdout.write(`Replayed run ${runId}.\n`);
+  printRunDetail(replay.data);
+}
+
 async function handleAdminRunsList(parsed: ParsedArgs) {
   const { client } = await resolveClientContext(parsed.flags);
   const token = await requireToken(parsed.flags);
   const response = await client.admin.runs({ token });
   printRunList(response.data);
+}
+
+async function handleAdminRunsFailures(parsed: ParsedArgs) {
+  const { client } = await resolveClientContext(parsed.flags);
+  const token = await requireToken(parsed.flags);
+  const response = await client.admin.runs({ token });
+  const failures = response.data.filter((run) => run.status === 'failed');
+  printRunList(failures);
 }
 
 async function handleAdminRunGet(parsed: ParsedArgs, runId: string) {
@@ -404,6 +440,11 @@ async function main() {
     return;
   }
 
+  if (command === 'skills' && subcommand === 'search' && rest[0]) {
+    await handleSkillsSearch(parsed, rest.join(' '));
+    return;
+  }
+
   if (command === 'skills' && subcommand === 'get' && rest[0]) {
     await handleSkillsGet(parsed, rest[0]);
     return;
@@ -419,8 +460,18 @@ async function main() {
     return;
   }
 
+  if (command === 'runs' && subcommand === 'replay' && rest[0]) {
+    await handleRunReplay(parsed, rest[0]);
+    return;
+  }
+
   if (command === 'admin' && subcommand === 'runs' && rest[0] === 'list') {
     await handleAdminRunsList(parsed);
+    return;
+  }
+
+  if (command === 'admin' && subcommand === 'runs' && rest[0] === 'failures') {
+    await handleAdminRunsFailures(parsed);
     return;
   }
 

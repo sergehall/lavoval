@@ -76,10 +76,13 @@ Lavoval now has an early `v2` CLI surface powered by the shared SDK.
 - `pnpm run lavoval -- auth whoami`
 - `pnpm run lavoval -- auth logout`
 - `pnpm run lavoval -- skills list`
+- `pnpm run lavoval -- skills search prompt`
 - `pnpm run lavoval -- skills get <skill-id>`
 - `pnpm run lavoval -- runs list --token <access-token>`
 - `pnpm run lavoval -- runs get <run-id>`
+- `pnpm run lavoval -- runs replay <run-id>`
 - `pnpm run lavoval -- admin runs list`
+- `pnpm run lavoval -- admin runs failures`
 - `pnpm run lavoval -- admin runs get <run-id>`
 - `pnpm run lavoval -- run <skill-id> --text "Hello runtime" --token <access-token>`
 
