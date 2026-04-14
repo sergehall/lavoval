@@ -57,11 +57,14 @@ Usage:
   lavoval dev
   lavoval auth login --email <email> --password <password> [--api-url URL]
   lavoval auth me
+  lavoval auth whoami
   lavoval auth logout
   lavoval skills list [--api-url URL]
+  lavoval skills get <skill-id> [--api-url URL]
   lavoval runs list [--token TOKEN] [--api-url URL]
   lavoval runs get <run-id> [--token TOKEN] [--api-url URL]
   lavoval admin runs list [--token TOKEN] [--api-url URL]
+  lavoval admin runs get <run-id> [--token TOKEN] [--api-url URL]
   lavoval run <skill-id> [--text TEXT] [--token TOKEN] [--api-url URL]
   lavoval skill run <skill-id> [--text TEXT] [--token TOKEN] [--api-url URL]
 
@@ -166,10 +169,77 @@ function printRunList(runs: Array<{ id: string; status: string; createdAt: strin
   }
 }
 
+function printSkillDetail(skill: {
+  id: string;
+  title: string;
+  slug: string;
+  summary: string;
+  provider: string;
+  entrypoint: string;
+  status: string;
+  visibility: string;
+  modules: Array<{ title: string; status: string; position: number }>;
+}) {
+  process.stdout.write(`Skill: ${skill.title}\n`);
+  process.stdout.write(`ID: ${skill.id}\n`);
+  process.stdout.write(`Slug: ${skill.slug}\n`);
+  process.stdout.write(`Status: ${skill.status}\n`);
+  process.stdout.write(`Visibility: ${skill.visibility}\n`);
+  process.stdout.write(`Runtime: ${skill.provider} -> ${skill.entrypoint}\n`);
+  process.stdout.write(`Summary: ${skill.summary}\n`);
+  process.stdout.write(`Modules: ${skill.modules.length}\n`);
+
+  if (skill.modules.length > 0) {
+    process.stdout.write('Module outline:\n');
+    for (const module of skill.modules) {
+      process.stdout.write(`  ${module.position + 1}. ${module.title} (${module.status})\n`);
+    }
+  }
+}
+
+function printRunDetail(run: {
+  id: string;
+  status: string;
+  userId: string;
+  createdAt: string;
+  startedAt?: string | null;
+  finishedAt?: string | null;
+  errorMessage?: string | null;
+  skill: { title: string; slug: string; entrypoint: string };
+  meta: { durationMs?: number | null; inputKeysCount: number; outputKeysCount: number; hasError: boolean };
+}) {
+  process.stdout.write(`Run: ${run.id}\n`);
+  process.stdout.write(`Skill: ${run.skill.title} [${run.skill.slug}]\n`);
+  process.stdout.write(`Entrypoint: ${run.skill.entrypoint}\n`);
+  process.stdout.write(`Status: ${run.status}\n`);
+  process.stdout.write(`User ID: ${run.userId}\n`);
+  process.stdout.write(`Created: ${run.createdAt}\n`);
+  if (run.startedAt) {
+    process.stdout.write(`Started: ${run.startedAt}\n`);
+  }
+  if (run.finishedAt) {
+    process.stdout.write(`Finished: ${run.finishedAt}\n`);
+  }
+  if (run.meta.durationMs) {
+    process.stdout.write(`Duration: ${run.meta.durationMs} ms\n`);
+  }
+  process.stdout.write(`Input fields: ${run.meta.inputKeysCount}\n`);
+  process.stdout.write(`Output fields: ${run.meta.outputKeysCount}\n`);
+  if (run.meta.hasError && run.errorMessage) {
+    process.stdout.write(`Error: ${run.errorMessage}\n`);
+  }
+}
+
 async function handleSkillsList(parsed: ParsedArgs) {
   const { client } = await resolveClientContext(parsed.flags);
   const response = await client.skills.list();
   printSkillList(response.data);
+}
+
+async function handleSkillsGet(parsed: ParsedArgs, skillId: string) {
+  const { client } = await resolveClientContext(parsed.flags);
+  const response = await client.skills.detail(skillId);
+  printSkillDetail(response.data);
 }
 
 async function handleRunsList(parsed: ParsedArgs) {
@@ -183,7 +253,7 @@ async function handleRunGet(parsed: ParsedArgs, runId: string) {
   const { client } = await resolveClientContext(parsed.flags);
   const token = await requireToken(parsed.flags);
   const response = await client.runtime.runDetail(runId, { token });
-  process.stdout.write(`${JSON.stringify(response.data, null, 2)}\n`);
+  printRunDetail(response.data);
 }
 
 async function handleAdminRunsList(parsed: ParsedArgs) {
@@ -191,6 +261,13 @@ async function handleAdminRunsList(parsed: ParsedArgs) {
   const token = await requireToken(parsed.flags);
   const response = await client.admin.runs({ token });
   printRunList(response.data);
+}
+
+async function handleAdminRunGet(parsed: ParsedArgs, runId: string) {
+  const { client } = await resolveClientContext(parsed.flags);
+  const token = await requireToken(parsed.flags);
+  const response = await client.admin.runDetail(runId, { token });
+  printRunDetail(response.data);
 }
 
 async function handleRun(parsed: ParsedArgs, skillId: string) {
@@ -244,6 +321,25 @@ async function handleAuthMe(parsed: ParsedArgs) {
   );
 }
 
+async function handleAuthWhoAmI(parsed: ParsedArgs) {
+  const { client, session, apiUrl } = await resolveClientContext(parsed.flags);
+  const token = await requireToken(parsed.flags);
+  const profile = await client.me.profile({ token });
+
+  process.stdout.write(`Signed in to Lavoval\n`);
+  process.stdout.write(`API: ${apiUrl}\n`);
+  process.stdout.write(`Email: ${session?.user.email ?? 'unknown'}\n`);
+  process.stdout.write(`Role: ${session?.user.role ?? 'unknown'}\n`);
+  process.stdout.write(
+    `Name: ${profile.data.firstName} ${profile.data.lastName}\n`,
+  );
+  process.stdout.write(`Timezone: ${profile.data.timezone}\n`);
+  process.stdout.write(`Session file: ${sessionFilePath(parsed.flags)}\n`);
+  if (session?.storedAt) {
+    process.stdout.write(`Stored at: ${session.storedAt}\n`);
+  }
+}
+
 async function handleAuthLogout(parsed: ParsedArgs) {
   const { client } = await resolveClientContext(parsed.flags);
   const token = await requireToken(parsed.flags);
@@ -293,6 +389,11 @@ async function main() {
     return;
   }
 
+  if (command === 'auth' && subcommand === 'whoami') {
+    await handleAuthWhoAmI(parsed);
+    return;
+  }
+
   if (command === 'auth' && subcommand === 'logout') {
     await handleAuthLogout(parsed);
     return;
@@ -300,6 +401,11 @@ async function main() {
 
   if (command === 'skills' && subcommand === 'list') {
     await handleSkillsList(parsed);
+    return;
+  }
+
+  if (command === 'skills' && subcommand === 'get' && rest[0]) {
+    await handleSkillsGet(parsed, rest[0]);
     return;
   }
 
@@ -315,6 +421,11 @@ async function main() {
 
   if (command === 'admin' && subcommand === 'runs' && rest[0] === 'list') {
     await handleAdminRunsList(parsed);
+    return;
+  }
+
+  if (command === 'admin' && subcommand === 'runs' && rest[0] === 'get' && rest[1]) {
+    await handleAdminRunGet(parsed, rest[1]);
     return;
   }
 

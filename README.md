@@ -73,11 +73,14 @@ Lavoval now has an early `v2` CLI surface powered by the shared SDK.
 - `pnpm run lavoval -- dev`
 - `pnpm run lavoval -- auth login --email admin@lavoval.local --password ChangeMe123!`
 - `pnpm run lavoval -- auth me`
+- `pnpm run lavoval -- auth whoami`
 - `pnpm run lavoval -- auth logout`
 - `pnpm run lavoval -- skills list`
+- `pnpm run lavoval -- skills get <skill-id>`
 - `pnpm run lavoval -- runs list --token <access-token>`
 - `pnpm run lavoval -- runs get <run-id>`
 - `pnpm run lavoval -- admin runs list`
+- `pnpm run lavoval -- admin runs get <run-id>`
 - `pnpm run lavoval -- run <skill-id> --text "Hello runtime" --token <access-token>`
 
 Environment variables for CLI usage:
