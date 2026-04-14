@@ -9,6 +9,8 @@ import type {
 import type { RuntimeRunRequest, SkillRun } from '@lavoval/contracts/runtime';
 import type { SkillDetail, SkillMutationRequest, SkillSummary } from '@lavoval/registry';
 
+export const DEFAULT_LAVOVAL_API_URL = 'http://localhost:8080';
+
 export type ApiEnvelope<T> = {
   data: T;
   meta?: Record<string, unknown>;
@@ -25,14 +27,27 @@ export type ApiClientConfig = {
   defaultHeaders?: HeadersInit;
 };
 
+export type EnvLike = Record<string, string | undefined>;
+
 export class ApiClientError extends Error {
+  readonly status: number;
+
   constructor(
     message: string,
-    public readonly status: number,
+    status: number,
   ) {
     super(message);
     this.name = 'ApiClientError';
+    this.status = status;
   }
+}
+
+export function resolveApiBaseUrl(explicit?: string, env: EnvLike = process.env) {
+  return explicit ?? env.LAVOVAL_API_URL ?? env.NEXT_PUBLIC_API_URL ?? DEFAULT_LAVOVAL_API_URL;
+}
+
+export function resolveAccessToken(explicit?: string, env: EnvLike = process.env) {
+  return explicit ?? env.LAVOVAL_ACCESS_TOKEN ?? env.ACCESS_TOKEN;
 }
 
 export const apiPaths = {

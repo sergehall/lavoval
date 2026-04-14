@@ -65,6 +65,21 @@ lavoval/
    - API: `http://localhost:8080`
    - Health check: `http://localhost:8080/healthz`
 
+## CLI
+
+Lavoval now has an early `v2` CLI surface powered by the shared SDK.
+
+- `pnpm run lavoval -- help`
+- `pnpm run lavoval -- dev`
+- `pnpm run lavoval -- skills list`
+- `pnpm run lavoval -- runs list --token <access-token>`
+- `pnpm run lavoval -- run <skill-id> --text "Hello runtime" --token <access-token>`
+
+Environment variables for CLI usage:
+
+- `LAVOVAL_API_URL` defaults to `http://localhost:8080`
+- `LAVOVAL_ACCESS_TOKEN` can be used instead of passing `--token`
+
 ## Environment variables
 
 See [.env.example](./.env.example) for the full list.

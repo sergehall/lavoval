@@ -157,6 +157,14 @@ Goal: expose the platform through developer-facing commands.
 - Add skill-related CLI subcommands
 - Back the CLI with `sdk` rather than duplicating request logic
 
+Current progress:
+
+- initial CLI package exists
+- `lavoval dev` is available
+- `lavoval skills list` is available
+- `lavoval runs list` is available
+- `lavoval run <skill-id>` and `lavoval skill run <skill-id>` are available
+
 ## Design Principles For V2
 
 - Keep `v1` running while `v2` is being introduced
