@@ -60,7 +60,8 @@ export default async function AccountDashboardPage() {
           <div className="stack stack--sm">
             <h2>Marketplace pulse</h2>
             <p>
-              {skills.length} published skill offers are currently visible in the public marketplace.
+              {skills.length} published skill offers are currently visible in the public
+              marketplace.
             </p>
             <Link href="/skills" className="muted">
               Explore live offers

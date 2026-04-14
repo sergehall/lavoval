@@ -23,11 +23,7 @@ export function RunSkillForm({
       </div>
       <label>
         <span>{preset.inputLabel}</span>
-        <Textarea
-          name="text"
-          rows={6}
-          placeholder={preset.inputPlaceholder}
-        />
+        <Textarea name="text" rows={6} placeholder={preset.inputPlaceholder} />
       </label>
       <Button type="submit">Run skill</Button>
     </form>

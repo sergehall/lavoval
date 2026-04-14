@@ -1,9 +1,5 @@
 import { RunsHistory } from '@/features/runtime/runs-history';
-import {
-  fetchAdminRuns,
-  requireAdminSession,
-  withValidSession,
-} from '@/shared/api/server-client';
+import { fetchAdminRuns, requireAdminSession, withValidSession } from '@/shared/api/server-client';
 
 export default async function AdminRunsPage() {
   await requireAdminSession();

@@ -32,7 +32,9 @@ export default async function AdminDashboardPage() {
       <section className="grid">
         <Card>
           <h2>{users.length}</h2>
-          <p>Registered people participating in the exchange and ready for richer trust controls.</p>
+          <p>
+            Registered people participating in the exchange and ready for richer trust controls.
+          </p>
         </Card>
         <Card>
           <h2>{skills.length}</h2>

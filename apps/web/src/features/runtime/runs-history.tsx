@@ -84,7 +84,8 @@ export function RunsHistory({
     () =>
       runs.filter(
         (run) =>
-          (statusFilter === 'all' || run.status === statusFilter) && matchesQuery(run, deferredQuery),
+          (statusFilter === 'all' || run.status === statusFilter) &&
+          matchesQuery(run, deferredQuery),
       ),
     [runs, statusFilter, deferredQuery],
   );
