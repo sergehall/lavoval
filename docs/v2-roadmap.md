@@ -161,8 +161,10 @@ Current progress:
 
 - initial CLI package exists
 - `lavoval dev` is available
+- `lavoval auth login`, `auth me`, and `auth logout` are available
 - `lavoval skills list` is available
-- `lavoval runs list` is available
+- `lavoval runs list` and `runs get` are available
+- `lavoval admin runs list` is available
 - `lavoval run <skill-id>` and `lavoval skill run <skill-id>` are available
 
 ## Design Principles For V2

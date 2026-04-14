@@ -1,12 +1,28 @@
 #!/usr/bin/env node
 
 import { spawn } from 'node:child_process';
+import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import path from 'node:path';
 import process from 'node:process';
 import { createApiClient, resolveAccessToken, resolveApiBaseUrl } from '../../sdk/src/index.ts';
 
 type ParsedArgs = {
   positionals: string[];
   flags: Record<string, string | boolean>;
+};
+
+type CliSession = {
+  apiUrl: string;
+  accessToken: string;
+  refreshToken: string;
+  user: {
+    id: string;
+    email: string;
+    role: string;
+    firstName?: string;
+    lastName?: string;
+  };
+  storedAt: string;
 };
 
 function parseArgs(argv: string[]): ParsedArgs {
@@ -39,8 +55,13 @@ function printHelp() {
 
 Usage:
   lavoval dev
+  lavoval auth login --email <email> --password <password> [--api-url URL]
+  lavoval auth me
+  lavoval auth logout
   lavoval skills list [--api-url URL]
   lavoval runs list [--token TOKEN] [--api-url URL]
+  lavoval runs get <run-id> [--token TOKEN] [--api-url URL]
+  lavoval admin runs list [--token TOKEN] [--api-url URL]
   lavoval run <skill-id> [--text TEXT] [--token TOKEN] [--api-url URL]
   lavoval skill run <skill-id> [--text TEXT] [--token TOKEN] [--api-url URL]
 
@@ -55,21 +76,68 @@ function readStringFlag(flags: ParsedArgs['flags'], name: string) {
   return typeof value === 'string' ? value : undefined;
 }
 
-function requireToken(flags: ParsedArgs['flags']) {
-  const token = resolveAccessToken(readStringFlag(flags, 'token'));
-  if (!token) {
-    throw new Error(
-      'This command requires an access token. Pass --token or set LAVOVAL_ACCESS_TOKEN.',
-    );
-  }
-  return token;
+function sessionFilePath(flags: ParsedArgs['flags']) {
+  const explicit = readStringFlag(flags, 'session-file') ?? process.env.LAVOVAL_SESSION_FILE;
+  return explicit ? path.resolve(explicit) : path.join(process.cwd(), '.lavoval', 'session.json');
 }
 
-function createClient(flags: ParsedArgs['flags']) {
-  return createApiClient({
-    baseUrl: resolveApiBaseUrl(readStringFlag(flags, 'api-url')),
+async function loadSession(flags: ParsedArgs['flags']) {
+  const filePath = sessionFilePath(flags);
+
+  try {
+    const raw = await readFile(filePath, 'utf8');
+    return JSON.parse(raw) as CliSession;
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+      return null;
+    }
+    throw error;
+  }
+}
+
+async function saveSession(flags: ParsedArgs['flags'], session: CliSession) {
+  const filePath = sessionFilePath(flags);
+  await mkdir(path.dirname(filePath), { recursive: true });
+  await writeFile(filePath, `${JSON.stringify(session, null, 2)}\n`, 'utf8');
+}
+
+async function clearSession(flags: ParsedArgs['flags']) {
+  await rm(sessionFilePath(flags), { force: true });
+}
+
+async function requireToken(flags: ParsedArgs['flags']) {
+  const explicit = resolveAccessToken(readStringFlag(flags, 'token'));
+  if (explicit) {
+    return explicit;
+  }
+
+  const session = await loadSession(flags);
+  if (session?.accessToken) {
+    return session.accessToken;
+  }
+
+  throw new Error(
+    'This command requires an access token. Run `lavoval auth login`, pass --token, or set LAVOVAL_ACCESS_TOKEN.',
+  );
+}
+
+async function resolveClientContext(flags: ParsedArgs['flags']) {
+  const session = await loadSession(flags);
+  const apiUrl = resolveApiBaseUrl(readStringFlag(flags, 'api-url') ?? session?.apiUrl);
+  const client = createApiClient({
+    baseUrl: apiUrl,
     fetchFn: fetch,
   });
+
+  return { client, apiUrl, session };
+}
+
+function requireFlag(flags: ParsedArgs['flags'], name: string) {
+  const value = readStringFlag(flags, name);
+  if (!value) {
+    throw new Error(`Missing required flag --${name}.`);
+  }
+  return value;
 }
 
 function printSkillList(skills: Array<{ id: string; title: string; slug: string; entrypoint: string; status: string }>) {
@@ -99,21 +167,35 @@ function printRunList(runs: Array<{ id: string; status: string; createdAt: strin
 }
 
 async function handleSkillsList(parsed: ParsedArgs) {
-  const client = createClient(parsed.flags);
+  const { client } = await resolveClientContext(parsed.flags);
   const response = await client.skills.list();
   printSkillList(response.data);
 }
 
 async function handleRunsList(parsed: ParsedArgs) {
-  const client = createClient(parsed.flags);
-  const token = requireToken(parsed.flags);
+  const { client } = await resolveClientContext(parsed.flags);
+  const token = await requireToken(parsed.flags);
   const response = await client.runtime.runs({ token });
   printRunList(response.data);
 }
 
+async function handleRunGet(parsed: ParsedArgs, runId: string) {
+  const { client } = await resolveClientContext(parsed.flags);
+  const token = await requireToken(parsed.flags);
+  const response = await client.runtime.runDetail(runId, { token });
+  process.stdout.write(`${JSON.stringify(response.data, null, 2)}\n`);
+}
+
+async function handleAdminRunsList(parsed: ParsedArgs) {
+  const { client } = await resolveClientContext(parsed.flags);
+  const token = await requireToken(parsed.flags);
+  const response = await client.admin.runs({ token });
+  printRunList(response.data);
+}
+
 async function handleRun(parsed: ParsedArgs, skillId: string) {
-  const client = createClient(parsed.flags);
-  const token = requireToken(parsed.flags);
+  const { client } = await resolveClientContext(parsed.flags);
+  const token = await requireToken(parsed.flags);
   const text = readStringFlag(parsed.flags, 'text');
   const response = await client.runtime.run(
     {
@@ -124,6 +206,50 @@ async function handleRun(parsed: ParsedArgs, skillId: string) {
   );
 
   process.stdout.write(`${JSON.stringify(response.data, null, 2)}\n`);
+}
+
+async function handleAuthLogin(parsed: ParsedArgs) {
+  const { client, apiUrl } = await resolveClientContext(parsed.flags);
+  const email = requireFlag(parsed.flags, 'email');
+  const password = requireFlag(parsed.flags, 'password');
+  const response = await client.auth.login({ email, password });
+
+  await saveSession(parsed.flags, {
+    apiUrl,
+    accessToken: response.data.accessToken,
+    refreshToken: response.data.refreshToken,
+    user: response.data.user,
+    storedAt: new Date().toISOString(),
+  });
+
+  process.stdout.write(
+    `Logged in as ${response.data.user.email}. Session saved to ${sessionFilePath(parsed.flags)}\n`,
+  );
+}
+
+async function handleAuthMe(parsed: ParsedArgs) {
+  const { client, session } = await resolveClientContext(parsed.flags);
+  const token = await requireToken(parsed.flags);
+  const profile = await client.me.profile({ token });
+
+  process.stdout.write(
+    `${JSON.stringify(
+      {
+        session: session?.user ?? null,
+        profile: profile.data,
+      },
+      null,
+      2,
+    )}\n`,
+  );
+}
+
+async function handleAuthLogout(parsed: ParsedArgs) {
+  const { client } = await resolveClientContext(parsed.flags);
+  const token = await requireToken(parsed.flags);
+  await client.auth.logout({ token });
+  await clearSession(parsed.flags);
+  process.stdout.write('Logged out and cleared local CLI session.\n');
 }
 
 function runDevCommand() {
@@ -157,6 +283,21 @@ async function main() {
     return;
   }
 
+  if (command === 'auth' && subcommand === 'login') {
+    await handleAuthLogin(parsed);
+    return;
+  }
+
+  if (command === 'auth' && subcommand === 'me') {
+    await handleAuthMe(parsed);
+    return;
+  }
+
+  if (command === 'auth' && subcommand === 'logout') {
+    await handleAuthLogout(parsed);
+    return;
+  }
+
   if (command === 'skills' && subcommand === 'list') {
     await handleSkillsList(parsed);
     return;
@@ -164,6 +305,16 @@ async function main() {
 
   if (command === 'runs' && subcommand === 'list') {
     await handleRunsList(parsed);
+    return;
+  }
+
+  if (command === 'runs' && subcommand === 'get' && rest[0]) {
+    await handleRunGet(parsed, rest[0]);
+    return;
+  }
+
+  if (command === 'admin' && subcommand === 'runs' && rest[0] === 'list') {
+    await handleAdminRunsList(parsed);
     return;
   }
 
