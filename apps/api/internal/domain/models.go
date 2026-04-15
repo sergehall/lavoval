@@ -17,6 +17,7 @@ type SkillRunStatus string
 type AvailabilityStatus string
 
 type OAuthProvider string
+type MailJobStatus string
 
 const (
 	RoleUser  Role = "user"
@@ -48,6 +49,12 @@ const (
 	SkillRunStatusRunning   SkillRunStatus = "running"
 	SkillRunStatusCompleted SkillRunStatus = "completed"
 	SkillRunStatusFailed    SkillRunStatus = "failed"
+
+	MailJobStatusQueued     MailJobStatus = "queued"
+	MailJobStatusRetrying   MailJobStatus = "retrying"
+	MailJobStatusProcessing MailJobStatus = "processing"
+	MailJobStatusSent       MailJobStatus = "sent"
+	MailJobStatusDeadLetter MailJobStatus = "dead_letter"
 )
 
 type User struct {
@@ -81,6 +88,25 @@ type PasswordResetToken struct {
 	ExpiresAt  time.Time  `json:"expiresAt"`
 	ConsumedAt *time.Time `json:"consumedAt,omitempty"`
 	CreatedAt  time.Time  `json:"createdAt"`
+}
+
+type MailJob struct {
+	ID             string        `json:"id"`
+	MessageType    string        `json:"messageType"`
+	RecipientEmail string        `json:"recipientEmail"`
+	Payload        []byte        `json:"-"`
+	Status         MailJobStatus `json:"status"`
+	Attempts       int           `json:"attempts"`
+	MaxAttempts    int           `json:"maxAttempts"`
+	NextAttemptAt  time.Time     `json:"nextAttemptAt"`
+	LeasedUntil    *time.Time    `json:"leasedUntil,omitempty"`
+	LastError      *string       `json:"lastError,omitempty"`
+	LastErrorCode  *string       `json:"lastErrorCode,omitempty"`
+	Provider       *string       `json:"provider,omitempty"`
+	SentAt         *time.Time    `json:"sentAt,omitempty"`
+	DeadLetteredAt *time.Time    `json:"deadLetteredAt,omitempty"`
+	CreatedAt      time.Time     `json:"createdAt"`
+	UpdatedAt      time.Time     `json:"updatedAt"`
 }
 
 type MFARecoveryCode struct {

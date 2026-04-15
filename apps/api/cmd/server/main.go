@@ -35,5 +35,7 @@ func main() {
 		log.Printf("shutdown server: %v", err)
 	}
 
-	application.Store.Close()
+	if err := application.Close(shutdownCtx); err != nil {
+		log.Printf("shutdown app: %v", err)
+	}
 }

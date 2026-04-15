@@ -15,7 +15,7 @@ import (
 	"github.com/sergehall/lavoval/apps/api/internal/service"
 )
 
-func NewRouter(cfg config.Config, tokens auth.TokenManager, authService *service.AuthService, profileService *service.ProfileService, accountSecurityService *service.AccountSecurityService, skillService *service.SkillService, runtimeService *service.RuntimeService, adminService *service.AdminService) http.Handler {
+func NewRouter(cfg config.Config, tokens auth.TokenManager, authService *service.AuthService, profileService *service.ProfileService, accountSecurityService *service.AccountSecurityService, skillService *service.SkillService, runtimeService *service.RuntimeService, adminService *service.AdminService, metricsHandler http.Handler) http.Handler {
 	validate := validator.New(validator.WithRequiredStructEnabled())
 	r := chi.NewRouter()
 	r.Use(chimiddleware.RealIP)
@@ -41,6 +41,9 @@ func NewRouter(cfg config.Config, tokens auth.TokenManager, authService *service
 	r.Get("/readyz", func(w http.ResponseWriter, r *http.Request) {
 		httpx.JSON(w, http.StatusOK, map[string]string{"status": "ready"})
 	})
+	if metricsHandler != nil {
+		r.Handle("/metrics", metricsHandler)
+	}
 
 	r.Route("/api/v1", func(api chi.Router) {
 		api.Route("/auth", func(authRouter chi.Router) {

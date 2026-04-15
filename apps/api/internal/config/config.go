@@ -42,6 +42,11 @@ type Config struct {
 	SMTPAllowInsecureAuth bool
 	SMTPUseSSL            bool
 	SMTPDialTimeout       time.Duration
+	MailWorkerCount       int
+	MailMaxAttempts       int
+	MailRetryBaseDelay    time.Duration
+	MailPollInterval      time.Duration
+	MailLeaseTTL          time.Duration
 }
 
 func Load() (Config, error) {
@@ -110,6 +115,31 @@ func Load() (Config, error) {
 		return Config{}, fmt.Errorf("parse SMTP_DIAL_TIMEOUT: %w", err)
 	}
 
+	mailWorkerCount, err := strconv.Atoi(getEnv("MAIL_WORKER_COUNT", "4"))
+	if err != nil {
+		return Config{}, fmt.Errorf("parse MAIL_WORKER_COUNT: %w", err)
+	}
+
+	mailMaxAttempts, err := strconv.Atoi(getEnv("MAIL_MAX_ATTEMPTS", "4"))
+	if err != nil {
+		return Config{}, fmt.Errorf("parse MAIL_MAX_ATTEMPTS: %w", err)
+	}
+
+	mailRetryBaseDelay, err := time.ParseDuration(getEnv("MAIL_RETRY_BASE_DELAY", "1s"))
+	if err != nil {
+		return Config{}, fmt.Errorf("parse MAIL_RETRY_BASE_DELAY: %w", err)
+	}
+
+	mailPollInterval, err := time.ParseDuration(getEnv("MAIL_POLL_INTERVAL", "500ms"))
+	if err != nil {
+		return Config{}, fmt.Errorf("parse MAIL_POLL_INTERVAL: %w", err)
+	}
+
+	mailLeaseTTL, err := time.ParseDuration(getEnv("MAIL_LEASE_TTL", "30s"))
+	if err != nil {
+		return Config{}, fmt.Errorf("parse MAIL_LEASE_TTL: %w", err)
+	}
+
 	cfg := Config{
 		AppEnv:                getEnv("APP_ENV", "development"),
 		AppName:               getEnv("APP_NAME", "Lavoval"),
@@ -145,6 +175,11 @@ func Load() (Config, error) {
 		SMTPAllowInsecureAuth: smtpAllowInsecureAuth,
 		SMTPUseSSL:            smtpUseSSL,
 		SMTPDialTimeout:       smtpDialTimeout,
+		MailWorkerCount:       mailWorkerCount,
+		MailMaxAttempts:       mailMaxAttempts,
+		MailRetryBaseDelay:    mailRetryBaseDelay,
+		MailPollInterval:      mailPollInterval,
+		MailLeaseTTL:          mailLeaseTTL,
 	}
 
 	return cfg, nil

@@ -18,9 +18,12 @@ import (
 )
 
 type Application struct {
-	Config config.Config
-	Server *http.Server
-	Store  *pgxpool.Pool
+	Config     config.Config
+	Server     *http.Server
+	Store      *pgxpool.Pool
+	dispatcher interface {
+		Close(context.Context) error
+	}
 }
 
 func New() (*Application, error) {
@@ -42,6 +45,7 @@ func New() (*Application, error) {
 	profileRepo := repository.NewProfileRepository(pool)
 	verificationRepo := repository.NewEmailVerificationRepository(pool)
 	passwordResetRepo := repository.NewPasswordResetRepository(pool)
+	mailJobRepo := repository.NewMailJobRepository(pool)
 	mfaRecoveryCodeRepo := repository.NewMFARecoveryCodeRepository(pool)
 	signInChallengeRepo := repository.NewSignInChallengeRepository(pool)
 	oauthStateRepo := repository.NewOAuthStateRepository(pool)
@@ -51,7 +55,9 @@ func New() (*Application, error) {
 	moduleRepo := repository.NewModuleRepository(pool)
 	skillRunRepo := repository.NewSkillRunRepository(pool)
 	runtimeRegistry := appRuntime.DefaultRegistry()
-	verificationMailer := mailer.NewSMTPVerificationMailer(cfg)
+	mailMetrics := mailer.NewPrometheusHandler(mailJobRepo)
+	verificationMailer := mailer.NewPostgresVerificationMailer(cfg, mailJobRepo)
+	mailDispatcher := mailer.NewMailDispatcher(cfg, mailJobRepo, mailMetrics)
 
 	authService := service.NewAuthService(
 		userRepo,
@@ -73,7 +79,7 @@ func New() (*Application, error) {
 	runtimeService := service.NewRuntimeService(skillRepo, skillRunRepo, runtimeRegistry)
 	adminService := service.NewAdminService(userRepo, profileRepo, skillRepo, enrollmentRepo, moduleRepo)
 
-	router := handler.NewRouter(cfg, tokenManager, authService, profileService, accountSecurityService, skillService, runtimeService, adminService)
+	router := handler.NewRouter(cfg, tokenManager, authService, profileService, accountSecurityService, skillService, runtimeService, adminService, mailMetrics)
 
 	server := &http.Server{
 		Addr:              cfg.HTTPAddr,
@@ -81,5 +87,19 @@ func New() (*Application, error) {
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 
-	return &Application{Config: cfg, Server: server, Store: pool}, nil
+	return &Application{Config: cfg, Server: server, Store: pool, dispatcher: mailDispatcher}, nil
+}
+
+func (a *Application) Close(ctx context.Context) error {
+	if a.dispatcher != nil {
+		if err := a.dispatcher.Close(ctx); err != nil {
+			return fmt.Errorf("close mail dispatcher: %w", err)
+		}
+	}
+
+	if a.Store != nil {
+		a.Store.Close()
+	}
+
+	return nil
 }

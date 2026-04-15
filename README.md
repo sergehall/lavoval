@@ -118,7 +118,14 @@ Important values:
 - `ADMIN_SEED_EMAIL`, `ADMIN_SEED_PASSWORD`: seed account defaults
 - `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET`: Google sign-in web application credentials
 - `GITHUB_OAUTH_CLIENT_ID`, `GITHUB_OAUTH_CLIENT_SECRET`: GitHub OAuth app credentials
-- `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `SMTP_FROM_EMAIL`: Google SMTP delivery settings for confirmation emails
+- `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `SMTP_FROM_EMAIL`: Google SMTP delivery settings for transactional emails
+- `MAIL_WORKER_COUNT`, `MAIL_MAX_ATTEMPTS`, `MAIL_RETRY_BASE_DELAY`, `MAIL_POLL_INTERVAL`, `MAIL_LEASE_TTL`: persisted mail job worker and retry tuning
+
+Mail delivery runtime notes:
+
+- Lavoval now stores outbound email work in the `mail_jobs` table and delivers it asynchronously from background workers in the Go API process
+- `/metrics` exposes Prometheus-compatible mail counters and queue gauges
+- failed delivery attempts are retried with backoff; exhausted jobs move to a dead-letter status in `mail_jobs`
 
 Google email confirmation setup:
 

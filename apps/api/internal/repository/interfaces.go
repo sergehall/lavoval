@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"time"
 
 	"github.com/sergehall/lavoval/apps/api/internal/domain"
 )
@@ -33,6 +34,15 @@ type PasswordResetStore interface {
 	FindByTokenHash(context.Context, string) (domain.PasswordResetToken, error)
 	Consume(context.Context, string, string) error
 	RevokeActiveByUserID(context.Context, string) error
+}
+
+type MailJobStore interface {
+	Enqueue(context.Context, domain.MailJob) (domain.MailJob, error)
+	ClaimNext(context.Context, time.Duration) (domain.MailJob, bool, error)
+	MarkSent(context.Context, string, string) error
+	MarkRetry(context.Context, string, string, string, time.Time) error
+	MarkDeadLetter(context.Context, string, string, string) error
+	CountByStatus(context.Context) (map[domain.MailJobStatus]int64, error)
 }
 
 type MFARecoveryCodeStore interface {

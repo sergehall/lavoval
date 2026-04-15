@@ -397,7 +397,6 @@ func TestAuthServiceRegisterReturnsVerificationRequirement(t *testing.T) {
 		FirstName: "Ada",
 		LastName:  "Lovelace",
 	})
-	time.Sleep(100 * time.Millisecond) // дождаться горутины отправки email
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}

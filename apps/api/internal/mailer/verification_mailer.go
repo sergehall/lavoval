@@ -23,6 +23,20 @@ type VerificationEmail struct {
 	ProductName string
 }
 
+type PasswordResetEmail struct {
+	ToEmail     string
+	ToName      string
+	ResetURL    string
+	ProductName string
+}
+
+type PasswordChangedEmail struct {
+	ToEmail     string
+	ToName      string
+	SignInURL   string
+	ProductName string
+}
+
 type VerificationSender interface {
 	SendVerificationEmail(context.Context, VerificationEmail) error
 	SendPasswordResetEmail(context.Context, PasswordResetEmail) error
@@ -254,14 +268,6 @@ func buildMultipartMessage(fromName string, fromEmail string, toEmail string, em
 	}, "\r\n")
 
 	return append([]byte(headers), body.Bytes()...), nil
-}
-
-func displayName(name string) string {
-	trimmed := strings.TrimSpace(name)
-	if trimmed == "" {
-		return "there"
-	}
-	return trimmed
 }
 
 var _ VerificationSender = (*SMTPVerificationMailer)(nil)

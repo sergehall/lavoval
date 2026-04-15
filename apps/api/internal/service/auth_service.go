@@ -517,7 +517,7 @@ func (s *AuthService) ResetPassword(ctx context.Context, input ResetPasswordInpu
 		ProductName: s.cfg.AppName,
 		SignInURL:   fmt.Sprintf("%s/?auth=sign-in", s.cfg.AppURL),
 	}); err != nil {
-		return ResetPasswordResponse{}, fmt.Errorf("send password changed email: %w", err)
+		log.Printf("auth: password changed email enqueue failed for %s: %v", user.Email, err)
 	}
 
 	return ResetPasswordResponse{
@@ -568,11 +568,9 @@ func (s *AuthService) Register(ctx context.Context, input RegisterInput) (Regist
 		return RegisterResponse{}, fmt.Errorf("create profile: %w", err)
 	}
 
-	go func() {
-		if err := s.issueVerificationEmail(context.Background(), createdUser, createdProfile); err != nil {
-			log.Printf("auth: verification email failed for %s: %v", createdUser.Email, err)
-		}
-	}()
+	if err := s.issueVerificationEmail(ctx, createdUser, createdProfile); err != nil {
+		log.Printf("auth: verification email enqueue failed for %s: %v", createdUser.Email, err)
+	}
 
 	return RegisterResponse{
 		Email:                createdUser.Email,
@@ -708,11 +706,9 @@ func (s *AuthService) ResendVerification(ctx context.Context, input ResendVerifi
 		return RegisterResponse{}, fmt.Errorf("find profile for verification resend: %w", err)
 	}
 
-	go func() {
-		if err := s.issueVerificationEmail(context.Background(), user, profile); err != nil {
-			log.Printf("auth: resend verification email failed for %s: %v", user.Email, err)
-		}
-	}()
+	if err := s.issueVerificationEmail(ctx, user, profile); err != nil {
+		log.Printf("auth: resend verification email enqueue failed for %s: %v", user.Email, err)
+	}
 
 	return RegisterResponse{
 		Email:                user.Email,
