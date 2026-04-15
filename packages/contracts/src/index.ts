@@ -152,6 +152,16 @@ export const skillMutationSchema = z.object({
   visibility: z.enum(['public', 'private'])
 });
 
+export const moduleMutationSchema = z.object({
+  slug: z.string().min(2).max(100),
+  title: z.string().min(2).max(200),
+  summary: z.string().min(2).max(500),
+  content: z.string().min(10),
+  position: z.number().int().min(0).optional(),
+  status: skillStatusSchema,
+});
+export type ModuleMutationRequest = z.infer<typeof moduleMutationSchema>;
+
 export const loginRequestSchema = z.object({
   email: z.string().email(),
   password: z.string().min(8)

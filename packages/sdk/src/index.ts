@@ -2,6 +2,7 @@ import type {
   EnrollmentAssignRequest,
   EnrollmentDetail,
   EnrollmentUpdateRequest,
+  ModuleMutationRequest,
   AuthResponse,
   AccountSecuritySummary,
   GitHubOAuthCompleteRequest,
@@ -27,7 +28,7 @@ import type {
   VerifyEmailRequest,
 } from '@lavoval/contracts';
 import type { RuntimeRunRequest, SkillRun } from '@lavoval/contracts/runtime';
-import type { SkillDetail, SkillMutationRequest, SkillSummary } from '@lavoval/registry';
+import type { SkillDetail, SkillModule, SkillMutationRequest, SkillSummary } from '@lavoval/registry';
 
 export const DEFAULT_LAVOVAL_API_URL = 'http://localhost:8080';
 
@@ -120,6 +121,8 @@ export const apiPaths = {
     enrollment: (id: string) => `/api/v1/admin/enrollments/${id}`,
     skills: () => '/api/v1/admin/skills',
     skill: (id: string) => `/api/v1/admin/skills/${id}`,
+    modules: (skillID: string) => `/api/v1/admin/skills/${skillID}/modules`,
+    module: (moduleID: string) => `/api/v1/admin/modules/${moduleID}`,
     runs: () => '/api/v1/admin/runs',
     runDetail: (id: string) => `/api/v1/admin/runs/${id}`,
   },
@@ -372,9 +375,19 @@ export function createApiClient(config: ApiClientConfig) {
       skill(id: string, options: ApiClientRequestOptions) {
         return request<SkillDetail>(apiPaths.admin.skill(id), undefined, options);
       },
+      modules(skillID: string, options: ApiClientRequestOptions) {
+        return request<SkillModule[]>(apiPaths.admin.modules(skillID), undefined, options);
+      },
       createSkill(payload: SkillMutationRequest, options: ApiClientRequestOptions) {
         return request<SkillDetail>(
           apiPaths.admin.skills(),
+          { method: 'POST', body: JSON.stringify(payload) },
+          options,
+        );
+      },
+      createModule(skillID: string, payload: ModuleMutationRequest, options: ApiClientRequestOptions) {
+        return request<SkillModule>(
+          apiPaths.admin.modules(skillID),
           { method: 'POST', body: JSON.stringify(payload) },
           options,
         );
@@ -386,9 +399,23 @@ export function createApiClient(config: ApiClientConfig) {
           options,
         );
       },
+      updateModule(moduleID: string, payload: ModuleMutationRequest, options: ApiClientRequestOptions) {
+        return request<SkillModule>(
+          apiPaths.admin.module(moduleID),
+          { method: 'PATCH', body: JSON.stringify(payload) },
+          options,
+        );
+      },
       deleteSkill(id: string, options: ApiClientRequestOptions) {
         return request<{ success: boolean }>(
           apiPaths.admin.skill(id),
+          { method: 'DELETE' },
+          options,
+        );
+      },
+      deleteModule(moduleID: string, options: ApiClientRequestOptions) {
+        return request<{ success: boolean }>(
+          apiPaths.admin.module(moduleID),
           { method: 'DELETE' },
           options,
         );

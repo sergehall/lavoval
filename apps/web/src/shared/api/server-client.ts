@@ -10,6 +10,7 @@ import type {
   EnrollmentAssignRequest,
   EnrollmentDetail,
   EnrollmentUpdateRequest,
+  ModuleMutationRequest,
   GitHubOAuthCompleteRequest,
   GoogleOAuthCompleteRequest,
   MFACompleteSignInRequest,
@@ -26,6 +27,7 @@ import type {
   ResendVerificationRequest,
   ResetPasswordRequest,
   SkillDetail,
+  SkillModule,
   SkillMutationRequest,
   SkillSummary,
   VerifyEmailRequest,
@@ -267,9 +269,29 @@ export async function fetchAdminSkillById(token: string, id: string) {
   }
 }
 
+export async function fetchAdminModules(token: string, skillID: string) {
+  try {
+    return (await apiClient.admin.modules(skillID, { token })) as ApiEnvelope<SkillModule[]>;
+  } catch (error) {
+    mapApiError(error);
+  }
+}
+
 export async function createAdminSkill(token: string, payload: SkillMutationRequest) {
   try {
     return await apiClient.admin.createSkill(payload, { token });
+  } catch (error) {
+    mapApiError(error);
+  }
+}
+
+export async function createAdminModule(
+  token: string,
+  skillID: string,
+  payload: ModuleMutationRequest,
+) {
+  try {
+    return (await apiClient.admin.createModule(skillID, payload, { token })) as ApiEnvelope<SkillModule>;
   } catch (error) {
     mapApiError(error);
   }
@@ -291,6 +313,19 @@ export async function updateAdminSkill(token: string, id: string, payload: Skill
   }
 }
 
+export async function updateAdminModule(
+  token: string,
+  _skillID: string,
+  moduleID: string,
+  payload: ModuleMutationRequest,
+) {
+  try {
+    return (await apiClient.admin.updateModule(moduleID, payload, { token })) as ApiEnvelope<SkillModule>;
+  } catch (error) {
+    mapApiError(error);
+  }
+}
+
 export async function updateMySkill(token: string, id: string, payload: SkillMutationRequest) {
   try {
     return await apiClient.me.updateSkill(id, payload, { token });
@@ -302,6 +337,14 @@ export async function updateMySkill(token: string, id: string, payload: SkillMut
 export async function deleteAdminSkill(token: string, id: string) {
   try {
     return await apiClient.admin.deleteSkill(id, { token });
+  } catch (error) {
+    mapApiError(error);
+  }
+}
+
+export async function deleteAdminModule(token: string, _skillID: string, moduleID: string) {
+  try {
+    return (await apiClient.admin.deleteModule(moduleID, { token })) as ApiEnvelope<{ success: boolean }>;
   } catch (error) {
     mapApiError(error);
   }
