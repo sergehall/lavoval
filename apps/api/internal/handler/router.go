@@ -32,7 +32,11 @@ func NewRouter(cfg config.Config, tokens auth.TokenManager, authService *service
 	adminHandler := NewAdminHandler(validate, adminService, skillService)
 
 	r.Get("/healthz", func(w http.ResponseWriter, r *http.Request) {
-		httpx.JSON(w, http.StatusOK, map[string]string{"status": "ok", "service": cfg.AppName})
+		httpx.JSON(w, http.StatusOK, map[string]any{
+			"status":           "ok",
+			"service":          cfg.AppName,
+			"smtp_configured":  cfg.SMTPHost != "" && cfg.SMTPUsername != "" && cfg.SMTPPassword != "",
+		})
 	})
 	r.Get("/readyz", func(w http.ResponseWriter, r *http.Request) {
 		httpx.JSON(w, http.StatusOK, map[string]string{"status": "ready"})
