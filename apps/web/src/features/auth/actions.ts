@@ -3,19 +3,23 @@
 import { redirect } from 'next/navigation';
 import { z } from 'zod';
 import {
+  forgotPasswordRequestSchema,
   loginRequestSchema,
   registerRequestSchema,
   resendVerificationRequestSchema,
+  resetPasswordRequestSchema,
 } from '@lavoval/contracts';
 import {
   ApiError,
   clearSession,
+  forgotPassword,
   login,
   logout,
   persistSession,
   register,
   resendVerification,
   requireSession,
+  resetPassword,
   verifyEmail,
 } from '@/shared/api/server-client';
 
@@ -32,6 +36,18 @@ export type RegisterFormState = {
 };
 
 export type VerificationRequestState = {
+  error: string | null;
+  success: string | null;
+  email: string;
+};
+
+export type ForgotPasswordState = {
+  error: string | null;
+  success: string | null;
+  email: string;
+};
+
+export type ResetPasswordState = {
   error: string | null;
   success: string | null;
   email: string;
@@ -213,6 +229,98 @@ export async function verifyEmailAction(token: string) {
       title: 'Confirmation failed',
       message: 'We could not confirm this email right now.',
       email: '',
+    };
+  }
+}
+
+export async function forgotPasswordAction(
+  _previousState: ForgotPasswordState,
+  formData: FormData,
+) {
+  const email = String(formData.get('email') ?? '');
+  const parsed = forgotPasswordRequestSchema.safeParse({
+    email: formData.get('email'),
+  });
+
+  if (!parsed.success) {
+    return {
+      error: 'Enter a valid email address.',
+      success: null,
+      email,
+    };
+  }
+
+  try {
+    const response = await forgotPassword(parsed.data);
+    return {
+      error: null,
+      success: `If ${response.data.email} belongs to a Lavoval account, a reset link is on its way.`,
+      email: response.data.email,
+    };
+  } catch (error) {
+    if (error instanceof ApiError) {
+      return {
+        error: error.message || 'Could not start password recovery right now.',
+        success: null,
+        email,
+      };
+    }
+
+    return {
+      error: 'Could not start password recovery right now.',
+      success: null,
+      email,
+    };
+  }
+}
+
+export async function resetPasswordAction(
+  _previousState: ResetPasswordState,
+  formData: FormData,
+) {
+  const token = String(formData.get('token') ?? '');
+  const newPassword = String(formData.get('newPassword') ?? '');
+  const email = String(formData.get('email') ?? '');
+
+  const parsed = resetPasswordRequestSchema.safeParse({
+    token,
+    newPassword,
+  });
+
+  if (!parsed.success) {
+    const passwordIssue = parsed.error.issues.find((issue) => issue.path[0] === 'newPassword');
+    return {
+      error: passwordIssue ? 'Password must be at least 12 characters.' : 'This reset link is invalid.',
+      success: null,
+      email,
+    };
+  }
+
+  try {
+    const response = await resetPassword(parsed.data);
+    return {
+      error: null,
+      success: `Password updated for ${response.data.email}. You can sign in with your new password now.`,
+      email: response.data.email,
+    };
+  } catch (error) {
+    if (error instanceof ApiError) {
+      return {
+        error:
+          error.status === 410
+            ? 'This reset link expired. Request a fresh one below.'
+            : error.status === 400
+              ? 'This reset link is invalid. Request a fresh one below.'
+              : error.message || 'Could not reset your password right now.',
+        success: null,
+        email,
+      };
+    }
+
+    return {
+      error: 'Could not reset your password right now.',
+      success: null,
+      email,
     };
   }
 }

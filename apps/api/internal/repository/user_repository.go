@@ -78,6 +78,30 @@ func (r *UserRepository) MarkEmailVerified(ctx context.Context, userID string) (
 	return user, nil
 }
 
+func (r *UserRepository) UpdatePasswordHash(ctx context.Context, userID string, passwordHash string) (domain.User, error) {
+	query := `
+		UPDATE users
+		SET password_hash = $2, updated_at = NOW()
+		WHERE id = $1 AND deleted_at IS NULL
+		RETURNING id, email, password_hash, role, status, email_verified_at, created_at, updated_at`
+
+	var user domain.User
+	if err := r.pool.QueryRow(ctx, query, userID, passwordHash).Scan(
+		&user.ID,
+		&user.Email,
+		&user.PasswordHash,
+		&user.Role,
+		&user.Status,
+		&user.EmailVerifiedAt,
+		&user.CreatedAt,
+		&user.UpdatedAt,
+	); err != nil {
+		return domain.User{}, fmt.Errorf("update password hash: %w", err)
+	}
+
+	return user, nil
+}
+
 func (r *UserRepository) List(ctx context.Context) ([]domain.User, error) {
 	query := `
 		SELECT id, email, password_hash, role, status, email_verified_at, created_at, updated_at

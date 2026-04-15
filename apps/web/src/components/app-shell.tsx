@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { type PropsWithChildren, useEffect, useRef, useState } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import type { Route } from 'next';
 import type { SessionUser } from '@lavoval/contracts';
 import { AuthModal } from '@/features/auth/auth-modal';
 import { logoutAction } from '@/features/auth/actions';
@@ -65,7 +66,8 @@ export function AppShell({
     }
 
     const nextQuery = nextParams.toString();
-    router.replace(nextQuery ? `${pathname}?${nextQuery}` : pathname, { scroll: false });
+    const nextHref = (nextQuery ? `${pathname}?${nextQuery}` : pathname) as Route;
+    router.replace(nextHref, { scroll: false });
   };
 
   return (

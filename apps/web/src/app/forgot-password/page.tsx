@@ -1,5 +1,8 @@
 import type { Metadata } from 'next';
 import { AuthCard } from '@/features/auth/auth-card';
+import Link from 'next/link';
+import { ForgotPasswordForm } from '@/features/auth/forgot-password-form';
+import { signInHref } from '@/shared/lib/auth-navigation';
 
 export const metadata: Metadata = {
   title: 'Password Recovery',
@@ -11,16 +14,25 @@ export const metadata: Metadata = {
   },
 };
 
-export default function ForgotPasswordPage() {
+export default async function ForgotPasswordPage({
+  searchParams,
+}: {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const params = searchParams ? await searchParams : {};
+  const initialEmail = Array.isArray(params.email) ? (params.email[0] ?? '') : (params.email ?? '');
+
   return (
     <AuthCard
-      title="Recovery flow placeholder"
-      description="Account recovery will help people safely regain access to their marketplace identity, authored skills, and trusted exchange history."
+      title="Reset your password"
+      description="Enter the email address tied to your Lavoval account and we'll send a secure reset link if it exists in our system."
     >
-      <p className="muted">
-        Add email delivery, rate limiting, reset tokens, and activity logging here without reshaping
-        the rest of the product foundation.
-      </p>
+      <ForgotPasswordForm initialEmail={initialEmail} />
+      <div className="inline-actions">
+        <Link href={signInHref} className="muted">
+          Return to sign in
+        </Link>
+      </div>
     </AuthCard>
   );
 }

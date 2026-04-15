@@ -5,11 +5,13 @@ import { redirect } from 'next/navigation';
 import { ApiClientError, createApiClient } from '@lavoval/sdk';
 import type {
   AuthResponse,
+  ForgotPasswordRequest,
   LoginRequest,
   Profile,
   ProfileUpdateRequest,
   RegisterRequest,
   ResendVerificationRequest,
+  ResetPasswordRequest,
   SkillDetail,
   SkillMutationRequest,
   SkillSummary,
@@ -74,6 +76,22 @@ export async function verifyEmail(payload: VerifyEmailRequest) {
 export async function resendVerification(payload: ResendVerificationRequest) {
   try {
     return await apiClient.auth.resendVerification(payload);
+  } catch (error) {
+    mapApiError(error);
+  }
+}
+
+export async function forgotPassword(payload: ForgotPasswordRequest) {
+  try {
+    return await apiClient.auth.forgotPassword(payload);
+  } catch (error) {
+    mapApiError(error);
+  }
+}
+
+export async function resetPassword(payload: ResetPasswordRequest) {
+  try {
+    return await apiClient.auth.resetPassword(payload);
   } catch (error) {
     mapApiError(error);
   }

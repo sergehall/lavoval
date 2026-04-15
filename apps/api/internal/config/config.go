@@ -22,6 +22,7 @@ type Config struct {
 	AdminSeedEmail        string
 	AdminSeedSecret       string
 	EmailVerificationTTL  time.Duration
+	PasswordResetTTL      time.Duration
 	SMTPHost              string
 	SMTPPort              int
 	SMTPUsername          string
@@ -51,6 +52,11 @@ func Load() (Config, error) {
 	emailVerificationTTL, err := time.ParseDuration(getEnv("EMAIL_VERIFICATION_TTL", "24h"))
 	if err != nil {
 		return Config{}, fmt.Errorf("parse EMAIL_VERIFICATION_TTL: %w", err)
+	}
+
+	passwordResetTTL, err := time.ParseDuration(getEnv("PASSWORD_RESET_TTL", "30m"))
+	if err != nil {
+		return Config{}, fmt.Errorf("parse PASSWORD_RESET_TTL: %w", err)
 	}
 
 	smtpPort, err := strconv.Atoi(getEnv("SMTP_PORT", "587"))
@@ -83,6 +89,7 @@ func Load() (Config, error) {
 		AdminSeedEmail:        getEnv("ADMIN_SEED_EMAIL", "admin@lavoval.local"),
 		AdminSeedSecret:       getEnv("ADMIN_SEED_PASSWORD", "ChangeMe123!"),
 		EmailVerificationTTL:  emailVerificationTTL,
+		PasswordResetTTL:      passwordResetTTL,
 		SMTPHost:              getEnv("SMTP_HOST", ""),
 		SMTPPort:              smtpPort,
 		SMTPUsername:          getEnv("SMTP_USERNAME", ""),

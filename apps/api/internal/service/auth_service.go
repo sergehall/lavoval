@@ -27,14 +27,18 @@ var ErrEmailNotVerified = errors.New("email not verified")
 var ErrVerificationTokenInvalid = errors.New("verification token is invalid")
 var ErrVerificationTokenExpired = errors.New("verification token expired")
 var ErrEmailAlreadyVerified = errors.New("email already verified")
+var ErrPasswordResetTokenInvalid = errors.New("password reset token is invalid")
+var ErrPasswordResetTokenExpired = errors.New("password reset token expired")
 
 type AuthService struct {
-	users         repository.UserStore
-	profiles      repository.ProfileStore
-	verifications repository.EmailVerificationStore
-	tokens        auth.TokenManager
-	mailer        mailer.VerificationSender
-	cfg           config.Config
+	users          repository.UserStore
+	profiles       repository.ProfileStore
+	verifications  repository.EmailVerificationStore
+	passwordResets repository.PasswordResetStore
+	tokens         auth.TokenManager
+	mailer         mailer.VerificationSender
+	sessions       SessionRevoker
+	cfg            config.Config
 }
 
 type AuthPayload struct {
@@ -81,22 +85,123 @@ type ResendVerificationInput struct {
 	Email string `json:"email" validate:"required,email"`
 }
 
+type ForgotPasswordInput struct {
+	Email string `json:"email" validate:"required,email"`
+}
+
+type ResetPasswordInput struct {
+	Token       string `json:"token" validate:"required,min=24"`
+	NewPassword string `json:"newPassword" validate:"required,min=12"`
+}
+
+type ForgotPasswordResponse struct {
+	Email string `json:"email"`
+	Sent  bool   `json:"sent"`
+}
+
+type ResetPasswordResponse struct {
+	Email string `json:"email"`
+	Reset bool   `json:"reset"`
+}
+
 func NewAuthService(
 	users repository.UserStore,
 	profiles repository.ProfileStore,
 	verifications repository.EmailVerificationStore,
+	passwordResets repository.PasswordResetStore,
 	tokens auth.TokenManager,
 	verificationMailer mailer.VerificationSender,
+	sessionRevoker SessionRevoker,
 	cfg config.Config,
 ) *AuthService {
-	return &AuthService{
-		users:         users,
-		profiles:      profiles,
-		verifications: verifications,
-		tokens:        tokens,
-		mailer:        verificationMailer,
-		cfg:           cfg,
+	if sessionRevoker == nil {
+		sessionRevoker = NoopSessionRevoker{}
 	}
+
+	return &AuthService{
+		users:          users,
+		profiles:       profiles,
+		verifications:  verifications,
+		passwordResets: passwordResets,
+		tokens:         tokens,
+		mailer:         verificationMailer,
+		sessions:       sessionRevoker,
+		cfg:            cfg,
+	}
+}
+
+func (s *AuthService) ForgotPassword(ctx context.Context, input ForgotPasswordInput) (ForgotPasswordResponse, error) {
+	user, err := s.users.FindByEmail(ctx, input.Email)
+	if err != nil {
+		return ForgotPasswordResponse{
+			Email: input.Email,
+			Sent:  true,
+		}, nil
+	}
+
+	profile, err := s.profiles.FindByUserID(ctx, user.ID)
+	if err != nil {
+		return ForgotPasswordResponse{}, fmt.Errorf("find profile for password reset: %w", err)
+	}
+
+	if err := s.issuePasswordResetEmail(ctx, user, profile); err != nil {
+		return ForgotPasswordResponse{}, err
+	}
+
+	return ForgotPasswordResponse{
+		Email: user.Email,
+		Sent:  true,
+	}, nil
+}
+
+func (s *AuthService) ResetPassword(ctx context.Context, input ResetPasswordInput) (ResetPasswordResponse, error) {
+	tokenHash := hashVerificationToken(input.Token)
+	record, err := s.passwordResets.FindByTokenHash(ctx, tokenHash)
+	if err != nil {
+		return ResetPasswordResponse{}, ErrPasswordResetTokenInvalid
+	}
+	if record.ConsumedAt != nil {
+		return ResetPasswordResponse{}, ErrPasswordResetTokenInvalid
+	}
+	if time.Now().After(record.ExpiresAt) {
+		return ResetPasswordResponse{}, ErrPasswordResetTokenExpired
+	}
+
+	user, err := s.users.FindByID(ctx, record.UserID)
+	if err != nil {
+		return ResetPasswordResponse{}, fmt.Errorf("find user for password reset: %w", err)
+	}
+
+	hash, err := bcrypt.GenerateFromPassword([]byte(input.NewPassword), bcrypt.DefaultCost)
+	if err != nil {
+		return ResetPasswordResponse{}, fmt.Errorf("hash new password: %w", err)
+	}
+
+	if _, err := s.users.UpdatePasswordHash(ctx, user.ID, string(hash)); err != nil {
+		return ResetPasswordResponse{}, fmt.Errorf("update user password: %w", err)
+	}
+	if err := s.passwordResets.Consume(ctx, record.ID, user.ID); err != nil {
+		return ResetPasswordResponse{}, fmt.Errorf("consume password reset token: %w", err)
+	}
+	if err := s.passwordResets.RevokeActiveByUserID(ctx, user.ID); err != nil {
+		return ResetPasswordResponse{}, fmt.Errorf("revoke active password reset tokens: %w", err)
+	}
+	if err := s.sessions.RevokeAllSessionsForUser(ctx, user.ID, "password_reset"); err != nil {
+		return ResetPasswordResponse{}, fmt.Errorf("revoke sessions after password reset: %w", err)
+	}
+	if err := s.mailer.SendPasswordChangedEmail(ctx, mailer.PasswordChangedEmail{
+		ToEmail:     user.Email,
+		ToName:      user.Email,
+		ProductName: s.cfg.AppName,
+		SignInURL:   fmt.Sprintf("%s/?auth=sign-in", s.cfg.AppURL),
+	}); err != nil {
+		return ResetPasswordResponse{}, fmt.Errorf("send password changed email: %w", err)
+	}
+
+	return ResetPasswordResponse{
+		Email: user.Email,
+		Reset: true,
+	}, nil
 }
 
 func (s *AuthService) Register(ctx context.Context, input RegisterInput) (RegisterResponse, error) {
@@ -282,6 +387,44 @@ func (s *AuthService) issueVerificationEmail(ctx context.Context, user domain.Us
 		ProductName: s.cfg.AppName,
 	}); err != nil {
 		return fmt.Errorf("send verification email: %w", err)
+	}
+
+	return nil
+}
+
+func (s *AuthService) issuePasswordResetEmail(ctx context.Context, user domain.User, profile domain.Profile) error {
+	if s.mailer == nil {
+		return fmt.Errorf("email delivery is not configured")
+	}
+
+	if err := s.passwordResets.RevokeActiveByUserID(ctx, user.ID); err != nil {
+		return fmt.Errorf("revoke active password reset tokens: %w", err)
+	}
+
+	plainToken, tokenHash, err := newVerificationToken()
+	if err != nil {
+		return fmt.Errorf("generate password reset token: %w", err)
+	}
+
+	record := domain.PasswordResetToken{
+		ID:        uuid.NewString(),
+		UserID:    user.ID,
+		TokenHash: tokenHash,
+		ExpiresAt: time.Now().Add(s.cfg.PasswordResetTTL),
+	}
+
+	if _, err := s.passwordResets.Create(ctx, record); err != nil {
+		return fmt.Errorf("store password reset token: %w", err)
+	}
+
+	resetURL := fmt.Sprintf("%s/reset-password?token=%s&email=%s", s.cfg.AppURL, url.QueryEscape(plainToken), url.QueryEscape(user.Email))
+	if err := s.mailer.SendPasswordResetEmail(ctx, mailer.PasswordResetEmail{
+		ToEmail:     user.Email,
+		ToName:      strings.TrimSpace(profile.FirstName + " " + profile.LastName),
+		ResetURL:    resetURL,
+		ProductName: s.cfg.AppName,
+	}); err != nil {
+		return fmt.Errorf("send password reset email: %w", err)
 	}
 
 	return nil

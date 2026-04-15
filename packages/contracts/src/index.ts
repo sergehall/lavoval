@@ -154,6 +154,29 @@ export const resendVerificationRequestSchema = z.object({
 });
 export type ResendVerificationRequest = z.infer<typeof resendVerificationRequestSchema>;
 
+export const forgotPasswordRequestSchema = z.object({
+  email: z.string().email()
+});
+export type ForgotPasswordRequest = z.infer<typeof forgotPasswordRequestSchema>;
+
+export const forgotPasswordResponseSchema = z.object({
+  email: z.string().email(),
+  sent: z.boolean()
+});
+export type ForgotPasswordResponse = z.infer<typeof forgotPasswordResponseSchema>;
+
+export const resetPasswordRequestSchema = z.object({
+  token: z.string().min(24),
+  newPassword: z.string().min(12)
+});
+export type ResetPasswordRequest = z.infer<typeof resetPasswordRequestSchema>;
+
+export const resetPasswordResponseSchema = z.object({
+  email: z.string().email(),
+  reset: z.boolean()
+});
+export type ResetPasswordResponse = z.infer<typeof resetPasswordResponseSchema>;
+
 export const profileUpdateSchema = z.object({
   firstName: z.string().min(2),
   lastName: z.string().min(2),

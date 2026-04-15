@@ -16,8 +16,9 @@ import (
 )
 
 type authUserRepoStub struct {
-	user        domain.User
-	findByEmail func(string) (domain.User, error)
+	user               domain.User
+	findByEmail        func(string) (domain.User, error)
+	updatePasswordHash func(string, string) (domain.User, error)
 }
 
 func (s authUserRepoStub) Create(_ context.Context, user domain.User) (domain.User, error) {
@@ -45,6 +46,16 @@ func (s authUserRepoStub) MarkEmailVerified(_ context.Context, _ string) (domain
 
 func (s authUserRepoStub) List(_ context.Context) ([]domain.User, error) {
 	return []domain.User{s.user}, nil
+}
+
+func (s authUserRepoStub) UpdatePasswordHash(_ context.Context, userID string, passwordHash string) (domain.User, error) {
+	if s.updatePasswordHash != nil {
+		return s.updatePasswordHash(userID, passwordHash)
+	}
+
+	s.user.ID = userID
+	s.user.PasswordHash = passwordHash
+	return s.user, nil
 }
 
 type authProfileRepoStub struct {
@@ -88,12 +99,49 @@ func (s *verificationRepoStub) RevokeActiveByUserID(_ context.Context, _ string)
 	return nil
 }
 
+type passwordResetRepoStub struct {
+	tokenCreated bool
+	token        domain.PasswordResetToken
+}
+
+func (s *passwordResetRepoStub) Create(_ context.Context, token domain.PasswordResetToken) (domain.PasswordResetToken, error) {
+	s.tokenCreated = true
+	s.token = token
+	s.token.CreatedAt = now()
+	return s.token, nil
+}
+
+func (s *passwordResetRepoStub) FindByTokenHash(_ context.Context, tokenHash string) (domain.PasswordResetToken, error) {
+	s.token.TokenHash = tokenHash
+	return s.token, nil
+}
+
+func (s *passwordResetRepoStub) Consume(_ context.Context, _, _ string) error {
+	return nil
+}
+
+func (s *passwordResetRepoStub) RevokeActiveByUserID(_ context.Context, _ string) error {
+	return nil
+}
+
 type verificationMailerStub struct {
-	lastEmail mailer.VerificationEmail
+	lastEmail           mailer.VerificationEmail
+	lastPasswordReset   mailer.PasswordResetEmail
+	lastPasswordChanged mailer.PasswordChangedEmail
 }
 
 func (s *verificationMailerStub) SendVerificationEmail(_ context.Context, email mailer.VerificationEmail) error {
 	s.lastEmail = email
+	return nil
+}
+
+func (s *verificationMailerStub) SendPasswordResetEmail(_ context.Context, email mailer.PasswordResetEmail) error {
+	s.lastPasswordReset = email
+	return nil
+}
+
+func (s *verificationMailerStub) SendPasswordChangedEmail(_ context.Context, email mailer.PasswordChangedEmail) error {
+	s.lastPasswordChanged = email
 	return nil
 }
 
@@ -114,8 +162,10 @@ func TestAuthServiceRegisterReturnsVerificationRequirement(t *testing.T) {
 		authUserRepoStub{findByEmail: func(string) (domain.User, error) { return domain.User{}, pgx.ErrNoRows }},
 		authProfileRepoStub{},
 		verificationRepo,
+		&passwordResetRepoStub{},
 		auth.NewTokenManager(cfg),
 		verificationMailer,
+		NoopSessionRevoker{},
 		cfg,
 	)
 
@@ -161,8 +211,10 @@ func TestAuthServiceLoginRejectsUnverifiedEmail(t *testing.T) {
 		},
 		authProfileRepoStub{},
 		&verificationRepoStub{},
+		&passwordResetRepoStub{},
 		auth.NewTokenManager(cfg),
 		&verificationMailerStub{},
+		NoopSessionRevoker{},
 		cfg,
 	)
 
@@ -202,8 +254,10 @@ func TestAuthServiceRegisterRejectsExistingEmail(t *testing.T) {
 		authUserRepoStub{user: domain.User{ID: "user-1", Email: "existing@example.com"}},
 		authProfileRepoStub{},
 		&verificationRepoStub{},
+		&passwordResetRepoStub{},
 		auth.NewTokenManager(cfg),
 		&verificationMailerStub{},
+		NoopSessionRevoker{},
 		cfg,
 	)
 
@@ -238,8 +292,10 @@ func TestAuthServiceLoginSucceeds(t *testing.T) {
 		},
 		authProfileRepoStub{profile: domain.Profile{FirstName: "Ada", LastName: "Lovelace"}},
 		&verificationRepoStub{},
+		&passwordResetRepoStub{},
 		auth.NewTokenManager(cfg),
 		&verificationMailerStub{},
+		NoopSessionRevoker{},
 		cfg,
 	)
 
@@ -258,6 +314,55 @@ func TestAuthServiceLoginSucceeds(t *testing.T) {
 	}
 	if payload.User.FirstName != "Ada" {
 		t.Fatalf("expected firstName Ada, got %s", payload.User.FirstName)
+	}
+}
+
+func TestAuthServiceForgotPasswordIssuesResetEmail(t *testing.T) {
+	cfg := config.Config{
+		AppName:              "Lavoval",
+		AppURL:               "http://localhost:3000",
+		JWTIssuer:            "test",
+		JWTAudience:          "test",
+		JWTSecret:            "super-secret",
+		JWTAccessTTL:         time.Minute,
+		JWTRefreshTTL:        time.Hour,
+		EmailVerificationTTL: 24 * time.Hour,
+		PasswordResetTTL:     30 * time.Minute,
+	}
+
+	passwordResetRepo := &passwordResetRepoStub{}
+	verificationMailer := &verificationMailerStub{}
+	service := NewAuthService(
+		authUserRepoStub{
+			user: domain.User{
+				ID:    "user-1",
+				Email: "user@example.com",
+			},
+		},
+		authProfileRepoStub{profile: domain.Profile{FirstName: "Ada", LastName: "Lovelace"}},
+		&verificationRepoStub{},
+		passwordResetRepo,
+		auth.NewTokenManager(cfg),
+		verificationMailer,
+		NoopSessionRevoker{},
+		cfg,
+	)
+
+	result, err := service.ForgotPassword(context.Background(), ForgotPasswordInput{Email: "user@example.com"})
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if !result.Sent {
+		t.Fatal("expected forgot password response to mark email as sent")
+	}
+	if !passwordResetRepo.tokenCreated {
+		t.Fatal("expected password reset token to be created")
+	}
+	if verificationMailer.lastPasswordReset.ToEmail != "user@example.com" {
+		t.Fatalf("expected password reset email to target requested email, got %s", verificationMailer.lastPasswordReset.ToEmail)
+	}
+	if verificationMailer.lastPasswordReset.ResetURL == "" {
+		t.Fatal("expected password reset email to include reset URL")
 	}
 }
 
@@ -280,8 +385,10 @@ func TestAuthServiceVerifyEmailExpiredToken(t *testing.T) {
 				ExpiresAt: pastTime,
 			},
 		},
+		&passwordResetRepoStub{},
 		auth.NewTokenManager(cfg),
 		&verificationMailerStub{},
+		NoopSessionRevoker{},
 		cfg,
 	)
 

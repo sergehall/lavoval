@@ -128,3 +128,50 @@ func (h *AuthHandler) ResendVerification(w http.ResponseWriter, r *http.Request)
 
 	httpx.JSON(w, http.StatusOK, payload)
 }
+
+func (h *AuthHandler) ForgotPassword(w http.ResponseWriter, r *http.Request) {
+	var input service.ForgotPasswordInput
+	if err := httpx.Decode(r, &input); err != nil {
+		httpx.Error(w, http.StatusBadRequest, "invalid_request", err.Error())
+		return
+	}
+	if err := h.validate.Struct(input); err != nil {
+		httpx.Error(w, http.StatusBadRequest, "validation_error", err.Error())
+		return
+	}
+
+	payload, err := h.service.ForgotPassword(r.Context(), input)
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "forgot_password_failed", "Could not start password recovery")
+		return
+	}
+
+	httpx.JSON(w, http.StatusOK, payload)
+}
+
+func (h *AuthHandler) ResetPassword(w http.ResponseWriter, r *http.Request) {
+	var input service.ResetPasswordInput
+	if err := httpx.Decode(r, &input); err != nil {
+		httpx.Error(w, http.StatusBadRequest, "invalid_request", err.Error())
+		return
+	}
+	if err := h.validate.Struct(input); err != nil {
+		httpx.Error(w, http.StatusBadRequest, "validation_error", err.Error())
+		return
+	}
+
+	payload, err := h.service.ResetPassword(r.Context(), input)
+	if err != nil {
+		switch {
+		case errors.Is(err, service.ErrPasswordResetTokenExpired):
+			httpx.Error(w, http.StatusGone, "password_reset_token_expired", "This password reset link has expired")
+		case errors.Is(err, service.ErrPasswordResetTokenInvalid):
+			httpx.Error(w, http.StatusBadRequest, "password_reset_token_invalid", "This password reset link is invalid")
+		default:
+			httpx.Error(w, http.StatusInternalServerError, "reset_password_failed", "Could not reset password")
+		}
+		return
+	}
+
+	httpx.JSON(w, http.StatusOK, payload)
+}

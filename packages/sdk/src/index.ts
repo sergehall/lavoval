@@ -1,11 +1,15 @@
 import type {
   AuthResponse,
+  ForgotPasswordRequest,
+  ForgotPasswordResponse,
   LoginRequest,
   Profile,
   ProfileUpdateRequest,
   RegisterRequest,
   RegisterResponse,
   ResendVerificationRequest,
+  ResetPasswordRequest,
+  ResetPasswordResponse,
   SessionUser,
   VerificationResponse,
   VerifyEmailRequest,
@@ -60,6 +64,8 @@ export const apiPaths = {
     register: () => '/api/v1/auth/register',
     verifyEmail: () => '/api/v1/auth/verify-email',
     resendVerification: () => '/api/v1/auth/resend-verification',
+    forgotPassword: () => '/api/v1/auth/forgot-password',
+    resetPassword: () => '/api/v1/auth/reset-password',
     logout: () => '/api/v1/auth/logout',
   },
   me: {
@@ -156,6 +162,18 @@ export function createApiClient(config: ApiClientConfig) {
       },
       resendVerification(payload: ResendVerificationRequest) {
         return request<RegisterResponse>(apiPaths.auth.resendVerification(), {
+          method: 'POST',
+          body: JSON.stringify(payload),
+        });
+      },
+      forgotPassword(payload: ForgotPasswordRequest) {
+        return request<ForgotPasswordResponse>(apiPaths.auth.forgotPassword(), {
+          method: 'POST',
+          body: JSON.stringify(payload),
+        });
+      },
+      resetPassword(payload: ResetPasswordRequest) {
+        return request<ResetPasswordResponse>(apiPaths.auth.resetPassword(), {
           method: 'POST',
           body: JSON.stringify(payload),
         });

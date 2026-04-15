@@ -59,6 +59,15 @@ type EmailVerificationToken struct {
 	CreatedAt  time.Time  `json:"createdAt"`
 }
 
+type PasswordResetToken struct {
+	ID         string     `json:"id"`
+	UserID     string     `json:"userId"`
+	TokenHash  string     `json:"-"`
+	ExpiresAt  time.Time  `json:"expiresAt"`
+	ConsumedAt *time.Time `json:"consumedAt,omitempty"`
+	CreatedAt  time.Time  `json:"createdAt"`
+}
+
 type Profile struct {
 	UserID    string     `json:"userId"`
 	Role      Role       `json:"role"`

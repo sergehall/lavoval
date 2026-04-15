@@ -39,6 +39,12 @@ export function LoginForm() {
           minLength={8}
         />
       </label>
+      <div className="inline-actions">
+        <span />
+        <Link href="/forgot-password" className="muted">
+          Forgot password?
+        </Link>
+      </div>
       {state.error ? (
         <p className="form-message form-message--error" role="alert">
           {state.error}
