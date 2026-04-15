@@ -5,10 +5,13 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"log"
 	"mime/multipart"
+	"net"
 	"net/smtp"
 	"net/textproto"
 	"strings"
+	"time"
 
 	"github.com/sergehall/lavoval/apps/api/internal/config"
 )
@@ -34,7 +37,7 @@ func NewSMTPVerificationMailer(cfg config.Config) *SMTPVerificationMailer {
 	return &SMTPVerificationMailer{cfg: cfg}
 }
 
-func (m *SMTPVerificationMailer) SendVerificationEmail(_ context.Context, email VerificationEmail) (err error) {
+func (m *SMTPVerificationMailer) SendVerificationEmail(ctx context.Context, email VerificationEmail) error {
 	if m.cfg.SMTPHost == "" || m.cfg.SMTPUsername == "" || m.cfg.SMTPPassword == "" || m.cfg.SMTPFromEmail == "" {
 		return fmt.Errorf("email delivery is not configured")
 	}
@@ -49,68 +52,10 @@ func (m *SMTPVerificationMailer) SendVerificationEmail(_ context.Context, email 
 		return fmt.Errorf("render verification email: %w", err)
 	}
 
-	message, err := buildMultipartMessage(fromName, m.cfg.SMTPFromEmail, email.ToEmail, rendered)
-	if err != nil {
-		return fmt.Errorf("build verification email: %w", err)
-	}
-
-	addr := fmt.Sprintf("%s:%d", m.cfg.SMTPHost, m.cfg.SMTPPort)
-	auth := smtp.PlainAuth("", m.cfg.SMTPUsername, m.cfg.SMTPPassword, m.cfg.SMTPHost)
-
-	client, err := smtp.Dial(addr)
-	if err != nil {
-		return fmt.Errorf("dial smtp: %w", err)
-	}
-	defer func() {
-		if quitErr := client.Quit(); quitErr != nil && err == nil {
-			err = fmt.Errorf("smtp quit: %w", quitErr)
-		}
-	}()
-
-	if m.cfg.SMTPRequireTLS {
-		if ok, _ := client.Extension("STARTTLS"); !ok {
-			return fmt.Errorf("smtp server does not advertise STARTTLS")
-		}
-		if err := client.StartTLS(&tls.Config{
-			ServerName:         m.cfg.SMTPHost,
-			InsecureSkipVerify: m.cfg.AppEnv == "development" && m.cfg.SMTPAllowInsecureAuth,
-			MinVersion:         tls.VersionTLS12,
-		}); err != nil {
-			return fmt.Errorf("smtp starttls: %w", err)
-		}
-	}
-
-	if ok, _ := client.Extension("AUTH"); ok {
-		if err := client.Auth(auth); err != nil {
-			return fmt.Errorf("smtp auth: %w", err)
-		}
-	}
-
-	if err := client.Mail(m.cfg.SMTPFromEmail); err != nil {
-		return fmt.Errorf("smtp mail from: %w", err)
-	}
-	if err := client.Rcpt(email.ToEmail); err != nil {
-		return fmt.Errorf("smtp rcpt: %w", err)
-	}
-
-	writer, err := client.Data()
-	if err != nil {
-		return fmt.Errorf("smtp data: %w", err)
-	}
-	if _, err := writer.Write(message); err != nil {
-		if closeErr := writer.Close(); closeErr != nil && err == nil {
-			err = fmt.Errorf("smtp close writer after write failure: %w", closeErr)
-		}
-		return fmt.Errorf("smtp write message: %w", err)
-	}
-	if err := writer.Close(); err != nil {
-		return fmt.Errorf("smtp close writer: %w", err)
-	}
-
-	return nil
+	return m.sendRenderedEmail(ctx, "verification", fromName, email.ToEmail, rendered)
 }
 
-func (m *SMTPVerificationMailer) SendPasswordResetEmail(_ context.Context, email PasswordResetEmail) (err error) {
+func (m *SMTPVerificationMailer) SendPasswordResetEmail(ctx context.Context, email PasswordResetEmail) error {
 	if m.cfg.SMTPHost == "" || m.cfg.SMTPUsername == "" || m.cfg.SMTPPassword == "" || m.cfg.SMTPFromEmail == "" {
 		return fmt.Errorf("email delivery is not configured")
 	}
@@ -125,68 +70,10 @@ func (m *SMTPVerificationMailer) SendPasswordResetEmail(_ context.Context, email
 		return fmt.Errorf("render password reset email: %w", err)
 	}
 
-	message, err := buildMultipartMessage(fromName, m.cfg.SMTPFromEmail, email.ToEmail, rendered)
-	if err != nil {
-		return fmt.Errorf("build password reset email: %w", err)
-	}
-
-	addr := fmt.Sprintf("%s:%d", m.cfg.SMTPHost, m.cfg.SMTPPort)
-	auth := smtp.PlainAuth("", m.cfg.SMTPUsername, m.cfg.SMTPPassword, m.cfg.SMTPHost)
-
-	client, err := smtp.Dial(addr)
-	if err != nil {
-		return fmt.Errorf("dial smtp: %w", err)
-	}
-	defer func() {
-		if quitErr := client.Quit(); quitErr != nil && err == nil {
-			err = fmt.Errorf("smtp quit: %w", quitErr)
-		}
-	}()
-
-	if m.cfg.SMTPRequireTLS {
-		if ok, _ := client.Extension("STARTTLS"); !ok {
-			return fmt.Errorf("smtp server does not advertise STARTTLS")
-		}
-		if err := client.StartTLS(&tls.Config{
-			ServerName:         m.cfg.SMTPHost,
-			InsecureSkipVerify: m.cfg.AppEnv == "development" && m.cfg.SMTPAllowInsecureAuth,
-			MinVersion:         tls.VersionTLS12,
-		}); err != nil {
-			return fmt.Errorf("smtp starttls: %w", err)
-		}
-	}
-
-	if ok, _ := client.Extension("AUTH"); ok {
-		if err := client.Auth(auth); err != nil {
-			return fmt.Errorf("smtp auth: %w", err)
-		}
-	}
-
-	if err := client.Mail(m.cfg.SMTPFromEmail); err != nil {
-		return fmt.Errorf("smtp mail from: %w", err)
-	}
-	if err := client.Rcpt(email.ToEmail); err != nil {
-		return fmt.Errorf("smtp rcpt: %w", err)
-	}
-
-	writer, err := client.Data()
-	if err != nil {
-		return fmt.Errorf("smtp data: %w", err)
-	}
-	if _, err := writer.Write(message); err != nil {
-		if closeErr := writer.Close(); closeErr != nil && err == nil {
-			err = fmt.Errorf("smtp close writer after write failure: %w", closeErr)
-		}
-		return fmt.Errorf("smtp write message: %w", err)
-	}
-	if err := writer.Close(); err != nil {
-		return fmt.Errorf("smtp close writer: %w", err)
-	}
-
-	return nil
+	return m.sendRenderedEmail(ctx, "password-reset", fromName, email.ToEmail, rendered)
 }
 
-func (m *SMTPVerificationMailer) SendPasswordChangedEmail(_ context.Context, email PasswordChangedEmail) (err error) {
+func (m *SMTPVerificationMailer) SendPasswordChangedEmail(ctx context.Context, email PasswordChangedEmail) error {
 	if m.cfg.SMTPHost == "" || m.cfg.SMTPUsername == "" || m.cfg.SMTPPassword == "" || m.cfg.SMTPFromEmail == "" {
 		return fmt.Errorf("email delivery is not configured")
 	}
@@ -201,64 +88,112 @@ func (m *SMTPVerificationMailer) SendPasswordChangedEmail(_ context.Context, ema
 		return fmt.Errorf("render password changed email: %w", err)
 	}
 
-	message, err := buildMultipartMessage(fromName, m.cfg.SMTPFromEmail, email.ToEmail, rendered)
+	return m.sendRenderedEmail(ctx, "password-changed", fromName, email.ToEmail, rendered)
+}
+
+func (m *SMTPVerificationMailer) sendRenderedEmail(
+	ctx context.Context,
+	kind string,
+	fromName string,
+	toEmail string,
+	email RenderedEmail,
+) error {
+	message, err := buildMultipartMessage(fromName, m.cfg.SMTPFromEmail, toEmail, email)
 	if err != nil {
-		return fmt.Errorf("build password changed email: %w", err)
+		return fmt.Errorf("build %s email: %w", kind, err)
 	}
+
+	timeout := m.cfg.SMTPDialTimeout
+	if timeout <= 0 {
+		timeout = 10 * time.Second
+	}
+
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	ctx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
 
 	addr := fmt.Sprintf("%s:%d", m.cfg.SMTPHost, m.cfg.SMTPPort)
 	auth := smtp.PlainAuth("", m.cfg.SMTPUsername, m.cfg.SMTPPassword, m.cfg.SMTPHost)
 
-	client, err := smtp.Dial(addr)
+	log.Printf("mailer: sending %s email to %s via %s", kind, toEmail, addr)
+
+	dialer := &net.Dialer{Timeout: timeout}
+	conn, err := dialer.DialContext(ctx, "tcp", addr)
 	if err != nil {
+		log.Printf("mailer: %s email dial failed for %s: %v", kind, toEmail, err)
 		return fmt.Errorf("dial smtp: %w", err)
 	}
+	defer conn.Close()
+
+	if deadline, ok := ctx.Deadline(); ok {
+		if err := conn.SetDeadline(deadline); err != nil {
+			log.Printf("mailer: could not set smtp deadline for %s: %v", toEmail, err)
+		}
+	}
+
+	client, err := smtp.NewClient(conn, m.cfg.SMTPHost)
+	if err != nil {
+		log.Printf("mailer: %s email client init failed for %s: %v", kind, toEmail, err)
+		return fmt.Errorf("smtp new client: %w", err)
+	}
 	defer func() {
-		if quitErr := client.Quit(); quitErr != nil && err == nil {
-			err = fmt.Errorf("smtp quit: %w", quitErr)
+		if quitErr := client.Quit(); quitErr != nil {
+			log.Printf("mailer: smtp quit warning for %s email to %s: %v", kind, toEmail, quitErr)
 		}
 	}()
 
 	if m.cfg.SMTPRequireTLS {
 		if ok, _ := client.Extension("STARTTLS"); !ok {
-			return fmt.Errorf("smtp server does not advertise STARTTLS")
+			err := fmt.Errorf("smtp server does not advertise STARTTLS")
+			log.Printf("mailer: %s email starttls unavailable for %s", kind, toEmail)
+			return err
 		}
 		if err := client.StartTLS(&tls.Config{
 			ServerName:         m.cfg.SMTPHost,
 			InsecureSkipVerify: m.cfg.AppEnv == "development" && m.cfg.SMTPAllowInsecureAuth,
 			MinVersion:         tls.VersionTLS12,
 		}); err != nil {
+			log.Printf("mailer: %s email starttls failed for %s: %v", kind, toEmail, err)
 			return fmt.Errorf("smtp starttls: %w", err)
 		}
 	}
 
 	if ok, _ := client.Extension("AUTH"); ok {
 		if err := client.Auth(auth); err != nil {
+			log.Printf("mailer: %s email auth failed for %s: %v", kind, toEmail, err)
 			return fmt.Errorf("smtp auth: %w", err)
 		}
 	}
 
 	if err := client.Mail(m.cfg.SMTPFromEmail); err != nil {
+		log.Printf("mailer: %s email MAIL FROM failed for %s: %v", kind, toEmail, err)
 		return fmt.Errorf("smtp mail from: %w", err)
 	}
-	if err := client.Rcpt(email.ToEmail); err != nil {
+	if err := client.Rcpt(toEmail); err != nil {
+		log.Printf("mailer: %s email RCPT TO failed for %s: %v", kind, toEmail, err)
 		return fmt.Errorf("smtp rcpt: %w", err)
 	}
 
 	writer, err := client.Data()
 	if err != nil {
+		log.Printf("mailer: %s email DATA failed for %s: %v", kind, toEmail, err)
 		return fmt.Errorf("smtp data: %w", err)
 	}
 	if _, err := writer.Write(message); err != nil {
-		if closeErr := writer.Close(); closeErr != nil && err == nil {
-			err = fmt.Errorf("smtp close writer after write failure: %w", closeErr)
+		if closeErr := writer.Close(); closeErr != nil {
+			log.Printf("mailer: %s email writer close warning for %s after write failure: %v", kind, toEmail, closeErr)
 		}
+		log.Printf("mailer: %s email write failed for %s: %v", kind, toEmail, err)
 		return fmt.Errorf("smtp write message: %w", err)
 	}
 	if err := writer.Close(); err != nil {
+		log.Printf("mailer: %s email close failed for %s: %v", kind, toEmail, err)
 		return fmt.Errorf("smtp close writer: %w", err)
 	}
 
+	log.Printf("mailer: sent %s email to %s", kind, toEmail)
 	return nil
 }
 
