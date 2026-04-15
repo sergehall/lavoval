@@ -43,6 +43,22 @@ func TestRenderVerificationEmailUsesLavovalBranding(t *testing.T) {
 	}
 }
 
+func TestRenderVerificationEmailUsesPublicBrandFallbackForLocalhost(t *testing.T) {
+	rendered, err := renderVerificationEmail(VerificationEmail{
+		ToEmail:     "serge@example.com",
+		ToName:      "Serge Hall",
+		VerifyURL:   "http://localhost:3000/verify-email?token=abc123",
+		ProductName: "Lavoval",
+	}, "http://localhost:3000")
+	if err != nil {
+		t.Fatalf("renderVerificationEmail returned error: %v", err)
+	}
+
+	if !strings.Contains(rendered.HTMLBody, "https://lavoval.com/email-brand-120x40.png") {
+		t.Fatalf("expected localhost emails to use public brand fallback, got %s", rendered.HTMLBody)
+	}
+}
+
 func TestBuildMultipartMessageIncludesTextAndHTMLParts(t *testing.T) {
 	message, err := buildMultipartMessage("Lavoval", "noreply@lavoval.test", "serge@example.com", RenderedEmail{
 		Subject:  "Lavoval: confirm your email",

@@ -661,12 +661,6 @@ func (s *AuthService) VerifyEmail(ctx context.Context, input VerifyEmailInput) (
 	if err != nil {
 		return VerificationResponse{}, ErrVerificationTokenInvalid
 	}
-	if record.ConsumedAt != nil {
-		return VerificationResponse{}, ErrVerificationTokenInvalid
-	}
-	if time.Now().After(record.ExpiresAt) {
-		return VerificationResponse{}, ErrVerificationTokenExpired
-	}
 
 	user, err := s.users.FindByID(ctx, record.UserID)
 	if err != nil {
@@ -677,6 +671,12 @@ func (s *AuthService) VerifyEmail(ctx context.Context, input VerifyEmailInput) (
 			Email:           user.Email,
 			AlreadyVerified: true,
 		}, nil
+	}
+	if record.ConsumedAt != nil {
+		return VerificationResponse{}, ErrVerificationTokenInvalid
+	}
+	if time.Now().After(record.ExpiresAt) {
+		return VerificationResponse{}, ErrVerificationTokenExpired
 	}
 
 	if _, err := s.users.MarkEmailVerified(ctx, user.ID); err != nil {

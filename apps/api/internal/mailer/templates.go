@@ -5,10 +5,13 @@ import (
 	"embed"
 	"fmt"
 	"html/template"
+	"net"
 	"net/url"
 	"strings"
 	texttmpl "text/template"
 )
+
+const publicBrandImageURL = "https://lavoval.com/email-brand-120x40.png"
 
 //go:embed templates/layouts/*.html templates/emails/*.html templates/emails/*.txt
 var emailTemplatesFS embed.FS
@@ -239,7 +242,14 @@ func buildBrandImageURL(appURL string) string {
 	base, _ := buildWebsiteLink(appURL)
 	parsed, err := url.Parse(base)
 	if err != nil {
-		return "http://localhost:3000/email-brand-120x40.png"
+		return publicBrandImageURL
+	}
+	host := strings.ToLower(parsed.Hostname())
+	if host == "" || host == "localhost" || host == "127.0.0.1" || host == "::1" {
+		return publicBrandImageURL
+	}
+	if ip := net.ParseIP(host); ip != nil && (ip.IsLoopback() || ip.IsPrivate()) {
+		return publicBrandImageURL
 	}
 
 	imageURL := parsed.ResolveReference(&url.URL{Path: "/email-brand-120x40.png"})

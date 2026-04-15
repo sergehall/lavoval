@@ -640,6 +640,55 @@ func TestAuthServiceVerifyEmailExpiredToken(t *testing.T) {
 	}
 }
 
+func TestAuthServiceVerifyEmailReturnsAlreadyVerifiedForConsumedToken(t *testing.T) {
+	cfg := config.Config{
+		JWTIssuer:     "test",
+		JWTAudience:   "test",
+		JWTSecret:     "super-secret",
+		JWTAccessTTL:  time.Minute,
+		JWTRefreshTTL: time.Hour,
+	}
+	verified := now()
+	service := NewAuthService(
+		authUserRepoStub{
+			user: domain.User{
+				ID:              "user-1",
+				Email:           "user@example.com",
+				EmailVerifiedAt: &verified,
+			},
+		},
+		authProfileRepoStub{},
+		&verificationRepoStub{
+			token: domain.EmailVerificationToken{
+				ID:         "token-1",
+				UserID:     "user-1",
+				ConsumedAt: &verified,
+				ExpiresAt:  now().Add(time.Hour),
+			},
+		},
+		&passwordResetRepoStub{},
+		nil,
+		nil,
+		nil,
+		nil,
+		auth.NewTokenManager(cfg),
+		&verificationMailerStub{},
+		NoopSessionRevoker{},
+		cfg,
+	)
+
+	result, err := service.VerifyEmail(context.Background(), VerifyEmailInput{Token: "some-plain-token-value"})
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if !result.AlreadyVerified {
+		t.Fatal("expected already verified response")
+	}
+	if result.Email != "user@example.com" {
+		t.Fatalf("unexpected email %s", result.Email)
+	}
+}
+
 func TestAuthServiceEnrollMFAStartsPendingEnrollment(t *testing.T) {
 	cfg := config.Config{
 		AppName:       "Lavoval",
