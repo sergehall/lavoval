@@ -5,6 +5,12 @@ import { redirect } from 'next/navigation';
 import { ApiClientError, createApiClient } from '@lavoval/sdk';
 import type {
   AuthResponse,
+  MFACompleteSignInRequest,
+  MFADisableRequest,
+  MFAEnrollResponse,
+  MFARegenerateRecoveryCodesRequest,
+  MFAStatusResponse,
+  MFAVerifyEnrollmentRequest,
   ForgotPasswordRequest,
   LoginRequest,
   Profile,
@@ -30,6 +36,8 @@ export class ApiError extends Error {
   constructor(
     message: string,
     public readonly status: number,
+    public readonly code?: string,
+    public readonly meta?: Record<string, unknown>,
   ) {
     super(message);
     this.name = 'ApiError';
@@ -43,7 +51,7 @@ const apiClient = createApiClient({
 
 function mapApiError(error: unknown): never {
   if (error instanceof ApiClientError) {
-    throw new ApiError(error.message, error.status);
+    throw new ApiError(error.message, error.status, error.code, error.meta);
   }
 
   throw error;
@@ -52,6 +60,14 @@ function mapApiError(error: unknown): never {
 export async function login(payload: LoginRequest) {
   try {
     return await apiClient.auth.login(payload);
+  } catch (error) {
+    mapApiError(error);
+  }
+}
+
+export async function completeMFASignIn(payload: MFACompleteSignInRequest) {
+  try {
+    return await apiClient.auth.mfaCompleteSignIn(payload);
   } catch (error) {
     mapApiError(error);
   }
@@ -92,6 +108,49 @@ export async function forgotPassword(payload: ForgotPasswordRequest) {
 export async function resetPassword(payload: ResetPasswordRequest) {
   try {
     return await apiClient.auth.resetPassword(payload);
+  } catch (error) {
+    mapApiError(error);
+  }
+}
+
+export async function fetchMFAStatus(token: string) {
+  try {
+    return await apiClient.auth.mfaStatus({ token });
+  } catch (error) {
+    mapApiError(error);
+  }
+}
+
+export async function enrollMFA(token: string) {
+  try {
+    return await apiClient.auth.mfaEnroll({ token });
+  } catch (error) {
+    mapApiError(error);
+  }
+}
+
+export async function verifyMFAEnrollment(token: string, payload: MFAVerifyEnrollmentRequest) {
+  try {
+    return await apiClient.auth.mfaVerifyEnrollment(payload, { token });
+  } catch (error) {
+    mapApiError(error);
+  }
+}
+
+export async function disableMFA(token: string, payload: MFADisableRequest) {
+  try {
+    return await apiClient.auth.mfaDisable(payload, { token });
+  } catch (error) {
+    mapApiError(error);
+  }
+}
+
+export async function regenerateMFARecoveryCodes(
+  token: string,
+  payload: MFARegenerateRecoveryCodesRequest,
+) {
+  try {
+    return await apiClient.auth.mfaRegenerateRecoveryCodes(payload, { token });
   } catch (error) {
     mapApiError(error);
   }

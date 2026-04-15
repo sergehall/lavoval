@@ -12,8 +12,9 @@ type Envelope struct {
 }
 
 type ErrorBody struct {
-	Code    string `json:"code"`
-	Message string `json:"message"`
+	Code    string         `json:"code"`
+	Message string         `json:"message"`
+	Meta    map[string]any `json:"meta,omitempty"`
 }
 
 // JSON encodes data into an Envelope and writes it with the given HTTP status.
@@ -34,7 +35,11 @@ func JSON(w http.ResponseWriter, status int, data any) {
 
 // Error writes a structured JSON error response.
 func Error(w http.ResponseWriter, status int, code string, message string) {
-	body, err := json.Marshal(Envelope{Error: &ErrorBody{Code: code, Message: message}})
+	ErrorWithMeta(w, status, code, message, nil)
+}
+
+func ErrorWithMeta(w http.ResponseWriter, status int, code string, message string, meta map[string]any) {
+	body, err := json.Marshal(Envelope{Error: &ErrorBody{Code: code, Message: message, Meta: meta}})
 	if err != nil {
 		http.Error(w, "response encoding failed", http.StatusInternalServerError)
 		return

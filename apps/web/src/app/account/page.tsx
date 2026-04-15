@@ -68,6 +68,18 @@ export default async function AccountDashboardPage() {
             </Link>
           </div>
         </Card>
+        <Card>
+          <div className="stack stack--sm">
+            <h2>Security</h2>
+            <p>
+              {session.user.email} can now be protected with an authenticator app before we turn on
+              MFA during sign-in.
+            </p>
+            <Link href="/account/security" className="muted">
+              Manage MFA
+            </Link>
+          </div>
+        </Card>
       </section>
     </div>
   );

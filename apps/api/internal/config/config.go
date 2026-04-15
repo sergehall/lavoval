@@ -23,6 +23,10 @@ type Config struct {
 	AdminSeedSecret       string
 	EmailVerificationTTL  time.Duration
 	PasswordResetTTL      time.Duration
+	MFATOTPPeriod         time.Duration
+	MFATOTPIssuer         string
+	MFASecretKey          string
+	MFASignInChallengeTTL time.Duration
 	SMTPHost              string
 	SMTPPort              int
 	SMTPUsername          string
@@ -59,6 +63,16 @@ func Load() (Config, error) {
 		return Config{}, fmt.Errorf("parse PASSWORD_RESET_TTL: %w", err)
 	}
 
+	mfaTOTPPeriod, err := time.ParseDuration(getEnv("MFA_TOTP_PERIOD", "30s"))
+	if err != nil {
+		return Config{}, fmt.Errorf("parse MFA_TOTP_PERIOD: %w", err)
+	}
+
+	mfaSignInChallengeTTL, err := time.ParseDuration(getEnv("MFA_SIGN_IN_CHALLENGE_TTL", "10m"))
+	if err != nil {
+		return Config{}, fmt.Errorf("parse MFA_SIGN_IN_CHALLENGE_TTL: %w", err)
+	}
+
 	smtpPort, err := strconv.Atoi(getEnv("SMTP_PORT", "587"))
 	if err != nil {
 		return Config{}, fmt.Errorf("parse SMTP_PORT: %w", err)
@@ -90,6 +104,10 @@ func Load() (Config, error) {
 		AdminSeedSecret:       getEnv("ADMIN_SEED_PASSWORD", "ChangeMe123!"),
 		EmailVerificationTTL:  emailVerificationTTL,
 		PasswordResetTTL:      passwordResetTTL,
+		MFATOTPPeriod:         mfaTOTPPeriod,
+		MFATOTPIssuer:         getEnv("MFA_TOTP_ISSUER", getEnv("APP_NAME", "Lavoval")),
+		MFASecretKey:          getEnv("MFA_SECRET_KEY", ""),
+		MFASignInChallengeTTL: mfaSignInChallengeTTL,
 		SMTPHost:              getEnv("SMTP_HOST", ""),
 		SMTPPort:              smtpPort,
 		SMTPUsername:          getEnv("SMTP_USERNAME", ""),

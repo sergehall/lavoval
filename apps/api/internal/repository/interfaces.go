@@ -12,6 +12,9 @@ type UserStore interface {
 	FindByID(context.Context, string) (domain.User, error)
 	MarkEmailVerified(context.Context, string) (domain.User, error)
 	UpdatePasswordHash(context.Context, string, string) (domain.User, error)
+	StartTOTPEnrollment(context.Context, string, string) (domain.User, error)
+	EnableTOTP(context.Context, string, string) (domain.User, error)
+	DisableTOTP(context.Context, string) (domain.User, error)
 	List(context.Context) ([]domain.User, error)
 }
 
@@ -25,6 +28,20 @@ type EmailVerificationStore interface {
 type PasswordResetStore interface {
 	Create(context.Context, domain.PasswordResetToken) (domain.PasswordResetToken, error)
 	FindByTokenHash(context.Context, string) (domain.PasswordResetToken, error)
+	Consume(context.Context, string, string) error
+	RevokeActiveByUserID(context.Context, string) error
+}
+
+type MFARecoveryCodeStore interface {
+	ReplaceForUser(context.Context, string, []domain.MFARecoveryCode) error
+	FindActiveByCodeHash(context.Context, string, string) (domain.MFARecoveryCode, error)
+	Consume(context.Context, string, string) error
+	RevokeActiveByUserID(context.Context, string) error
+}
+
+type SignInChallengeStore interface {
+	Create(context.Context, domain.AuthSignInChallenge) (domain.AuthSignInChallenge, error)
+	FindByID(context.Context, string) (domain.AuthSignInChallenge, error)
 	Consume(context.Context, string, string) error
 	RevokeActiveByUserID(context.Context, string) error
 }

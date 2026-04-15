@@ -40,14 +40,18 @@ const (
 )
 
 type User struct {
-	ID              string        `json:"id"`
-	Email           string        `json:"email"`
-	PasswordHash    string        `json:"-"`
-	Role            Role          `json:"role"`
-	Status          AccountStatus `json:"status"`
-	EmailVerifiedAt *time.Time    `json:"emailVerifiedAt,omitempty"`
-	CreatedAt       time.Time     `json:"createdAt"`
-	UpdatedAt       time.Time     `json:"updatedAt"`
+	ID                            string        `json:"id"`
+	Email                         string        `json:"email"`
+	PasswordHash                  string        `json:"-"`
+	Role                          Role          `json:"role"`
+	Status                        AccountStatus `json:"status"`
+	EmailVerifiedAt               *time.Time    `json:"emailVerifiedAt,omitempty"`
+	MFAEnabled                    bool          `json:"mfaEnabled"`
+	MFATOTPSecretEncrypted        *string       `json:"-"`
+	MFAPendingTOTPSecretEncrypted *string       `json:"-"`
+	MFAEnrolledAt                 *time.Time    `json:"mfaEnrolledAt,omitempty"`
+	CreatedAt                     time.Time     `json:"createdAt"`
+	UpdatedAt                     time.Time     `json:"updatedAt"`
 }
 
 type EmailVerificationToken struct {
@@ -63,6 +67,22 @@ type PasswordResetToken struct {
 	ID         string     `json:"id"`
 	UserID     string     `json:"userId"`
 	TokenHash  string     `json:"-"`
+	ExpiresAt  time.Time  `json:"expiresAt"`
+	ConsumedAt *time.Time `json:"consumedAt,omitempty"`
+	CreatedAt  time.Time  `json:"createdAt"`
+}
+
+type MFARecoveryCode struct {
+	ID         string     `json:"id"`
+	UserID     string     `json:"userId"`
+	CodeHash   string     `json:"-"`
+	ConsumedAt *time.Time `json:"consumedAt,omitempty"`
+	CreatedAt  time.Time  `json:"createdAt"`
+}
+
+type AuthSignInChallenge struct {
+	ID         string     `json:"id"`
+	UserID     string     `json:"userId"`
 	ExpiresAt  time.Time  `json:"expiresAt"`
 	ConsumedAt *time.Time `json:"consumedAt,omitempty"`
 	CreatedAt  time.Time  `json:"createdAt"`

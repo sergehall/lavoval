@@ -177,6 +177,46 @@ export const resetPasswordResponseSchema = z.object({
 });
 export type ResetPasswordResponse = z.infer<typeof resetPasswordResponseSchema>;
 
+export const mfaStatusResponseSchema = z.object({
+  enabled: z.boolean(),
+  pendingEnrollment: z.boolean(),
+  enrolledAt: z.string().nullable().optional(),
+  recoveryCodes: z.array(z.string()).optional(),
+});
+export type MFAStatusResponse = z.infer<typeof mfaStatusResponseSchema>;
+
+export const mfaEnrollResponseSchema = z.object({
+  secret: z.string().min(16),
+  provisionUrl: z.string().min(1),
+});
+export type MFAEnrollResponse = z.infer<typeof mfaEnrollResponseSchema>;
+
+export const mfaVerifyEnrollmentRequestSchema = z.object({
+  code: z.string().length(6),
+});
+export type MFAVerifyEnrollmentRequest = z.infer<typeof mfaVerifyEnrollmentRequestSchema>;
+
+export const mfaDisableRequestSchema = z.object({
+  password: z.string().min(8),
+  code: z.string().length(6),
+});
+export type MFADisableRequest = z.infer<typeof mfaDisableRequestSchema>;
+
+export const mfaRegenerateRecoveryCodesRequestSchema = z.object({
+  password: z.string().min(8),
+  code: z.string().length(6),
+});
+export type MFARegenerateRecoveryCodesRequest = z.infer<typeof mfaRegenerateRecoveryCodesRequestSchema>;
+
+export const mfaCompleteSignInRequestSchema = z.object({
+  challengeId: z.string().uuid(),
+  code: z.string().length(6).optional(),
+  recoveryCode: z.string().min(8).optional(),
+}).refine((value) => Boolean(value.code || value.recoveryCode), {
+  message: 'Provide an authenticator code or a recovery code.',
+});
+export type MFACompleteSignInRequest = z.infer<typeof mfaCompleteSignInRequestSchema>;
+
 export const profileUpdateSchema = z.object({
   firstName: z.string().min(2),
   lastName: z.string().min(2),

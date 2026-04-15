@@ -42,11 +42,17 @@ func NewRouter(cfg config.Config, tokens auth.TokenManager, authService *service
 		api.Route("/auth", func(authRouter chi.Router) {
 			authRouter.Post("/register", authHandler.Register)
 			authRouter.Post("/login", authHandler.Login)
+			authRouter.Post("/mfa/complete-sign-in", authHandler.CompleteMFASignIn)
 			authRouter.Post("/verify-email", authHandler.VerifyEmail)
 			authRouter.Post("/resend-verification", authHandler.ResendVerification)
 			authRouter.Post("/forgot-password", authHandler.ForgotPassword)
 			authRouter.Post("/reset-password", authHandler.ResetPassword)
 			authRouter.With(appmiddleware.Authenticate(tokens)).Post("/logout", authHandler.Logout)
+			authRouter.With(appmiddleware.Authenticate(tokens)).Get("/mfa/status", authHandler.MFAStatus)
+			authRouter.With(appmiddleware.Authenticate(tokens)).Post("/mfa/enroll", authHandler.EnrollMFA)
+			authRouter.With(appmiddleware.Authenticate(tokens)).Post("/mfa/verify-enrollment", authHandler.VerifyMFAEnrollment)
+			authRouter.With(appmiddleware.Authenticate(tokens)).Post("/mfa/disable", authHandler.DisableMFA)
+			authRouter.With(appmiddleware.Authenticate(tokens)).Post("/mfa/recovery-codes/regenerate", authHandler.RegenerateMFARecoveryCodes)
 		})
 
 		api.Get("/skills", skillHandler.ListPublic)

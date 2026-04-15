@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"crypto/sha256"
+	"encoding/base32"
 	"encoding/base64"
 	"errors"
 	"fmt"
@@ -29,16 +30,26 @@ var ErrVerificationTokenExpired = errors.New("verification token expired")
 var ErrEmailAlreadyVerified = errors.New("email already verified")
 var ErrPasswordResetTokenInvalid = errors.New("password reset token is invalid")
 var ErrPasswordResetTokenExpired = errors.New("password reset token expired")
+var ErrMFAAlreadyEnabled = errors.New("mfa already enabled")
+var ErrMFANotEnabled = errors.New("mfa not enabled")
+var ErrMFAPendingEnrollmentMissing = errors.New("mfa pending enrollment missing")
+var ErrMFACodeInvalid = errors.New("mfa code is invalid")
+var ErrMFARecoveryCodeInvalid = errors.New("mfa recovery code is invalid")
+var ErrMFASignInChallengeInvalid = errors.New("mfa sign-in challenge is invalid")
+var ErrMFASignInChallengeExpired = errors.New("mfa sign-in challenge expired")
 
 type AuthService struct {
-	users          repository.UserStore
-	profiles       repository.ProfileStore
-	verifications  repository.EmailVerificationStore
-	passwordResets repository.PasswordResetStore
-	tokens         auth.TokenManager
-	mailer         mailer.VerificationSender
-	sessions       SessionRevoker
-	cfg            config.Config
+	users            repository.UserStore
+	profiles         repository.ProfileStore
+	verifications    repository.EmailVerificationStore
+	passwordResets   repository.PasswordResetStore
+	recoveryCodes    repository.MFARecoveryCodeStore
+	signInChallenges repository.SignInChallengeStore
+	tokens           auth.TokenManager
+	mailer           mailer.VerificationSender
+	sessions         SessionRevoker
+	cfg              config.Config
+	totp             totpManager
 }
 
 type AuthPayload struct {
@@ -104,11 +115,53 @@ type ResetPasswordResponse struct {
 	Reset bool   `json:"reset"`
 }
 
+type MFAStatusResponse struct {
+	Enabled           bool       `json:"enabled"`
+	PendingEnrollment bool       `json:"pendingEnrollment"`
+	EnrolledAt        *time.Time `json:"enrolledAt,omitempty"`
+	RecoveryCodes     []string   `json:"recoveryCodes,omitempty"`
+}
+
+type MFAEnrollResponse struct {
+	Secret       string `json:"secret"`
+	ProvisionURL string `json:"provisionUrl"`
+}
+
+type MFAVerifyEnrollmentInput struct {
+	Code string `json:"code" validate:"required,len=6,numeric"`
+}
+
+type MFADisableInput struct {
+	Password string `json:"password" validate:"required,min=8"`
+	Code     string `json:"code" validate:"required,len=6,numeric"`
+}
+
+type MFARegenerateRecoveryCodesInput struct {
+	Password string `json:"password" validate:"required,min=8"`
+	Code     string `json:"code" validate:"required,len=6,numeric"`
+}
+
+type CompleteMFASignInInput struct {
+	ChallengeID  string `json:"challengeId" validate:"required,uuid4"`
+	Code         string `json:"code,omitempty"`
+	RecoveryCode string `json:"recoveryCode,omitempty"`
+}
+
+type MFARequiredError struct {
+	ChallengeID string
+}
+
+func (e *MFARequiredError) Error() string {
+	return "mfa required"
+}
+
 func NewAuthService(
 	users repository.UserStore,
 	profiles repository.ProfileStore,
 	verifications repository.EmailVerificationStore,
 	passwordResets repository.PasswordResetStore,
+	recoveryCodes repository.MFARecoveryCodeStore,
+	signInChallenges repository.SignInChallengeStore,
 	tokens auth.TokenManager,
 	verificationMailer mailer.VerificationSender,
 	sessionRevoker SessionRevoker,
@@ -117,17 +170,216 @@ func NewAuthService(
 	if sessionRevoker == nil {
 		sessionRevoker = NoopSessionRevoker{}
 	}
+	if recoveryCodes == nil {
+		recoveryCodes = noopMFARecoveryCodeStore{}
+	}
+	if signInChallenges == nil {
+		signInChallenges = noopSignInChallengeStore{}
+	}
 
 	return &AuthService{
-		users:          users,
-		profiles:       profiles,
-		verifications:  verifications,
-		passwordResets: passwordResets,
-		tokens:         tokens,
-		mailer:         verificationMailer,
-		sessions:       sessionRevoker,
-		cfg:            cfg,
+		users:            users,
+		profiles:         profiles,
+		verifications:    verifications,
+		passwordResets:   passwordResets,
+		recoveryCodes:    recoveryCodes,
+		signInChallenges: signInChallenges,
+		tokens:           tokens,
+		mailer:           verificationMailer,
+		sessions:         sessionRevoker,
+		cfg:              cfg,
+		totp:             newTOTPManager(cfg),
 	}
+}
+
+type noopMFARecoveryCodeStore struct{}
+
+func (noopMFARecoveryCodeStore) ReplaceForUser(context.Context, string, []domain.MFARecoveryCode) error {
+	return nil
+}
+func (noopMFARecoveryCodeStore) FindActiveByCodeHash(context.Context, string, string) (domain.MFARecoveryCode, error) {
+	return domain.MFARecoveryCode{}, pgx.ErrNoRows
+}
+func (noopMFARecoveryCodeStore) Consume(context.Context, string, string) error {
+	return nil
+}
+func (noopMFARecoveryCodeStore) RevokeActiveByUserID(context.Context, string) error {
+	return nil
+}
+
+type noopSignInChallengeStore struct{}
+
+func (noopSignInChallengeStore) Create(_ context.Context, challenge domain.AuthSignInChallenge) (domain.AuthSignInChallenge, error) {
+	return challenge, nil
+}
+func (noopSignInChallengeStore) FindByID(context.Context, string) (domain.AuthSignInChallenge, error) {
+	return domain.AuthSignInChallenge{}, pgx.ErrNoRows
+}
+func (noopSignInChallengeStore) Consume(context.Context, string, string) error {
+	return nil
+}
+func (noopSignInChallengeStore) RevokeActiveByUserID(context.Context, string) error {
+	return nil
+}
+
+func (s *AuthService) MFAStatus(ctx context.Context, userID string) (MFAStatusResponse, error) {
+	user, err := s.users.FindByID(ctx, userID)
+	if err != nil {
+		return MFAStatusResponse{}, fmt.Errorf("find user for mfa status: %w", err)
+	}
+
+	return MFAStatusResponse{
+		Enabled:           user.MFAEnabled,
+		PendingEnrollment: user.MFAPendingTOTPSecretEncrypted != nil && *user.MFAPendingTOTPSecretEncrypted != "",
+		EnrolledAt:        user.MFAEnrolledAt,
+	}, nil
+}
+
+func (s *AuthService) EnrollMFA(ctx context.Context, userID string) (MFAEnrollResponse, error) {
+	user, err := s.users.FindByID(ctx, userID)
+	if err != nil {
+		return MFAEnrollResponse{}, fmt.Errorf("find user for mfa enrollment: %w", err)
+	}
+	if user.MFAEnabled {
+		return MFAEnrollResponse{}, ErrMFAAlreadyEnabled
+	}
+
+	secret, err := s.totp.GenerateSecret()
+	if err != nil {
+		return MFAEnrollResponse{}, err
+	}
+
+	encryptedSecret, err := s.totp.EncryptSecret(secret)
+	if err != nil {
+		return MFAEnrollResponse{}, err
+	}
+
+	if _, err := s.users.StartTOTPEnrollment(ctx, user.ID, encryptedSecret); err != nil {
+		return MFAEnrollResponse{}, fmt.Errorf("start mfa enrollment: %w", err)
+	}
+
+	return MFAEnrollResponse{
+		Secret:       secret,
+		ProvisionURL: s.totp.ProvisioningURI(user.Email, secret),
+	}, nil
+}
+
+func (s *AuthService) VerifyMFAEnrollment(ctx context.Context, userID string, input MFAVerifyEnrollmentInput) (MFAStatusResponse, error) {
+	user, err := s.users.FindByID(ctx, userID)
+	if err != nil {
+		return MFAStatusResponse{}, fmt.Errorf("find user for mfa verification: %w", err)
+	}
+	if user.MFAEnabled {
+		return MFAStatusResponse{}, ErrMFAAlreadyEnabled
+	}
+	if user.MFAPendingTOTPSecretEncrypted == nil || *user.MFAPendingTOTPSecretEncrypted == "" {
+		return MFAStatusResponse{}, ErrMFAPendingEnrollmentMissing
+	}
+
+	secret, err := s.totp.DecryptSecret(*user.MFAPendingTOTPSecretEncrypted)
+	if err != nil {
+		return MFAStatusResponse{}, fmt.Errorf("decrypt pending mfa secret: %w", err)
+	}
+
+	if !s.totp.VerifyCode(secret, input.Code, time.Now()) {
+		return MFAStatusResponse{}, ErrMFACodeInvalid
+	}
+
+	updatedUser, err := s.users.EnableTOTP(ctx, user.ID, *user.MFAPendingTOTPSecretEncrypted)
+	if err != nil {
+		return MFAStatusResponse{}, fmt.Errorf("enable mfa: %w", err)
+	}
+
+	recoveryCodes, recoveryRecords, err := s.generateRecoveryCodes(user.ID)
+	if err != nil {
+		return MFAStatusResponse{}, fmt.Errorf("generate recovery codes: %w", err)
+	}
+	if err := s.recoveryCodes.ReplaceForUser(ctx, user.ID, recoveryRecords); err != nil {
+		return MFAStatusResponse{}, fmt.Errorf("store recovery codes: %w", err)
+	}
+
+	return MFAStatusResponse{
+		Enabled:           updatedUser.MFAEnabled,
+		PendingEnrollment: false,
+		EnrolledAt:        updatedUser.MFAEnrolledAt,
+		RecoveryCodes:     recoveryCodes,
+	}, nil
+}
+
+func (s *AuthService) DisableMFA(ctx context.Context, userID string, input MFADisableInput) (MFAStatusResponse, error) {
+	user, err := s.users.FindByID(ctx, userID)
+	if err != nil {
+		return MFAStatusResponse{}, fmt.Errorf("find user for mfa disable: %w", err)
+	}
+	if !user.MFAEnabled || user.MFATOTPSecretEncrypted == nil || *user.MFATOTPSecretEncrypted == "" {
+		return MFAStatusResponse{}, ErrMFANotEnabled
+	}
+
+	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(input.Password)); err != nil {
+		return MFAStatusResponse{}, ErrInvalidCredentials
+	}
+
+	secret, err := s.totp.DecryptSecret(*user.MFATOTPSecretEncrypted)
+	if err != nil {
+		return MFAStatusResponse{}, fmt.Errorf("decrypt active mfa secret: %w", err)
+	}
+	if !s.totp.VerifyCode(secret, input.Code, time.Now()) {
+		return MFAStatusResponse{}, ErrMFACodeInvalid
+	}
+
+	updatedUser, err := s.users.DisableTOTP(ctx, user.ID)
+	if err != nil {
+		return MFAStatusResponse{}, fmt.Errorf("disable mfa: %w", err)
+	}
+	if err := s.recoveryCodes.RevokeActiveByUserID(ctx, user.ID); err != nil {
+		return MFAStatusResponse{}, fmt.Errorf("revoke recovery codes after mfa disable: %w", err)
+	}
+	if err := s.sessions.RevokeAllSessionsForUser(ctx, user.ID, "mfa_disabled"); err != nil {
+		return MFAStatusResponse{}, fmt.Errorf("revoke sessions after mfa disable: %w", err)
+	}
+
+	return MFAStatusResponse{
+		Enabled:           updatedUser.MFAEnabled,
+		PendingEnrollment: false,
+		EnrolledAt:        updatedUser.MFAEnrolledAt,
+	}, nil
+}
+
+func (s *AuthService) RegenerateMFARecoveryCodes(ctx context.Context, userID string, input MFARegenerateRecoveryCodesInput) (MFAStatusResponse, error) {
+	user, err := s.users.FindByID(ctx, userID)
+	if err != nil {
+		return MFAStatusResponse{}, fmt.Errorf("find user for recovery code regeneration: %w", err)
+	}
+	if !user.MFAEnabled || user.MFATOTPSecretEncrypted == nil || *user.MFATOTPSecretEncrypted == "" {
+		return MFAStatusResponse{}, ErrMFANotEnabled
+	}
+
+	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(input.Password)); err != nil {
+		return MFAStatusResponse{}, ErrInvalidCredentials
+	}
+
+	secret, err := s.totp.DecryptSecret(*user.MFATOTPSecretEncrypted)
+	if err != nil {
+		return MFAStatusResponse{}, fmt.Errorf("decrypt active mfa secret: %w", err)
+	}
+	if !s.totp.VerifyCode(secret, input.Code, time.Now()) {
+		return MFAStatusResponse{}, ErrMFACodeInvalid
+	}
+
+	recoveryCodes, recoveryRecords, err := s.generateRecoveryCodes(user.ID)
+	if err != nil {
+		return MFAStatusResponse{}, fmt.Errorf("generate recovery codes: %w", err)
+	}
+	if err := s.recoveryCodes.ReplaceForUser(ctx, user.ID, recoveryRecords); err != nil {
+		return MFAStatusResponse{}, fmt.Errorf("replace recovery codes: %w", err)
+	}
+
+	return MFAStatusResponse{
+		Enabled:           user.MFAEnabled,
+		PendingEnrollment: false,
+		EnrolledAt:        user.MFAEnrolledAt,
+		RecoveryCodes:     recoveryCodes,
+	}, nil
 }
 
 func (s *AuthService) ForgotPassword(ctx context.Context, input ForgotPasswordInput) (ForgotPasswordResponse, error) {
@@ -264,6 +516,62 @@ func (s *AuthService) Login(ctx context.Context, input LoginInput) (AuthPayload,
 	}
 	if user.EmailVerifiedAt == nil {
 		return AuthPayload{}, ErrEmailNotVerified
+	}
+	if user.MFAEnabled {
+		challenge, err := s.startMFASignInChallenge(ctx, user.ID)
+		if err != nil {
+			return AuthPayload{}, fmt.Errorf("start mfa sign-in challenge: %w", err)
+		}
+		return AuthPayload{}, &MFARequiredError{ChallengeID: challenge.ID}
+	}
+
+	profile, err := s.profiles.FindByUserID(ctx, user.ID)
+	if err != nil {
+		return AuthPayload{}, fmt.Errorf("find profile: %w", err)
+	}
+
+	return s.buildAuthPayload(user, profile)
+}
+
+func (s *AuthService) CompleteMFASignIn(ctx context.Context, input CompleteMFASignInInput) (AuthPayload, error) {
+	challenge, err := s.signInChallenges.FindByID(ctx, input.ChallengeID)
+	if err != nil {
+		return AuthPayload{}, ErrMFASignInChallengeInvalid
+	}
+	if challenge.ConsumedAt != nil {
+		return AuthPayload{}, ErrMFASignInChallengeInvalid
+	}
+	if time.Now().After(challenge.ExpiresAt) {
+		return AuthPayload{}, ErrMFASignInChallengeExpired
+	}
+
+	user, err := s.users.FindByID(ctx, challenge.UserID)
+	if err != nil {
+		return AuthPayload{}, fmt.Errorf("find challenge user: %w", err)
+	}
+	if !user.MFAEnabled || user.MFATOTPSecretEncrypted == nil || *user.MFATOTPSecretEncrypted == "" {
+		return AuthPayload{}, ErrMFANotEnabled
+	}
+
+	switch {
+	case strings.TrimSpace(input.RecoveryCode) != "":
+		if err := s.consumeRecoveryCode(ctx, user.ID, input.RecoveryCode); err != nil {
+			return AuthPayload{}, err
+		}
+	case strings.TrimSpace(input.Code) != "":
+		secret, err := s.totp.DecryptSecret(*user.MFATOTPSecretEncrypted)
+		if err != nil {
+			return AuthPayload{}, fmt.Errorf("decrypt active mfa secret: %w", err)
+		}
+		if !s.totp.VerifyCode(secret, input.Code, time.Now()) {
+			return AuthPayload{}, ErrMFACodeInvalid
+		}
+	default:
+		return AuthPayload{}, ErrMFACodeInvalid
+	}
+
+	if err := s.signInChallenges.Consume(ctx, challenge.ID, user.ID); err != nil {
+		return AuthPayload{}, fmt.Errorf("consume sign-in challenge: %w", err)
 	}
 
 	profile, err := s.profiles.FindByUserID(ctx, user.ID)
@@ -437,5 +745,76 @@ func newVerificationToken() (plain string, hashed string, err error) {
 
 func hashVerificationToken(token string) string {
 	sum := sha256.Sum256([]byte(token))
+	return base64.RawURLEncoding.EncodeToString(sum[:])
+}
+
+func (s *AuthService) startMFASignInChallenge(ctx context.Context, userID string) (domain.AuthSignInChallenge, error) {
+	if err := s.signInChallenges.RevokeActiveByUserID(ctx, userID); err != nil {
+		return domain.AuthSignInChallenge{}, fmt.Errorf("revoke active mfa challenges: %w", err)
+	}
+
+	challenge := domain.AuthSignInChallenge{
+		ID:        uuid.NewString(),
+		UserID:    userID,
+		ExpiresAt: time.Now().Add(s.cfg.MFASignInChallengeTTL),
+	}
+
+	created, err := s.signInChallenges.Create(ctx, challenge)
+	if err != nil {
+		return domain.AuthSignInChallenge{}, fmt.Errorf("create mfa challenge: %w", err)
+	}
+
+	return created, nil
+}
+
+func (s *AuthService) generateRecoveryCodes(userID string) ([]string, []domain.MFARecoveryCode, error) {
+	plain := make([]string, 0, 8)
+	records := make([]domain.MFARecoveryCode, 0, 8)
+
+	for i := 0; i < 8; i++ {
+		code, err := generateRecoveryCode()
+		if err != nil {
+			return nil, nil, err
+		}
+
+		plain = append(plain, code)
+		records = append(records, domain.MFARecoveryCode{
+			ID:       uuid.NewString(),
+			UserID:   userID,
+			CodeHash: hashRecoveryCode(code),
+		})
+	}
+
+	return plain, records, nil
+}
+
+func (s *AuthService) consumeRecoveryCode(ctx context.Context, userID string, plain string) error {
+	record, err := s.recoveryCodes.FindActiveByCodeHash(ctx, userID, hashRecoveryCode(plain))
+	if err != nil {
+		return ErrMFARecoveryCodeInvalid
+	}
+	if err := s.recoveryCodes.Consume(ctx, record.ID, userID); err != nil {
+		return fmt.Errorf("consume recovery code: %w", err)
+	}
+	return nil
+}
+
+func generateRecoveryCode() (string, error) {
+	plain, _, err := newVerificationToken()
+	if err != nil {
+		return "", fmt.Errorf("generate recovery code: %w", err)
+	}
+
+	normalized := strings.ToUpper(strings.TrimRight(base32.StdEncoding.EncodeToString([]byte(plain)), "="))
+	if len(normalized) < 12 {
+		return normalized, nil
+	}
+
+	return normalized[:4] + "-" + normalized[4:8] + "-" + normalized[8:12], nil
+}
+
+func hashRecoveryCode(plain string) string {
+	normalized := strings.ToUpper(strings.ReplaceAll(strings.TrimSpace(plain), "-", ""))
+	sum := sha256.Sum256([]byte(normalized))
 	return base64.RawURLEncoding.EncodeToString(sum[:])
 }

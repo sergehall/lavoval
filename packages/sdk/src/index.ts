@@ -1,5 +1,11 @@
 import type {
   AuthResponse,
+  MFACompleteSignInRequest,
+  MFADisableRequest,
+  MFAEnrollResponse,
+  MFARegenerateRecoveryCodesRequest,
+  MFAStatusResponse,
+  MFAVerifyEnrollmentRequest,
   ForgotPasswordRequest,
   ForgotPasswordResponse,
   LoginRequest,
@@ -39,14 +45,20 @@ export type EnvLike = Record<string, string | undefined>;
 
 export class ApiClientError extends Error {
   readonly status: number;
+  readonly code?: string;
+  readonly meta?: Record<string, unknown>;
 
   constructor(
     message: string,
     status: number,
+    code?: string,
+    meta?: Record<string, unknown>,
   ) {
     super(message);
     this.name = 'ApiClientError';
     this.status = status;
+    this.code = code;
+    this.meta = meta;
   }
 }
 
@@ -66,6 +78,12 @@ export const apiPaths = {
     resendVerification: () => '/api/v1/auth/resend-verification',
     forgotPassword: () => '/api/v1/auth/forgot-password',
     resetPassword: () => '/api/v1/auth/reset-password',
+    mfaStatus: () => '/api/v1/auth/mfa/status',
+    mfaEnroll: () => '/api/v1/auth/mfa/enroll',
+    mfaVerifyEnrollment: () => '/api/v1/auth/mfa/verify-enrollment',
+    mfaDisable: () => '/api/v1/auth/mfa/disable',
+    mfaRegenerateRecoveryCodes: () => '/api/v1/auth/mfa/recovery-codes/regenerate',
+    mfaCompleteSignIn: () => '/api/v1/auth/mfa/complete-sign-in',
     logout: () => '/api/v1/auth/logout',
   },
   me: {
@@ -133,7 +151,12 @@ export function createApiClient(config: ApiClientConfig) {
 
     if (!response.ok) {
       const payload = await response.json().catch(() => ({ error: { message: 'Unknown error' } }));
-      throw new ApiClientError(payload?.error?.message ?? 'Request failed', response.status);
+      throw new ApiClientError(
+        payload?.error?.message ?? 'Request failed',
+        response.status,
+        payload?.error?.code,
+        payload?.error?.meta,
+      );
     }
 
     return response.json() as Promise<ApiEnvelope<T>>;
@@ -174,6 +197,36 @@ export function createApiClient(config: ApiClientConfig) {
       },
       resetPassword(payload: ResetPasswordRequest) {
         return request<ResetPasswordResponse>(apiPaths.auth.resetPassword(), {
+          method: 'POST',
+          body: JSON.stringify(payload),
+        });
+      },
+      mfaStatus(options: ApiClientRequestOptions) {
+        return request<MFAStatusResponse>(apiPaths.auth.mfaStatus(), undefined, options);
+      },
+      mfaEnroll(options: ApiClientRequestOptions) {
+        return request<MFAEnrollResponse>(apiPaths.auth.mfaEnroll(), { method: 'POST' }, options);
+      },
+      mfaVerifyEnrollment(payload: MFAVerifyEnrollmentRequest, options: ApiClientRequestOptions) {
+        return request<MFAStatusResponse>(apiPaths.auth.mfaVerifyEnrollment(), {
+          method: 'POST',
+          body: JSON.stringify(payload),
+        }, options);
+      },
+      mfaDisable(payload: MFADisableRequest, options: ApiClientRequestOptions) {
+        return request<MFAStatusResponse>(apiPaths.auth.mfaDisable(), {
+          method: 'POST',
+          body: JSON.stringify(payload),
+        }, options);
+      },
+      mfaRegenerateRecoveryCodes(payload: MFARegenerateRecoveryCodesRequest, options: ApiClientRequestOptions) {
+        return request<MFAStatusResponse>(apiPaths.auth.mfaRegenerateRecoveryCodes(), {
+          method: 'POST',
+          body: JSON.stringify(payload),
+        }, options);
+      },
+      mfaCompleteSignIn(payload: MFACompleteSignInRequest) {
+        return request<AuthResponse>(apiPaths.auth.mfaCompleteSignIn(), {
           method: 'POST',
           body: JSON.stringify(payload),
         });

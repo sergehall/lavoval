@@ -16,9 +16,12 @@ import (
 )
 
 type authUserRepoStub struct {
-	user               domain.User
-	findByEmail        func(string) (domain.User, error)
-	updatePasswordHash func(string, string) (domain.User, error)
+	user                domain.User
+	findByEmail         func(string) (domain.User, error)
+	updatePasswordHash  func(string, string) (domain.User, error)
+	startTOTPEnrollment func(string, string) (domain.User, error)
+	enableTOTP          func(string, string) (domain.User, error)
+	disableTOTP         func(string) (domain.User, error)
 }
 
 func (s authUserRepoStub) Create(_ context.Context, user domain.User) (domain.User, error) {
@@ -48,6 +51,10 @@ func (s authUserRepoStub) List(_ context.Context) ([]domain.User, error) {
 	return []domain.User{s.user}, nil
 }
 
+func (s authUserRepoStub) UpdateRoleAndStatus(_ context.Context, _ string, _ domain.Role, _ domain.AccountStatus) (domain.User, error) {
+	return s.user, nil
+}
+
 func (s authUserRepoStub) UpdatePasswordHash(_ context.Context, userID string, passwordHash string) (domain.User, error) {
 	if s.updatePasswordHash != nil {
 		return s.updatePasswordHash(userID, passwordHash)
@@ -55,6 +62,43 @@ func (s authUserRepoStub) UpdatePasswordHash(_ context.Context, userID string, p
 
 	s.user.ID = userID
 	s.user.PasswordHash = passwordHash
+	return s.user, nil
+}
+
+func (s authUserRepoStub) StartTOTPEnrollment(_ context.Context, userID string, pendingSecretEncrypted string) (domain.User, error) {
+	if s.startTOTPEnrollment != nil {
+		return s.startTOTPEnrollment(userID, pendingSecretEncrypted)
+	}
+
+	s.user.ID = userID
+	s.user.MFAPendingTOTPSecretEncrypted = &pendingSecretEncrypted
+	return s.user, nil
+}
+
+func (s authUserRepoStub) EnableTOTP(_ context.Context, userID string, secretEncrypted string) (domain.User, error) {
+	if s.enableTOTP != nil {
+		return s.enableTOTP(userID, secretEncrypted)
+	}
+
+	enrolledAt := now()
+	s.user.ID = userID
+	s.user.MFAEnabled = true
+	s.user.MFATOTPSecretEncrypted = &secretEncrypted
+	s.user.MFAPendingTOTPSecretEncrypted = nil
+	s.user.MFAEnrolledAt = &enrolledAt
+	return s.user, nil
+}
+
+func (s authUserRepoStub) DisableTOTP(_ context.Context, userID string) (domain.User, error) {
+	if s.disableTOTP != nil {
+		return s.disableTOTP(userID)
+	}
+
+	s.user.ID = userID
+	s.user.MFAEnabled = false
+	s.user.MFATOTPSecretEncrypted = nil
+	s.user.MFAPendingTOTPSecretEncrypted = nil
+	s.user.MFAEnrolledAt = nil
 	return s.user, nil
 }
 
@@ -124,10 +168,94 @@ func (s *passwordResetRepoStub) RevokeActiveByUserID(_ context.Context, _ string
 	return nil
 }
 
+type mfaRecoveryCodeRepoStub struct {
+	codes []domain.MFARecoveryCode
+}
+
+func (s *mfaRecoveryCodeRepoStub) ReplaceForUser(_ context.Context, _ string, codes []domain.MFARecoveryCode) error {
+	s.codes = codes
+	return nil
+}
+
+func (s *mfaRecoveryCodeRepoStub) FindActiveByCodeHash(_ context.Context, userID string, codeHash string) (domain.MFARecoveryCode, error) {
+	for _, code := range s.codes {
+		if code.UserID == userID && code.CodeHash == codeHash && code.ConsumedAt == nil {
+			return code, nil
+		}
+	}
+	return domain.MFARecoveryCode{}, pgx.ErrNoRows
+}
+
+func (s *mfaRecoveryCodeRepoStub) Consume(_ context.Context, id string, userID string) error {
+	for index, code := range s.codes {
+		if code.ID == id && code.UserID == userID {
+			consumedAt := now()
+			s.codes[index].ConsumedAt = &consumedAt
+			return nil
+		}
+	}
+	return pgx.ErrNoRows
+}
+
+func (s *mfaRecoveryCodeRepoStub) RevokeActiveByUserID(_ context.Context, userID string) error {
+	for index, code := range s.codes {
+		if code.UserID == userID && code.ConsumedAt == nil {
+			consumedAt := now()
+			s.codes[index].ConsumedAt = &consumedAt
+		}
+	}
+	return nil
+}
+
+type signInChallengeRepoStub struct {
+	challenge domain.AuthSignInChallenge
+}
+
+func (s *signInChallengeRepoStub) Create(_ context.Context, challenge domain.AuthSignInChallenge) (domain.AuthSignInChallenge, error) {
+	s.challenge = challenge
+	s.challenge.CreatedAt = now()
+	return s.challenge, nil
+}
+
+func (s *signInChallengeRepoStub) FindByID(_ context.Context, id string) (domain.AuthSignInChallenge, error) {
+	if s.challenge.ID == id {
+		return s.challenge, nil
+	}
+	return domain.AuthSignInChallenge{}, pgx.ErrNoRows
+}
+
+func (s *signInChallengeRepoStub) Consume(_ context.Context, id string, userID string) error {
+	if s.challenge.ID != id || s.challenge.UserID != userID {
+		return pgx.ErrNoRows
+	}
+	consumedAt := now()
+	s.challenge.ConsumedAt = &consumedAt
+	return nil
+}
+
+func (s *signInChallengeRepoStub) RevokeActiveByUserID(_ context.Context, userID string) error {
+	if s.challenge.UserID == userID && s.challenge.ConsumedAt == nil {
+		consumedAt := now()
+		s.challenge.ConsumedAt = &consumedAt
+	}
+	return nil
+}
+
 type verificationMailerStub struct {
 	lastEmail           mailer.VerificationEmail
 	lastPasswordReset   mailer.PasswordResetEmail
 	lastPasswordChanged mailer.PasswordChangedEmail
+}
+
+type sessionRevokerStub struct {
+	lastUserID string
+	lastReason string
+}
+
+func (s *sessionRevokerStub) RevokeAllSessionsForUser(_ context.Context, userID string, reason string) error {
+	s.lastUserID = userID
+	s.lastReason = reason
+	return nil
 }
 
 func (s *verificationMailerStub) SendVerificationEmail(_ context.Context, email mailer.VerificationEmail) error {
@@ -163,6 +291,8 @@ func TestAuthServiceRegisterReturnsVerificationRequirement(t *testing.T) {
 		authProfileRepoStub{},
 		verificationRepo,
 		&passwordResetRepoStub{},
+		nil,
+		nil,
 		auth.NewTokenManager(cfg),
 		verificationMailer,
 		NoopSessionRevoker{},
@@ -212,6 +342,8 @@ func TestAuthServiceLoginRejectsUnverifiedEmail(t *testing.T) {
 		authProfileRepoStub{},
 		&verificationRepoStub{},
 		&passwordResetRepoStub{},
+		nil,
+		nil,
 		auth.NewTokenManager(cfg),
 		&verificationMailerStub{},
 		NoopSessionRevoker{},
@@ -255,6 +387,8 @@ func TestAuthServiceRegisterRejectsExistingEmail(t *testing.T) {
 		authProfileRepoStub{},
 		&verificationRepoStub{},
 		&passwordResetRepoStub{},
+		nil,
+		nil,
 		auth.NewTokenManager(cfg),
 		&verificationMailerStub{},
 		NoopSessionRevoker{},
@@ -293,6 +427,8 @@ func TestAuthServiceLoginSucceeds(t *testing.T) {
 		authProfileRepoStub{profile: domain.Profile{FirstName: "Ada", LastName: "Lovelace"}},
 		&verificationRepoStub{},
 		&passwordResetRepoStub{},
+		nil,
+		nil,
 		auth.NewTokenManager(cfg),
 		&verificationMailerStub{},
 		NoopSessionRevoker{},
@@ -342,6 +478,8 @@ func TestAuthServiceForgotPasswordIssuesResetEmail(t *testing.T) {
 		authProfileRepoStub{profile: domain.Profile{FirstName: "Ada", LastName: "Lovelace"}},
 		&verificationRepoStub{},
 		passwordResetRepo,
+		nil,
+		nil,
 		auth.NewTokenManager(cfg),
 		verificationMailer,
 		NoopSessionRevoker{},
@@ -386,6 +524,8 @@ func TestAuthServiceVerifyEmailExpiredToken(t *testing.T) {
 			},
 		},
 		&passwordResetRepoStub{},
+		nil,
+		nil,
 		auth.NewTokenManager(cfg),
 		&verificationMailerStub{},
 		NoopSessionRevoker{},
@@ -396,4 +536,170 @@ func TestAuthServiceVerifyEmailExpiredToken(t *testing.T) {
 	if !errors.Is(err, ErrVerificationTokenExpired) {
 		t.Fatalf("expected ErrVerificationTokenExpired, got %v", err)
 	}
+}
+
+func TestAuthServiceEnrollMFAStartsPendingEnrollment(t *testing.T) {
+	cfg := config.Config{
+		AppName:       "Lavoval",
+		MFATOTPIssuer: "Lavoval",
+		MFATOTPPeriod: 30 * time.Second,
+		JWTSecret:     "super-secret",
+	}
+
+	var storedPendingSecret string
+	service := NewAuthService(
+		authUserRepoStub{
+			user: domain.User{
+				ID:    "user-1",
+				Email: "user@example.com",
+			},
+			startTOTPEnrollment: func(_ string, pending string) (domain.User, error) {
+				storedPendingSecret = pending
+				return domain.User{
+					ID:                            "user-1",
+					Email:                         "user@example.com",
+					MFAPendingTOTPSecretEncrypted: &pending,
+				}, nil
+			},
+		},
+		authProfileRepoStub{},
+		&verificationRepoStub{},
+		&passwordResetRepoStub{},
+		nil,
+		nil,
+		auth.NewTokenManager(cfg),
+		&verificationMailerStub{},
+		NoopSessionRevoker{},
+		cfg,
+	)
+
+	result, err := service.EnrollMFA(context.Background(), "user-1")
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if result.Secret == "" {
+		t.Fatal("expected a generated MFA secret")
+	}
+	if result.ProvisionURL == "" {
+		t.Fatal("expected an otpauth provisioning URL")
+	}
+	if storedPendingSecret == "" {
+		t.Fatal("expected encrypted pending secret to be stored")
+	}
+}
+
+func TestAuthServiceVerifyMFAEnrollmentEnablesMFA(t *testing.T) {
+	cfg := config.Config{
+		AppName:       "Lavoval",
+		MFATOTPIssuer: "Lavoval",
+		MFATOTPPeriod: 30 * time.Second,
+		JWTSecret:     "super-secret",
+	}
+
+	totp := newTOTPManager(cfg)
+	secret := "JBSWY3DPEHPK3PXP"
+	encryptedSecret, err := totp.EncryptSecret(secret)
+	if err != nil {
+		t.Fatalf("encrypt secret: %v", err)
+	}
+
+	code, err := generateTOTPCode(secret, time.Now().UTC().Unix()/30)
+	if err != nil {
+		t.Fatalf("generate code: %v", err)
+	}
+
+	service := NewAuthService(
+		authUserRepoStub{
+			user: domain.User{
+				ID:                            "user-1",
+				Email:                         "user@example.com",
+				MFAPendingTOTPSecretEncrypted: &encryptedSecret,
+			},
+		},
+		authProfileRepoStub{},
+		&verificationRepoStub{},
+		&passwordResetRepoStub{},
+		&mfaRecoveryCodeRepoStub{},
+		nil,
+		auth.NewTokenManager(cfg),
+		&verificationMailerStub{},
+		NoopSessionRevoker{},
+		cfg,
+	)
+
+	result, err := service.VerifyMFAEnrollment(context.Background(), "user-1", MFAVerifyEnrollmentInput{Code: code})
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if !result.Enabled {
+		t.Fatal("expected MFA to be enabled")
+	}
+	if result.PendingEnrollment {
+		t.Fatal("expected pending enrollment to be cleared")
+	}
+	if result.EnrolledAt == nil {
+		t.Fatal("expected enrolledAt to be set")
+	}
+}
+
+func TestAuthServiceDisableMFARequiresPasswordAndCode(t *testing.T) {
+	cfg := config.Config{
+		AppName:       "Lavoval",
+		MFATOTPIssuer: "Lavoval",
+		MFATOTPPeriod: 30 * time.Second,
+		JWTSecret:     "super-secret",
+	}
+
+	totp := newTOTPManager(cfg)
+	secret := "JBSWY3DPEHPK3PXP"
+	encryptedSecret, err := totp.EncryptSecret(secret)
+	if err != nil {
+		t.Fatalf("encrypt secret: %v", err)
+	}
+
+	code, err := generateTOTPCode(secret, time.Now().UTC().Unix()/30)
+	if err != nil {
+		t.Fatalf("generate code: %v", err)
+	}
+
+	sessionRevoker := &sessionRevokerStub{}
+	service := NewAuthService(
+		authUserRepoStub{
+			user: domain.User{
+				ID:                     "user-1",
+				Email:                  "user@example.com",
+				PasswordHash:           mustHashPassword(t, "SuperSecurePass123"),
+				MFAEnabled:             true,
+				MFATOTPSecretEncrypted: &encryptedSecret,
+				MFAEnrolledAt:          ptrTime(now()),
+			},
+		},
+		authProfileRepoStub{},
+		&verificationRepoStub{},
+		&passwordResetRepoStub{},
+		&mfaRecoveryCodeRepoStub{},
+		nil,
+		auth.NewTokenManager(cfg),
+		&verificationMailerStub{},
+		sessionRevoker,
+		cfg,
+	)
+
+	result, err := service.DisableMFA(context.Background(), "user-1", MFADisableInput{
+		Password: "SuperSecurePass123",
+		Code:     code,
+	})
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if result.Enabled {
+		t.Fatal("expected MFA to be disabled")
+	}
+	if sessionRevoker.lastReason != "mfa_disabled" {
+		t.Fatalf("expected sessions to be revoked with mfa_disabled, got %q", sessionRevoker.lastReason)
+	}
+}
+
+func ptrTime(value time.Time) *time.Time {
+	return &value
 }
