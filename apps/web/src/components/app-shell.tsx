@@ -6,11 +6,17 @@ import { usePathname } from 'next/navigation';
 import type { SessionUser } from '@lavoval/contracts';
 import { AuthModal } from '@/features/auth/auth-modal';
 import { logoutAction } from '@/features/auth/actions';
+import { GlobalSearch } from '@/components/global-search';
 import { cabinetNavigation, publicNavigation } from '@/shared/lib/navigation';
 import { AuthenticatedEntryBar } from '@/components/authenticated-entry-bar';
 import { GuestEntryBar } from '@/components/guest-entry-bar';
+import type { SkillSummary } from '@lavoval/registry';
 
-export function AppShell({ children, user }: PropsWithChildren<{ user?: SessionUser }>) {
+export function AppShell({
+  children,
+  user,
+  searchSkills,
+}: PropsWithChildren<{ user?: SessionUser; searchSkills: SkillSummary[] }>) {
   const pathname = usePathname();
   const workspaceNavigation = user ? cabinetNavigation(user) : [];
   const showWorkspaceNav = Boolean(user);
@@ -68,6 +74,11 @@ export function AppShell({ children, user }: PropsWithChildren<{ user?: SessionU
           ))}
         </nav>
         <div className="site-header__actions site-header__actions--desktop">
+          <GlobalSearch
+            user={user}
+            skills={searchSkills}
+            workspaceNavigation={workspaceNavigation}
+          />
           {user ? (
             <AuthenticatedEntryBar user={user} />
           ) : (
@@ -75,16 +86,11 @@ export function AppShell({ children, user }: PropsWithChildren<{ user?: SessionU
           )}
         </div>
         <div className="site-header__actions site-header__actions--mobile" ref={mobileMenuRef}>
-          <Link
-            href="/skills"
-            aria-label="Search skills"
-            className={`header-icon-button${pathname === '/skills' ? ' header-icon-button--active' : ''}`}
-          >
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <circle cx="11" cy="11" r="6.8" />
-              <path d="M16.2 16.2 21 21" />
-            </svg>
-          </Link>
+          <GlobalSearch
+            user={user}
+            skills={searchSkills}
+            workspaceNavigation={workspaceNavigation}
+          />
           <button
             type="button"
             className="mobile-nav-trigger"

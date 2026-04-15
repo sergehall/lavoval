@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import './globals.css';
 import { AppShell } from '@/components/app-shell';
-import { getSession } from '@/shared/api/server-client';
+import { fetchSkills, getSession } from '@/shared/api/server-client';
 import { env } from '@/shared/config/env';
 
 const siteDescription =
@@ -82,11 +82,16 @@ export const metadata: Metadata = {
 
 export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   const session = await getSession();
+  const publicSkills = await fetchSkills()
+    .then((response) => response.data)
+    .catch(() => []);
 
   return (
     <html lang="en">
       <body>
-        <AppShell user={session?.user}>{children}</AppShell>
+        <AppShell user={session?.user} searchSkills={publicSkills}>
+          {children}
+        </AppShell>
       </body>
     </html>
   );

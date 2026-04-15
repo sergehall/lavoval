@@ -1,8 +1,7 @@
 'use client';
 
-import Link from 'next/link';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { usePathname } from 'next/navigation';
+import Link from 'next/link';
 import type { SessionUser } from '@lavoval/contracts';
 import { logoutAction } from '@/features/auth/actions';
 
@@ -20,7 +19,6 @@ function getInitial(user: SessionUser) {
 }
 
 export function AuthenticatedEntryBar({ user }: { user: SessionUser }) {
-  const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -56,17 +54,6 @@ export function AuthenticatedEntryBar({ user }: { user: SessionUser }) {
 
   return (
     <div className="auth-entry" ref={menuRef}>
-      <Link
-        href="/skills"
-        aria-label="Search skills"
-        className={`header-icon-button${pathname === '/skills' ? ' header-icon-button--active' : ''}`}
-      >
-        <svg viewBox="0 0 24 24" aria-hidden="true">
-          <circle cx="11" cy="11" r="6.8" />
-          <path d="M16.2 16.2 21 21" />
-        </svg>
-      </Link>
-
       <button
         type="button"
         className={`account-trigger${isOpen ? ' account-trigger--open' : ''}`}
