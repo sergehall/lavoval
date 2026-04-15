@@ -29,7 +29,7 @@ func NewSMTPVerificationMailer(cfg config.Config) *SMTPVerificationMailer {
 	return &SMTPVerificationMailer{cfg: cfg}
 }
 
-func (m *SMTPVerificationMailer) SendVerificationEmail(_ context.Context, email VerificationEmail) error {
+func (m *SMTPVerificationMailer) SendVerificationEmail(_ context.Context, email VerificationEmail) (err error) {
 	if m.cfg.SMTPHost == "" || m.cfg.SMTPUsername == "" || m.cfg.SMTPPassword == "" || m.cfg.SMTPFromEmail == "" {
 		return fmt.Errorf("email delivery is not configured")
 	}
@@ -66,7 +66,11 @@ func (m *SMTPVerificationMailer) SendVerificationEmail(_ context.Context, email 
 	if err != nil {
 		return fmt.Errorf("dial smtp: %w", err)
 	}
-	defer client.Quit()
+	defer func() {
+		if quitErr := client.Quit(); quitErr != nil && err == nil {
+			err = fmt.Errorf("smtp quit: %w", quitErr)
+		}
+	}()
 
 	if m.cfg.SMTPRequireTLS {
 		if ok, _ := client.Extension("STARTTLS"); !ok {
@@ -99,7 +103,9 @@ func (m *SMTPVerificationMailer) SendVerificationEmail(_ context.Context, email 
 		return fmt.Errorf("smtp data: %w", err)
 	}
 	if _, err := writer.Write([]byte(message)); err != nil {
-		_ = writer.Close()
+		if closeErr := writer.Close(); closeErr != nil && err == nil {
+			err = fmt.Errorf("smtp close writer after write failure: %w", closeErr)
+		}
 		return fmt.Errorf("smtp write message: %w", err)
 	}
 	if err := writer.Close(); err != nil {
