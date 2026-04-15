@@ -25,7 +25,7 @@ export function RegisterForm({
 }: {
   mode?: 'page' | 'modal';
   onSwitchToSignIn?: () => void;
-  onRegistered?: () => void;
+  onRegistered?: (email: string) => void;
   initialEmail?: string;
 }) {
   const router = useRouter();
@@ -33,11 +33,14 @@ export function RegisterForm({
   const [dismissedReminderForEmail, setDismissedReminderForEmail] = useState<string | null>(null);
 
   useEffect(() => {
-    if (state.registered) {
-      onRegistered?.();
+    if (state.registered && state.email && mode === 'modal') {
+      onRegistered?.(state.email);
     }
-  }, [state.registered, onRegistered]);
-  const isReminderOpen = state.registered && state.email !== dismissedReminderForEmail;
+  }, [state.registered, state.email, mode, onRegistered]);
+
+  const isReminderOpen =
+    mode === 'page' && state.registered && state.email !== dismissedReminderForEmail;
+
   const googleOAuthStartURL = `${env.apiUrl}/api/v1/auth/oauth/google/start`;
   const githubOAuthStartURL = `${env.apiUrl}/api/v1/auth/oauth/github/start`;
 
@@ -95,12 +98,14 @@ export function RegisterForm({
           Already part of Lavoval?
         </Link>
       )}
-      <RegistrationReminderModal
-        email={state.email}
-        isOpen={isReminderOpen}
-        onClose={() => setDismissedReminderForEmail(state.email)}
-        onShowSignIn={handleReturnToSignIn}
-      />
+      {mode === 'page' ? (
+        <RegistrationReminderModal
+          email={state.email}
+          isOpen={isReminderOpen}
+          onClose={() => setDismissedReminderForEmail(state.email)}
+          onShowSignIn={handleReturnToSignIn}
+        />
+      ) : null}
     </>
   );
 }

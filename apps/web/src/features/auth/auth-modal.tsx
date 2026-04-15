@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { LoginForm } from '@/features/auth/login-form';
 import { RegisterForm } from '@/features/auth/register-form';
+import { RegistrationReminderModal } from '@/features/auth/registration-reminder-modal';
 
 export function AuthModal({
   isOpen,
@@ -15,6 +16,14 @@ export function AuthModal({
   onClose: () => void;
   onChangeMode: (mode: 'sign-in' | 'sign-up') => void;
 }) {
+  const [registeredEmail, setRegisteredEmail] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!isOpen) {
+      setRegisteredEmail(null);
+    }
+  }, [isOpen]);
+
   useEffect(() => {
     if (!isOpen) {
       return;
@@ -37,6 +46,20 @@ export function AuthModal({
 
   if (!isOpen) {
     return null;
+  }
+
+  if (registeredEmail) {
+    return (
+      <RegistrationReminderModal
+        isOpen
+        email={registeredEmail}
+        onClose={onClose}
+        onShowSignIn={() => {
+          setRegisteredEmail(null);
+          onChangeMode('sign-in');
+        }}
+      />
+    );
   }
 
   return (
@@ -89,7 +112,7 @@ export function AuthModal({
                 key="sign-up-form"
                 mode="modal"
                 onSwitchToSignIn={() => onChangeMode('sign-in')}
-                onRegistered={onClose}
+                onRegistered={setRegisteredEmail}
               />
             </>
           )}
