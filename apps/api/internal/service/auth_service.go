@@ -568,15 +568,11 @@ func (s *AuthService) Register(ctx context.Context, input RegisterInput) (Regist
 		return RegisterResponse{}, fmt.Errorf("create profile: %w", err)
 	}
 
-	if err := s.issueVerificationEmail(ctx, createdUser, createdProfile); err != nil {
-		if cleanupErr := s.profiles.SoftDeleteByUserID(ctx, createdUser.ID); cleanupErr != nil {
-			log.Printf("auth: cleanup failed after verification email error for profile %s: %v", createdUser.ID, cleanupErr)
+	go func() {
+		if err := s.issueVerificationEmail(context.Background(), createdUser, createdProfile); err != nil {
+			log.Printf("auth: verification email failed for %s: %v", createdUser.Email, err)
 		}
-		if cleanupErr := s.users.SoftDelete(ctx, createdUser.ID); cleanupErr != nil {
-			log.Printf("auth: cleanup failed after verification email error for user %s: %v", createdUser.ID, cleanupErr)
-		}
-		return RegisterResponse{}, err
-	}
+	}()
 
 	return RegisterResponse{
 		Email:                createdUser.Email,

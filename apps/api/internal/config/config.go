@@ -40,6 +40,7 @@ type Config struct {
 	SMTPFromName          string
 	SMTPRequireTLS        bool
 	SMTPAllowInsecureAuth bool
+	SMTPUseSSL            bool
 	SMTPDialTimeout       time.Duration
 }
 
@@ -99,6 +100,11 @@ func Load() (Config, error) {
 		return Config{}, fmt.Errorf("parse SMTP_ALLOW_INSECURE_AUTH: %w", err)
 	}
 
+	smtpUseSSL, err := strconv.ParseBool(getEnv("SMTP_USE_SSL", "false"))
+	if err != nil {
+		return Config{}, fmt.Errorf("parse SMTP_USE_SSL: %w", err)
+	}
+
 	smtpDialTimeout, err := time.ParseDuration(getEnv("SMTP_DIAL_TIMEOUT", "10s"))
 	if err != nil {
 		return Config{}, fmt.Errorf("parse SMTP_DIAL_TIMEOUT: %w", err)
@@ -137,6 +143,7 @@ func Load() (Config, error) {
 		SMTPFromName:          getEnv("SMTP_FROM_NAME", "Lavoval"),
 		SMTPRequireTLS:        smtpRequireTLS,
 		SMTPAllowInsecureAuth: smtpAllowInsecureAuth,
+		SMTPUseSSL:            smtpUseSSL,
 		SMTPDialTimeout:       smtpDialTimeout,
 	}
 

@@ -117,26 +117,49 @@ func (m *SMTPVerificationMailer) sendRenderedEmail(
 	addr := fmt.Sprintf("%s:%d", m.cfg.SMTPHost, m.cfg.SMTPPort)
 	auth := smtp.PlainAuth("", m.cfg.SMTPUsername, m.cfg.SMTPPassword, m.cfg.SMTPHost)
 
-	log.Printf("mailer: sending %s email to %s via %s", kind, toEmail, addr)
+	log.Printf("mailer: sending %s email to %s via %s (ssl=%v)", kind, toEmail, addr, m.cfg.SMTPUseSSL)
+
+	tlsCfg := &tls.Config{
+		ServerName:         m.cfg.SMTPHost,
+		InsecureSkipVerify: m.cfg.AppEnv == "development" && m.cfg.SMTPAllowInsecureAuth,
+		MinVersion:         tls.VersionTLS12,
+	}
 
 	dialer := &net.Dialer{Timeout: timeout}
-	conn, err := dialer.DialContext(ctx, "tcp", addr)
-	if err != nil {
-		log.Printf("mailer: %s email dial failed for %s: %v", kind, toEmail, err)
-		return fmt.Errorf("dial smtp: %w", err)
-	}
-	defer conn.Close()
 
-	if deadline, ok := ctx.Deadline(); ok {
-		if err := conn.SetDeadline(deadline); err != nil {
-			log.Printf("mailer: could not set smtp deadline for %s: %v", toEmail, err)
+	var client *smtp.Client
+	if m.cfg.SMTPUseSSL {
+		// Implicit TLS (port 465)
+		tlsDialer := tls.Dialer{NetDialer: dialer, Config: tlsCfg}
+		conn, err := tlsDialer.DialContext(ctx, "tcp", addr)
+		if err != nil {
+			log.Printf("mailer: %s email ssl dial failed for %s: %v", kind, toEmail, err)
+			return fmt.Errorf("dial smtp ssl: %w", err)
 		}
-	}
-
-	client, err := smtp.NewClient(conn, m.cfg.SMTPHost)
-	if err != nil {
-		log.Printf("mailer: %s email client init failed for %s: %v", kind, toEmail, err)
-		return fmt.Errorf("smtp new client: %w", err)
+		defer conn.Close()
+		client, err = smtp.NewClient(conn, m.cfg.SMTPHost)
+		if err != nil {
+			log.Printf("mailer: %s email client init failed for %s: %v", kind, toEmail, err)
+			return fmt.Errorf("smtp new client: %w", err)
+		}
+	} else {
+		// STARTTLS (port 587)
+		conn, err := dialer.DialContext(ctx, "tcp", addr)
+		if err != nil {
+			log.Printf("mailer: %s email dial failed for %s: %v", kind, toEmail, err)
+			return fmt.Errorf("dial smtp: %w", err)
+		}
+		defer conn.Close()
+		if deadline, ok := ctx.Deadline(); ok {
+			if err := conn.SetDeadline(deadline); err != nil {
+				log.Printf("mailer: could not set smtp deadline for %s: %v", toEmail, err)
+			}
+		}
+		client, err = smtp.NewClient(conn, m.cfg.SMTPHost)
+		if err != nil {
+			log.Printf("mailer: %s email client init failed for %s: %v", kind, toEmail, err)
+			return fmt.Errorf("smtp new client: %w", err)
+		}
 	}
 	defer func() {
 		if quitErr := client.Quit(); quitErr != nil {
@@ -144,17 +167,13 @@ func (m *SMTPVerificationMailer) sendRenderedEmail(
 		}
 	}()
 
-	if m.cfg.SMTPRequireTLS {
+	if !m.cfg.SMTPUseSSL && m.cfg.SMTPRequireTLS {
 		if ok, _ := client.Extension("STARTTLS"); !ok {
 			err := fmt.Errorf("smtp server does not advertise STARTTLS")
 			log.Printf("mailer: %s email starttls unavailable for %s", kind, toEmail)
 			return err
 		}
-		if err := client.StartTLS(&tls.Config{
-			ServerName:         m.cfg.SMTPHost,
-			InsecureSkipVerify: m.cfg.AppEnv == "development" && m.cfg.SMTPAllowInsecureAuth,
-			MinVersion:         tls.VersionTLS12,
-		}); err != nil {
+		if err := client.StartTLS(tlsCfg); err != nil {
 			log.Printf("mailer: %s email starttls failed for %s: %v", kind, toEmail, err)
 			return fmt.Errorf("smtp starttls: %w", err)
 		}
