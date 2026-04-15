@@ -47,6 +47,7 @@ func (hAdminUserStub) EnableTOTP(_ context.Context, _ string, _ string) (domain.
 func (hAdminUserStub) DisableTOTP(_ context.Context, _ string) (domain.User, error) {
 	return domain.User{}, nil
 }
+func (hAdminUserStub) SoftDelete(_ context.Context, _ string) error  { return nil }
 func (hAdminUserStub) List(_ context.Context) ([]domain.User, error) { return nil, nil }
 
 type hAdminProfileStub struct{}
@@ -60,6 +61,7 @@ func (hAdminProfileStub) Update(_ context.Context, p domain.Profile) (domain.Pro
 func (hAdminProfileStub) FindByUserID(_ context.Context, _ string) (domain.Profile, error) {
 	return domain.Profile{}, nil
 }
+func (hAdminProfileStub) SoftDeleteByUserID(_ context.Context, _ string) error { return nil }
 
 type hAdminSkillStub struct{}
 
