@@ -144,6 +144,7 @@ func (s authProfileRepoStub) SoftDeleteByUserID(_ context.Context, userID string
 type verificationRepoStub struct {
 	tokenCreated bool
 	token        domain.EmailVerificationToken
+	consumeErr   error
 }
 
 func (s *verificationRepoStub) Create(_ context.Context, token domain.EmailVerificationToken) (domain.EmailVerificationToken, error) {
@@ -159,7 +160,7 @@ func (s *verificationRepoStub) FindByTokenHash(_ context.Context, tokenHash stri
 }
 
 func (s *verificationRepoStub) Consume(_ context.Context, _, _ string) error {
-	return nil
+	return s.consumeErr
 }
 
 func (s *verificationRepoStub) RevokeActiveByUserID(_ context.Context, _ string) error {
@@ -665,6 +666,55 @@ func TestAuthServiceVerifyEmailReturnsAlreadyVerifiedForConsumedToken(t *testing
 				ConsumedAt: &verified,
 				ExpiresAt:  now().Add(time.Hour),
 			},
+		},
+		&passwordResetRepoStub{},
+		nil,
+		nil,
+		nil,
+		nil,
+		auth.NewTokenManager(cfg),
+		&verificationMailerStub{},
+		NoopSessionRevoker{},
+		cfg,
+	)
+
+	result, err := service.VerifyEmail(context.Background(), VerifyEmailInput{Token: "some-plain-token-value"})
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if !result.AlreadyVerified {
+		t.Fatal("expected already verified response")
+	}
+	if result.Email != "user@example.com" {
+		t.Fatalf("unexpected email %s", result.Email)
+	}
+}
+
+func TestAuthServiceVerifyEmailReturnsAlreadyVerifiedWhenConsumeRaces(t *testing.T) {
+	cfg := config.Config{
+		JWTIssuer:     "test",
+		JWTAudience:   "test",
+		JWTSecret:     "super-secret",
+		JWTAccessTTL:  time.Minute,
+		JWTRefreshTTL: time.Hour,
+	}
+	verified := now()
+	service := NewAuthService(
+		authUserRepoStub{
+			user: domain.User{
+				ID:              "user-1",
+				Email:           "user@example.com",
+				EmailVerifiedAt: &verified,
+			},
+		},
+		authProfileRepoStub{},
+		&verificationRepoStub{
+			token: domain.EmailVerificationToken{
+				ID:        "token-1",
+				UserID:    "user-1",
+				ExpiresAt: now().Add(time.Hour),
+			},
+			consumeErr: errors.New("consume email verification token: no rows affected"),
 		},
 		&passwordResetRepoStub{},
 		nil,

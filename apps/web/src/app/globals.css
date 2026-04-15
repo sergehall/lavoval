@@ -927,6 +927,11 @@ button.site-nav__link {
   box-shadow: var(--shadow);
 }
 
+.card--compact {
+  max-width: 760px;
+  margin-inline: auto;
+}
+
 .stack {
   display: grid;
 }

@@ -25,7 +25,7 @@ export default async function VerifyEmailPage({
   const result = await verifyEmailAction(token);
 
   return (
-    <AuthCard title={result.title} description={result.message}>
+    <AuthCard title={result.title} description={result.message} compact>
       <div className="stack stack--md">
         {result.ok ? (
           <>

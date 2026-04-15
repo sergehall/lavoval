@@ -92,7 +92,7 @@ func (r *UserRepository) MarkEmailVerified(ctx context.Context, userID string) (
 		UPDATE users
 		SET email_verified_at = NOW(), updated_at = NOW()
 		WHERE id = $1 AND deleted_at IS NULL
-		RETURNING id, email, password_hash, role, status, email_verified_at, created_at, updated_at`
+		RETURNING id, email, password_hash, role, status, email_verified_at, mfa_enabled, mfa_totp_secret_encrypted, mfa_pending_totp_secret_encrypted, mfa_enrolled_at, created_at, updated_at`
 
 	var user domain.User
 	if err := r.pool.QueryRow(ctx, query, userID).Scan(

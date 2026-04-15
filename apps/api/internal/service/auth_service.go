@@ -683,6 +683,13 @@ func (s *AuthService) VerifyEmail(ctx context.Context, input VerifyEmailInput) (
 		return VerificationResponse{}, fmt.Errorf("mark email verified: %w", err)
 	}
 	if err := s.verifications.Consume(ctx, record.ID, user.ID); err != nil {
+		latestUser, latestUserErr := s.users.FindByID(ctx, user.ID)
+		if latestUserErr == nil && latestUser.EmailVerifiedAt != nil {
+			return VerificationResponse{
+				Email:           latestUser.Email,
+				AlreadyVerified: true,
+			}, nil
+		}
 		return VerificationResponse{}, fmt.Errorf("consume verification token: %w", err)
 	}
 

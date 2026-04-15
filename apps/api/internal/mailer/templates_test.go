@@ -24,6 +24,8 @@ func TestRenderVerificationEmailUsesLavovalBranding(t *testing.T) {
 		"Confirm your email to activate Lavoval",
 		"https://lavoval.test/verify-email?token=abc123",
 		"https://lavoval.test/email-brand-120x40.png",
+		`width="216"`,
+		`height="72"`,
 		"#b44f23",
 		"Human skill exchange for the AI era",
 	} {
