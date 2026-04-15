@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import { useActionState, useEffect, useState } from 'react';
 import { useFormStatus } from 'react-dom';
 import type { AccountSecuritySummary } from '@lavoval/contracts';
@@ -71,7 +72,11 @@ export function MFASettings({
                 <div className="security-inline-actions">
                   <form action={action}>
                     <input type="hidden" name="intent" value="enroll" />
-                    <Button type="submit" variant="secondary" className="security-method-card__button">
+                    <Button
+                      type="submit"
+                      variant="secondary"
+                      className="security-method-card__button"
+                    >
                       Start setup again
                     </Button>
                   </form>
@@ -206,7 +211,9 @@ function SignInMethodsPanel({
   accountSecurity: AccountSecuritySummary;
   state: MFAState;
 }) {
-  const providerMap = new Map(accountSecurity.providers.map((provider) => [provider.provider, provider]));
+  const providerMap = new Map(
+    accountSecurity.providers.map((provider) => [provider.provider, provider]),
+  );
   const recoveryCodesCount = state.recoveryCodes?.length ?? 0;
 
   return (
@@ -218,7 +225,13 @@ function SignInMethodsPanel({
             ? 'A password is set for this account and can be used with the standard sign-in flow.'
             : 'No password is currently set for this account.'
         }
-        badge={accountSecurity.hasPassword ? <Badge tone="success">Available</Badge> : <Badge tone="warning">Not set</Badge>}
+        badge={
+          accountSecurity.hasPassword ? (
+            <Badge tone="success">Available</Badge>
+          ) : (
+            <Badge tone="warning">Not set</Badge>
+          )
+        }
         meta={
           accountSecurity.passwordUpdatedAt
             ? `Last updated ${formatSecurityDate(accountSecurity.passwordUpdatedAt)}.`
@@ -232,14 +245,25 @@ function SignInMethodsPanel({
             ? 'Google sign-in is connected for this account.'
             : 'Google sign-in is available from the sign-in screen.'
         }
-        badge={providerMap.has('google') ? <Badge tone="success">Connected</Badge> : <Badge>Not connected</Badge>}
+        badge={
+          providerMap.has('google') ? (
+            <Badge tone="success">Connected</Badge>
+          ) : (
+            <Badge>Not connected</Badge>
+          )
+        }
         meta={
           providerMap.get('google')?.connectedAt
             ? `Connected ${formatSecurityDate(providerMap.get('google')!.connectedAt)}.`
             : 'Linking this provider inside Security will land next.'
         }
         actions={
-          <Button type="button" variant="secondary" disabled className="security-method-card__button">
+          <Button
+            type="button"
+            variant="secondary"
+            disabled
+            className="security-method-card__button"
+          >
             {providerMap.has('google') ? 'Manage Google soon' : 'Link Google soon'}
           </Button>
         }
@@ -251,14 +275,25 @@ function SignInMethodsPanel({
             ? 'GitHub sign-in is connected for this account.'
             : 'GitHub sign-in is available from the sign-in screen.'
         }
-        badge={providerMap.has('github') ? <Badge tone="success">Connected</Badge> : <Badge>Not connected</Badge>}
+        badge={
+          providerMap.has('github') ? (
+            <Badge tone="success">Connected</Badge>
+          ) : (
+            <Badge>Not connected</Badge>
+          )
+        }
         meta={
           providerMap.get('github')?.connectedAt
             ? `Connected ${formatSecurityDate(providerMap.get('github')!.connectedAt)}.`
             : 'Linking this provider inside Security will land next.'
         }
         actions={
-          <Button type="button" variant="secondary" disabled className="security-method-card__button">
+          <Button
+            type="button"
+            variant="secondary"
+            disabled
+            className="security-method-card__button"
+          >
             {providerMap.has('github') ? 'Manage GitHub soon' : 'Link GitHub soon'}
           </Button>
         }
@@ -406,10 +441,13 @@ function SecretPanel({ state }: { state: MFAState }) {
               manually.
             </p>
           </div>
-          <img
+          <Image
             src={qrCodeDataURL}
             alt="QR code for authenticator app setup"
             className="mfa-qr-panel__image"
+            width={220}
+            height={220}
+            unoptimized
           />
         </div>
       ) : null}
@@ -449,12 +487,12 @@ function StatusBlock({ state }: { state: MFAState }) {
   return (
     <div className="security-status">
       <strong>Status</strong>
-      <Badge
-        tone={
-          state.enabled ? 'success' : state.pendingEnrollment ? 'warning' : 'neutral'
-        }
-      >
-        {state.enabled ? 'Enabled' : state.pendingEnrollment ? 'Pending verification' : 'Not enabled'}
+      <Badge tone={state.enabled ? 'success' : state.pendingEnrollment ? 'warning' : 'neutral'}>
+        {state.enabled
+          ? 'Enabled'
+          : state.pendingEnrollment
+            ? 'Pending verification'
+            : 'Not enabled'}
       </Badge>
       {state.enrolledAt ? (
         <p className="muted">Enabled on {new Date(state.enrolledAt).toLocaleString()}.</p>

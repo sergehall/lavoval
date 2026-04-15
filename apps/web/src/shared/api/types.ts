@@ -29,5 +29,10 @@ export type UsersListItem = SessionUser & {
   createdAt: string;
 };
 
+export type UserWithProfile = {
+  user: UsersListItem;
+  profile: import('@lavoval/contracts').Profile;
+};
+
 export type SkillPayload = SkillDetail;
 export type SkillRunPayload = SkillRun;

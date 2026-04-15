@@ -16,13 +16,13 @@ import (
 )
 
 type authUserRepoStub struct {
-	user                domain.User
-	findByEmail         func(string) (domain.User, error)
-	updatePasswordHash  func(string, string) (domain.User, error)
-	startTOTPEnrollment func(string, string) (domain.User, error)
+	user                 domain.User
+	findByEmail          func(string) (domain.User, error)
+	updatePasswordHash   func(string, string) (domain.User, error)
+	startTOTPEnrollment  func(string, string) (domain.User, error)
 	cancelTOTPEnrollment func(string) (domain.User, error)
-	enableTOTP          func(string, string) (domain.User, error)
-	disableTOTP         func(string) (domain.User, error)
+	enableTOTP           func(string, string) (domain.User, error)
+	disableTOTP          func(string) (domain.User, error)
 }
 
 func (s authUserRepoStub) Create(_ context.Context, user domain.User) (domain.User, error) {

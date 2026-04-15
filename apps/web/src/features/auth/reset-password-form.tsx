@@ -14,13 +14,7 @@ const initialResetPasswordState: ResetPasswordState = {
   email: '',
 };
 
-export function ResetPasswordForm({
-  token,
-  email = '',
-}: {
-  token: string;
-  email?: string;
-}) {
+export function ResetPasswordForm({ token, email = '' }: { token: string; email?: string }) {
   const [state, action] = useActionState(resetPasswordAction, {
     ...initialResetPasswordState,
     email,
@@ -46,7 +40,9 @@ export function ResetPasswordForm({
             {state.error}
           </p>
           <Link
-            href={email ? `/forgot-password?email=${encodeURIComponent(email)}` : '/forgot-password'}
+            href={
+              email ? `/forgot-password?email=${encodeURIComponent(email)}` : '/forgot-password'
+            }
             className="muted"
           >
             Request a fresh reset link

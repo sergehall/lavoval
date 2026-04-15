@@ -43,6 +43,15 @@ type handlerEnrollmentRepoStub struct{}
 func (handlerEnrollmentRepoStub) ListByUserID(_ context.Context, _ string) ([]domain.Enrollment, error) {
 	return []domain.Enrollment{}, nil
 }
+func (handlerEnrollmentRepoStub) ListAll(_ context.Context) ([]domain.EnrollmentDetail, error) {
+	return []domain.EnrollmentDetail{}, nil
+}
+func (handlerEnrollmentRepoStub) Create(_ context.Context, _, _ string) (domain.Enrollment, error) {
+	return domain.Enrollment{}, nil
+}
+func (handlerEnrollmentRepoStub) UpdateStatus(_ context.Context, _ string, _ domain.EnrollmentStatus, _ int) (domain.Enrollment, error) {
+	return domain.Enrollment{}, nil
+}
 
 func newSkillHandlerWithRepo(repo handlerSkillRepoStub) *SkillHandler {
 	skillSvc := service.NewSkillService(repo, handlerEnrollmentRepoStub{})

@@ -511,7 +511,8 @@ export async function mfaSettingsAction(previousState: MFAState, formData: FormD
 
       return {
         error: null,
-        success: 'Authenticator setup has been cancelled. You can start again whenever you are ready.',
+        success:
+          'Authenticator setup has been cancelled. You can start again whenever you are ready.',
         successTitle: 'Setup cancelled',
         enabled: response.data.enabled,
         pendingEnrollment: response.data.pendingEnrollment,

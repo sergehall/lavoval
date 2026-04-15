@@ -119,15 +119,26 @@ type OAuthIdentity struct {
 }
 
 type Profile struct {
-	UserID    string     `json:"userId"`
-	Role      Role       `json:"role"`
-	FirstName string     `json:"firstName"`
-	LastName  string     `json:"lastName"`
-	Bio       *string    `json:"bio"`
-	Timezone  string     `json:"timezone"`
-	CreatedAt time.Time  `json:"createdAt"`
-	UpdatedAt time.Time  `json:"updatedAt"`
-	DeletedAt *time.Time `json:"deletedAt,omitempty"`
+	UserID             string             `json:"userId"`
+	Role               Role               `json:"role"`
+	FirstName          string             `json:"firstName"`
+	LastName           string             `json:"lastName"`
+	Bio                *string            `json:"bio"`
+	Timezone           string             `json:"timezone"`
+	Username           *string            `json:"username"`
+	AvatarURL          *string            `json:"avatarUrl"`
+	Location           *string            `json:"location"`
+	Skills             []string           `json:"skills"`
+	Languages          []string           `json:"languages"`
+	WebsiteURL         *string            `json:"websiteUrl"`
+	LinkedInURL        *string            `json:"linkedinUrl"`
+	GitHubURL          *string            `json:"githubUrl"`
+	TwitterURL         *string            `json:"twitterUrl"`
+	AvailabilityStatus AvailabilityStatus `json:"availabilityStatus"`
+	IsPublicProfile    bool               `json:"isPublicProfile"`
+	CreatedAt          time.Time          `json:"createdAt"`
+	UpdatedAt          time.Time          `json:"updatedAt"`
+	DeletedAt          *time.Time         `json:"deletedAt,omitempty"`
 }
 
 type Skill struct {
@@ -177,6 +188,15 @@ type Enrollment struct {
 	ProgressPercent int              `json:"progressPercent"`
 	AssignedAt      time.Time        `json:"assignedAt"`
 	CompletedAt     *time.Time       `json:"completedAt,omitempty"`
+}
+
+// EnrollmentDetail enriches an Enrollment with denormalised display fields
+// returned by admin list queries (JOIN with users + skills tables).
+type EnrollmentDetail struct {
+	Enrollment
+	UserEmail  string `json:"userEmail"`
+	SkillTitle string `json:"skillTitle"`
+	SkillSlug  string `json:"skillSlug"`
 }
 
 type SkillRun struct {

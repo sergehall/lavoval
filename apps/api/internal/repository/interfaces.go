@@ -12,6 +12,7 @@ type UserStore interface {
 	FindByID(context.Context, string) (domain.User, error)
 	MarkEmailVerified(context.Context, string) (domain.User, error)
 	UpdatePasswordHash(context.Context, string, string) (domain.User, error)
+	UpdateRoleAndStatus(context.Context, string, domain.Role, domain.AccountStatus) (domain.User, error)
 	StartTOTPEnrollment(context.Context, string, string) (domain.User, error)
 	CancelTOTPEnrollment(context.Context, string) (domain.User, error)
 	EnableTOTP(context.Context, string, string) (domain.User, error)
@@ -77,6 +78,17 @@ type SkillStore interface {
 
 type EnrollmentStore interface {
 	ListByUserID(context.Context, string) ([]domain.Enrollment, error)
+	ListAll(context.Context) ([]domain.EnrollmentDetail, error)
+	Create(context.Context, string, string) (domain.Enrollment, error)
+	UpdateStatus(context.Context, string, domain.EnrollmentStatus, int) (domain.Enrollment, error)
+}
+
+type ModuleStore interface {
+	ListBySkillID(context.Context, string) ([]domain.Module, error)
+	FindByID(context.Context, string) (domain.Module, error)
+	Create(context.Context, domain.Module) (domain.Module, error)
+	Update(context.Context, domain.Module) (domain.Module, error)
+	SoftDelete(context.Context, string) error
 }
 
 type SkillRunStore interface {

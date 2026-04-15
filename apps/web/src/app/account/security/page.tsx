@@ -5,7 +5,9 @@ import { fetchAccountSecurity, withValidSession } from '@/shared/api/server-clie
 export default async function AccountSecurityPage() {
   const [mfaState, accountSecurity] = await Promise.all([
     loadMFAState(),
-    withValidSession((session) => fetchAccountSecurity(session.accessToken).then((response) => response.data)),
+    withValidSession((session) =>
+      fetchAccountSecurity(session.accessToken).then((response) => response.data),
+    ),
   ]);
 
   return (

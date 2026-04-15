@@ -7,7 +7,8 @@ import { signInHref } from '@/shared/lib/auth-navigation';
 
 export const metadata: Metadata = {
   title: 'Set A New Password',
-  description: 'Use your secure Lavoval recovery link to set a new password and return to your workspace.',
+  description:
+    'Use your secure Lavoval recovery link to set a new password and return to your workspace.',
   robots: {
     index: false,
     follow: false,

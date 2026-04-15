@@ -1,4 +1,7 @@
 import type {
+  EnrollmentAssignRequest,
+  EnrollmentDetail,
+  EnrollmentUpdateRequest,
   AuthResponse,
   AccountSecuritySummary,
   GitHubOAuthCompleteRequest,
@@ -112,6 +115,9 @@ export const apiPaths = {
   },
   admin: {
     users: () => '/api/v1/admin/users',
+    user: (id: string) => `/api/v1/admin/users/${id}`,
+    enrollments: () => '/api/v1/admin/enrollments',
+    enrollment: (id: string) => `/api/v1/admin/enrollments/${id}`,
     skills: () => '/api/v1/admin/skills',
     skill: (id: string) => `/api/v1/admin/skills/${id}`,
     runs: () => '/api/v1/admin/runs',
@@ -138,6 +144,11 @@ function mergeHeaders(...sets: Array<HeadersInit | undefined>) {
 type UsersListItem = SessionUser & {
   status: string;
   createdAt: string;
+};
+
+type AdminUserUpdateRequest = {
+  role: 'user' | 'admin';
+  status: 'active' | 'invited' | 'suspended';
 };
 
 export function createApiClient(config: ApiClientConfig) {
@@ -327,6 +338,33 @@ export function createApiClient(config: ApiClientConfig) {
     admin: {
       users(options: ApiClientRequestOptions) {
         return request<UsersListItem[]>(apiPaths.admin.users(), undefined, options);
+      },
+      user(id: string, options: ApiClientRequestOptions) {
+        return request<{ user: UsersListItem; profile: unknown }>(apiPaths.admin.user(id), undefined, options);
+      },
+      updateUser(id: string, payload: AdminUserUpdateRequest, options: ApiClientRequestOptions) {
+        return request<UsersListItem>(
+          apiPaths.admin.user(id),
+          { method: 'PATCH', body: JSON.stringify(payload) },
+          options,
+        );
+      },
+      enrollments(options: ApiClientRequestOptions) {
+        return request<EnrollmentDetail[]>(apiPaths.admin.enrollments(), undefined, options);
+      },
+      assignSkill(payload: EnrollmentAssignRequest, options: ApiClientRequestOptions) {
+        return request<EnrollmentDetail>(
+          apiPaths.admin.enrollments(),
+          { method: 'POST', body: JSON.stringify(payload) },
+          options,
+        );
+      },
+      updateEnrollment(id: string, payload: EnrollmentUpdateRequest, options: ApiClientRequestOptions) {
+        return request<EnrollmentDetail>(
+          apiPaths.admin.enrollment(id),
+          { method: 'PATCH', body: JSON.stringify(payload) },
+          options,
+        );
       },
       skills(options: ApiClientRequestOptions) {
         return request<SkillSummary[]>(apiPaths.admin.skills(), undefined, options);

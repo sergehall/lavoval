@@ -48,6 +48,7 @@ func New() (*Application, error) {
 	oauthIdentityRepo := repository.NewOAuthIdentityRepository(pool)
 	skillRepo := repository.NewSkillRepository(pool)
 	enrollmentRepo := repository.NewEnrollmentRepository(pool)
+	moduleRepo := repository.NewModuleRepository(pool)
 	skillRunRepo := repository.NewSkillRunRepository(pool)
 	runtimeRegistry := appRuntime.DefaultRegistry()
 	verificationMailer := mailer.NewSMTPVerificationMailer(cfg)
@@ -70,7 +71,7 @@ func New() (*Application, error) {
 	accountSecurityService := service.NewAccountSecurityService(userRepo, oauthIdentityRepo)
 	skillService := service.NewSkillService(skillRepo, enrollmentRepo)
 	runtimeService := service.NewRuntimeService(skillRepo, skillRunRepo, runtimeRegistry)
-	adminService := service.NewAdminService(userRepo, skillRepo)
+	adminService := service.NewAdminService(userRepo, profileRepo, skillRepo, enrollmentRepo, moduleRepo)
 
 	router := handler.NewRouter(cfg, tokenManager, authService, profileService, accountSecurityService, skillService, runtimeService, adminService)
 

@@ -9,14 +9,14 @@ import {
 } from '@/shared/api/server-client';
 
 export default async function AccountDashboardPage() {
-  const { session, profile, skills, mySkills } = await withValidSession(async (session) => {
+  const { profile, skills, mySkills } = await withValidSession(async (session) => {
     const [{ data: profile }, { data: skills }, { data: mySkills }] = await Promise.all([
       fetchProfile(session.accessToken),
       fetchSkills(session.accessToken),
       fetchMySkills(session.accessToken),
     ]);
 
-    return { session, profile, skills, mySkills };
+    return { profile, skills, mySkills };
   });
 
   return (
@@ -65,18 +65,6 @@ export default async function AccountDashboardPage() {
             </p>
             <Link href="/skills" className="muted">
               Explore live offers
-            </Link>
-          </div>
-        </Card>
-        <Card>
-          <div className="stack stack--sm">
-            <h2>Security</h2>
-            <p>
-              {session.user.email} can now be protected with an authenticator app before we turn on
-              MFA during sign-in.
-            </p>
-            <Link href="/account/security" className="muted">
-              Manage MFA
             </Link>
           </div>
         </Card>

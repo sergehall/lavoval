@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useActionState, useEffect, useState } from 'react';
+import { useActionState, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useFormStatus } from 'react-dom';
 import { loginAction, type AuthFormState } from '@/features/auth/actions';
@@ -21,20 +21,13 @@ const initialAuthFormState: AuthFormState = {
 
 export function LoginForm() {
   const [state, action] = useActionState(loginAction, initialAuthFormState);
-  const [recoveryMode, setRecoveryMode] = useState(false);
   const searchParams = useSearchParams();
   const oauthError = searchParams.get('oauthError');
   const googleOAuthStartURL = `${env.apiUrl}/api/v1/auth/oauth/google/start`;
   const githubOAuthStartURL = `${env.apiUrl}/api/v1/auth/oauth/github/start`;
 
-  useEffect(() => {
-    setRecoveryMode(Boolean(state.recoveryMode));
-  }, [state.recoveryMode]);
-
   return (
     <form action={action} className="stack stack--md">
-      <input type="hidden" name="challengeId" value={state.challengeId ?? ''} />
-      <input type="hidden" name="recoveryMode" value={recoveryMode ? 'true' : 'false'} />
       <label>
         <span>Email</span>
         <Input
@@ -57,34 +50,11 @@ export function LoginForm() {
         />
       </label>
       {state.mfaRequired ? (
-        <>
-          {!recoveryMode ? (
-            <label>
-              <span>Authenticator code</span>
-              <Input
-                name="code"
-                inputMode="numeric"
-                pattern="[0-9]{6}"
-                minLength={6}
-                maxLength={6}
-                placeholder="123456"
-                required
-              />
-            </label>
-          ) : (
-            <label>
-              <span>Recovery code</span>
-              <Input name="recoveryCode" placeholder="ABCD-EFGH-IJKL" required />
-            </label>
-          )}
-          <button
-            type="button"
-            className="button button--ghost"
-            onClick={() => setRecoveryMode((value) => !value)}
-          >
-            {recoveryMode ? 'Use authenticator code instead' : 'Use a recovery code instead'}
-          </button>
-        </>
+        <MFAStep
+          key={state.challengeId ?? 'mfa'}
+          challengeId={state.challengeId ?? null}
+          initialRecoveryMode={Boolean(state.recoveryMode)}
+        />
       ) : (
         <div className="inline-actions">
           <span />
@@ -129,6 +99,49 @@ export function LoginForm() {
       {state.needsVerification ? <ResendVerificationForm defaultEmail={state.email} /> : null}
       <LoginSubmitButton />
     </form>
+  );
+}
+
+function MFAStep({
+  challengeId,
+  initialRecoveryMode,
+}: {
+  challengeId: string | null;
+  initialRecoveryMode: boolean;
+}) {
+  const [recoveryMode, setRecoveryMode] = useState(initialRecoveryMode);
+
+  return (
+    <div className="stack stack--md">
+      <input type="hidden" name="challengeId" value={challengeId ?? ''} />
+      <input type="hidden" name="recoveryMode" value={recoveryMode ? 'true' : 'false'} />
+      {!recoveryMode ? (
+        <label>
+          <span>Authenticator code</span>
+          <Input
+            name="code"
+            inputMode="numeric"
+            pattern="[0-9]{6}"
+            minLength={6}
+            maxLength={6}
+            placeholder="123456"
+            required
+          />
+        </label>
+      ) : (
+        <label>
+          <span>Recovery code</span>
+          <Input name="recoveryCode" placeholder="ABCD-EFGH-IJKL" required />
+        </label>
+      )}
+      <button
+        type="button"
+        className="button button--ghost"
+        onClick={() => setRecoveryMode((value) => !value)}
+      >
+        {recoveryMode ? 'Use authenticator code instead' : 'Use a recovery code instead'}
+      </button>
+    </div>
   );
 }
 

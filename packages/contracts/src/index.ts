@@ -39,6 +39,9 @@ export type AccountStatus = z.infer<typeof accountStatusSchema>;
 export const skillStatusSchema = z.enum(['draft', 'published', 'archived']);
 export type SkillStatus = z.infer<typeof skillStatusSchema>;
 
+export const enrollmentStatusSchema = z.enum(['assigned', 'in_progress', 'completed']);
+export type EnrollmentStatus = z.infer<typeof enrollmentStatusSchema>;
+
 export const sessionUserSchema = z.object({
   id: z.string().uuid(),
   email: z.string().email(),
@@ -67,13 +70,32 @@ export const verificationResponseSchema = z.object({
 });
 export type VerificationResponse = z.infer<typeof verificationResponseSchema>;
 
+export const availabilityStatusSchema = z.enum(['open', 'limited', 'closed']);
+export type AvailabilityStatus = z.infer<typeof availabilityStatusSchema>;
+
+const httpUrl = z.string().url().max(2048).refine(
+  (v) => /^https?:\/\//i.test(v),
+  { message: 'URL must start with http:// or https://' }
+);
+
 export const profileSchema = z.object({
   userId: z.string().uuid(),
   role: roleSchema,
   firstName: z.string().min(1),
   lastName: z.string().min(1),
   bio: z.string().max(500).nullable(),
-  timezone: z.string().default('UTC')
+  timezone: z.string().default('UTC'),
+  username: z.string().nullable(),
+  avatarUrl: z.string().nullable(),
+  location: z.string().nullable(),
+  skills: z.array(z.string()).nullable(),
+  languages: z.array(z.string()).nullable(),
+  websiteUrl: z.string().nullable(),
+  linkedinUrl: z.string().nullable(),
+  githubUrl: z.string().nullable(),
+  twitterUrl: z.string().nullable(),
+  availabilityStatus: availabilityStatusSchema.default('open'),
+  isPublicProfile: z.boolean().default(true),
 });
 export type Profile = z.infer<typeof profileSchema>;
 
@@ -210,6 +232,32 @@ export const accountSecuritySummarySchema = z.object({
 });
 export type AccountSecuritySummary = z.infer<typeof accountSecuritySummarySchema>;
 
+export const enrollmentDetailSchema = z.object({
+  id: z.string().uuid(),
+  userId: z.string().uuid(),
+  skillId: z.string().uuid(),
+  status: enrollmentStatusSchema,
+  progressPercent: z.number().int().min(0).max(100),
+  assignedAt: z.string(),
+  completedAt: z.string().nullable().optional(),
+  userEmail: z.string().email(),
+  skillTitle: z.string().min(1),
+  skillSlug: z.string().min(1),
+});
+export type EnrollmentDetail = z.infer<typeof enrollmentDetailSchema>;
+
+export const enrollmentAssignSchema = z.object({
+  userId: z.string().uuid(),
+  skillId: z.string().uuid(),
+});
+export type EnrollmentAssignRequest = z.infer<typeof enrollmentAssignSchema>;
+
+export const enrollmentUpdateSchema = z.object({
+  status: enrollmentStatusSchema,
+  progressPercent: z.number().int().min(0).max(100),
+});
+export type EnrollmentUpdateRequest = z.infer<typeof enrollmentUpdateSchema>;
+
 export const mfaVerifyEnrollmentRequestSchema = z.object({
   code: z.string().length(6),
 });
@@ -249,12 +297,52 @@ export const githubOAuthCompleteRequestSchema = z.object({
 export type GitHubOAuthCompleteRequest = z.infer<typeof githubOAuthCompleteRequestSchema>;
 
 export const profileUpdateSchema = z.object({
-  firstName: z.string().min(2),
-  lastName: z.string().min(2),
+  firstName: z.string().min(2).max(100),
+  lastName: z.string().min(2).max(100),
   bio: z.string().max(500).nullable(),
-  timezone: z.string().min(2)
+  timezone: z.string().min(2).max(100),
+  username: z
+    .string()
+    .min(3)
+    .max(30)
+    .regex(/^[a-zA-Z0-9_-]+$/, 'Only letters, digits, - and _ are allowed')
+    .nullable()
+    .optional(),
+  avatarUrl: httpUrl.nullable().optional(),
+  websiteUrl: httpUrl.nullable().optional(),
+  linkedinUrl: httpUrl
+    .refine((v) => /linkedin\.com\//i.test(v), { message: 'Must be a LinkedIn URL' })
+    .nullable()
+    .optional(),
+  githubUrl: httpUrl
+    .refine((v) => /github\.com\//i.test(v), { message: 'Must be a GitHub URL' })
+    .nullable()
+    .optional(),
+  twitterUrl: httpUrl
+    .refine((v) => /(twitter\.com|x\.com)\//i.test(v), { message: 'Must be a Twitter / X URL' })
+    .nullable()
+    .optional(),
+  location: z.string().min(2).max(100).nullable().optional(),
+  skills: z
+    .array(z.string().min(1).max(50))
+    .max(20)
+    .nullable()
+    .optional(),
+  languages: z
+    .array(z.string().min(2).max(10))
+    .max(10)
+    .nullable()
+    .optional(),
+  availabilityStatus: availabilityStatusSchema.optional(),
+  isPublicProfile: z.boolean().optional(),
 });
 export type ProfileUpdateRequest = z.infer<typeof profileUpdateSchema>;
+
+export const adminUserUpdateSchema = z.object({
+  role: roleSchema,
+  status: accountStatusSchema,
+});
+export type AdminUserUpdateRequest = z.infer<typeof adminUserUpdateSchema>;
 
 export const apiEnvelopeSchema = <T extends z.ZodTypeAny>(schema: T) => z.object({
   data: schema,

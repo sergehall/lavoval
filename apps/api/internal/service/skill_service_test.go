@@ -35,6 +35,15 @@ type enrollmentRepoStub struct{}
 func (enrollmentRepoStub) ListByUserID(context.Context, string) ([]domain.Enrollment, error) {
 	return []domain.Enrollment{}, nil
 }
+func (enrollmentRepoStub) ListAll(context.Context) ([]domain.EnrollmentDetail, error) {
+	return []domain.EnrollmentDetail{}, nil
+}
+func (enrollmentRepoStub) Create(_ context.Context, _, _ string) (domain.Enrollment, error) {
+	return domain.Enrollment{}, nil
+}
+func (enrollmentRepoStub) UpdateStatus(_ context.Context, _ string, _ domain.EnrollmentStatus, _ int) (domain.Enrollment, error) {
+	return domain.Enrollment{}, nil
+}
 
 func TestSkillServiceCreateAssignsActorID(t *testing.T) {
 	service := NewSkillService(skillRepoStub{}, enrollmentRepoStub{})

@@ -4,7 +4,12 @@ import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { ApiClientError, createApiClient } from '@lavoval/sdk';
 import type {
+  AdminUserUpdateRequest,
+  AccountSecuritySummary,
   AuthResponse,
+  EnrollmentAssignRequest,
+  EnrollmentDetail,
+  EnrollmentUpdateRequest,
   GitHubOAuthCompleteRequest,
   GoogleOAuthCompleteRequest,
   MFACompleteSignInRequest,
@@ -28,7 +33,7 @@ import type {
 import type { RuntimeRunRequest, SkillRun } from '@lavoval/contracts/runtime';
 import { env } from '@/shared/config/env';
 import { signInHref } from '@/shared/lib/auth-navigation';
-import type { ApiEnvelope, SessionState, UsersListItem } from './types';
+import type { ApiEnvelope, SessionState, UsersListItem, UserWithProfile } from './types';
 
 const ACCESS_COOKIE = 'csl_access_token';
 const REFRESH_COOKIE = 'csl_refresh_token';
@@ -313,6 +318,50 @@ export async function deleteMySkill(token: string, id: string) {
 export async function fetchAdminUsers(token: string) {
   try {
     return (await apiClient.admin.users({ token })) as ApiEnvelope<UsersListItem[]>;
+  } catch (error) {
+    mapApiError(error);
+  }
+}
+
+export async function fetchAdminUser(token: string, id: string) {
+  try {
+    return (await apiClient.admin.user(id, { token })) as ApiEnvelope<UserWithProfile>;
+  } catch (error) {
+    mapApiError(error);
+  }
+}
+
+export async function updateAdminUser(token: string, id: string, payload: AdminUserUpdateRequest) {
+  try {
+    return (await apiClient.admin.updateUser(id, payload, { token })) as ApiEnvelope<UsersListItem>;
+  } catch (error) {
+    mapApiError(error);
+  }
+}
+
+export async function fetchAdminEnrollments(token: string) {
+  try {
+    return (await apiClient.admin.enrollments({ token })) as ApiEnvelope<EnrollmentDetail[]>;
+  } catch (error) {
+    mapApiError(error);
+  }
+}
+
+export async function assignSkillToUser(token: string, payload: EnrollmentAssignRequest) {
+  try {
+    return (await apiClient.admin.assignSkill(payload, { token })) as ApiEnvelope<EnrollmentDetail>;
+  } catch (error) {
+    mapApiError(error);
+  }
+}
+
+export async function updateAdminEnrollment(
+  token: string,
+  id: string,
+  payload: EnrollmentUpdateRequest,
+) {
+  try {
+    return (await apiClient.admin.updateEnrollment(id, payload, { token })) as ApiEnvelope<EnrollmentDetail>;
   } catch (error) {
     mapApiError(error);
   }

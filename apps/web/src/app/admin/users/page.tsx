@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { Badge } from '@/shared/ui/badge';
 import { Card } from '@/shared/ui/card';
 import { fetchAdminUsers, withValidSession } from '@/shared/api/server-client';
@@ -23,6 +24,7 @@ export default async function AdminUsersPage() {
               <th>Role</th>
               <th>Status</th>
               <th>Created</th>
+              <th></th>
             </tr>
           </thead>
           <tbody>
@@ -36,6 +38,11 @@ export default async function AdminUsersPage() {
                   </Badge>
                 </td>
                 <td>{formatDate(user.createdAt)}</td>
+                <td>
+                  <Link href={`/admin/users/${user.id}`} className="table-action-link">
+                    Open
+                  </Link>
+                </td>
               </tr>
             ))}
           </tbody>
