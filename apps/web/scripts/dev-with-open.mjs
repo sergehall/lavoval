@@ -5,10 +5,19 @@ const port = Number(process.env.PORT ?? 3000);
 const host = process.env.HOSTNAME ?? '127.0.0.1';
 const targetUrl = `http://localhost:${port}`;
 
-const child = spawn('pnpm', ['exec', 'next', 'dev', '--hostname', host, '--port', String(port)], {
-  stdio: 'inherit',
-  cwd: new URL('..', import.meta.url)
-});
+const child = spawn(
+  'pnpm',
+  ['exec', 'next', 'dev', '--webpack', '--hostname', host, '--port', String(port)],
+  {
+    stdio: 'inherit',
+    cwd: new URL('..', import.meta.url),
+    env: {
+      ...process.env,
+      WATCHPACK_POLLING: process.env.WATCHPACK_POLLING ?? 'true',
+      CHOKIDAR_USEPOLLING: process.env.CHOKIDAR_USEPOLLING ?? '1'
+    }
+  }
+);
 
 let opened = false;
 

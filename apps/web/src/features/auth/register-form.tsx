@@ -53,12 +53,7 @@ export function RegisterForm({
         </div>
         <label>
           <span>Email</span>
-          <Input
-            type="email"
-            name="email"
-            required
-            defaultValue={state.email || initialEmail}
-          />
+          <Input type="email" name="email" required defaultValue={state.email || initialEmail} />
         </label>
         <label>
           <span>Password</span>

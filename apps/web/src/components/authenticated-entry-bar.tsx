@@ -79,7 +79,12 @@ export function AuthenticatedEntryBar({ user }: { user: SessionUser }) {
       {isOpen ? (
         <div className="account-menu" role="menu">
           <div className="account-menu__label">Account</div>
-          <Link href="/account" className="account-menu__item" role="menuitem" onClick={() => setIsOpen(false)}>
+          <Link
+            href="/account"
+            className="account-menu__item"
+            role="menuitem"
+            onClick={() => setIsOpen(false)}
+          >
             Cabinet
           </Link>
           {user.role === 'admin' ? (
@@ -93,7 +98,11 @@ export function AuthenticatedEntryBar({ user }: { user: SessionUser }) {
             </Link>
           ) : null}
           <form action={logoutAction}>
-            <button type="submit" className="account-menu__item account-menu__item--danger" role="menuitem">
+            <button
+              type="submit"
+              className="account-menu__item account-menu__item--danger"
+              role="menuitem"
+            >
               <span className="account-menu__logout-icon" aria-hidden="true">
                 <svg viewBox="0 0 20 20">
                   <path d="M8 4H4.8A1.8 1.8 0 0 0 3 5.8v8.4A1.8 1.8 0 0 0 4.8 16H8" />
