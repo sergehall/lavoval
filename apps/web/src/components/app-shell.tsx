@@ -2,12 +2,13 @@
 
 import Link from 'next/link';
 import { type PropsWithChildren, useEffect, useRef, useState } from 'react';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import type { SessionUser } from '@lavoval/contracts';
 import { AuthModal } from '@/features/auth/auth-modal';
 import { logoutAction } from '@/features/auth/actions';
 import { GlobalSearch } from '@/components/global-search';
 import { cabinetNavigation, publicNavigation } from '@/shared/lib/navigation';
+import { isAuthMode } from '@/shared/lib/auth-navigation';
 import { AuthenticatedEntryBar } from '@/components/authenticated-entry-bar';
 import { GuestEntryBar } from '@/components/guest-entry-bar';
 import type { SkillSummary } from '@lavoval/registry';
@@ -18,12 +19,15 @@ export function AppShell({
   searchSkills,
 }: PropsWithChildren<{ user?: SessionUser; searchSkills: SkillSummary[] }>) {
   const pathname = usePathname();
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const workspaceNavigation = user ? cabinetNavigation(user) : [];
   const showWorkspaceNav = Boolean(user);
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
-  const [authMode, setAuthMode] = useState<'sign-in' | 'sign-up'>('sign-in');
-  const [isAuthOpen, setIsAuthOpen] = useState(false);
   const mobileMenuRef = useRef<HTMLDivElement>(null);
+  const authRequest = searchParams.get('auth');
+  const isAuthOpen = !user && isAuthMode(authRequest);
+  const authMode = authRequest === 'sign-up' ? 'sign-up' : 'sign-in';
 
   useEffect(() => {
     if (!isMobileNavOpen) {
@@ -51,6 +55,19 @@ export function AppShell({
     };
   }, [isMobileNavOpen]);
 
+  const updateAuthRoute = (mode: 'sign-in' | 'sign-up' | null) => {
+    const nextParams = new URLSearchParams(searchParams.toString());
+
+    if (mode) {
+      nextParams.set('auth', mode);
+    } else {
+      nextParams.delete('auth');
+    }
+
+    const nextQuery = nextParams.toString();
+    router.replace(nextQuery ? `${pathname}?${nextQuery}` : pathname, { scroll: false });
+  };
+
   return (
     <div className="app-frame">
       <header className="site-header">
@@ -75,7 +92,11 @@ export function AppShell({
             skills={searchSkills}
             workspaceNavigation={workspaceNavigation}
           />
-          {user ? <AuthenticatedEntryBar user={user} /> : <GuestEntryBar />}
+          {user ? (
+            <AuthenticatedEntryBar user={user} />
+          ) : (
+            <GuestEntryBar onOpenSignIn={() => updateAuthRoute('sign-in')} />
+          )}
         </div>
         <div className="site-header__actions site-header__actions--mobile" ref={mobileMenuRef}>
           <GlobalSearch
@@ -148,8 +169,7 @@ export function AppShell({
                     className="mobile-nav-panel__item"
                     onClick={() => {
                       setIsMobileNavOpen(false);
-                      setAuthMode('sign-in');
-                      setIsAuthOpen(true);
+                      updateAuthRoute('sign-in');
                     }}
                   >
                     Sign in
@@ -178,8 +198,8 @@ export function AppShell({
         <AuthModal
           isOpen={isAuthOpen}
           mode={authMode}
-          onClose={() => setIsAuthOpen(false)}
-          onChangeMode={setAuthMode}
+          onClose={() => updateAuthRoute(null)}
+          onChangeMode={(mode) => updateAuthRoute(mode)}
         />
       ) : null}
     </div>

@@ -17,6 +17,7 @@ import type {
 } from '@lavoval/contracts';
 import type { RuntimeRunRequest, SkillRun } from '@lavoval/contracts/runtime';
 import { env } from '@/shared/config/env';
+import { signInHref } from '@/shared/lib/auth-navigation';
 import type { ApiEnvelope, SessionState, UsersListItem } from './types';
 
 const ACCESS_COOKIE = 'csl_access_token';
@@ -290,7 +291,7 @@ export async function getSession() {
 export async function requireSession() {
   const session = await getSession();
   if (!session) {
-    redirect('/login');
+    redirect(signInHref);
   }
   return session;
 }
@@ -303,6 +304,11 @@ export async function requireAdminSession() {
   return session;
 }
 
+async function clearSessionAndRedirectToLogin(): Promise<never> {
+  await clearSession();
+  redirect(signInHref);
+}
+
 export async function withValidSession<T>(handler: (session: SessionState) => Promise<T>) {
   const session = await requireSession();
 
@@ -310,7 +316,7 @@ export async function withValidSession<T>(handler: (session: SessionState) => Pr
     return await handler(session);
   } catch (error) {
     if (error instanceof ApiError && error.status === 401) {
-      redirect('/login');
+      await clearSessionAndRedirectToLogin();
     }
 
     throw error;

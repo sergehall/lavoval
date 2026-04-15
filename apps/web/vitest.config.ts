@@ -10,6 +10,7 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
+      'server-only': path.resolve(__dirname, './src/test-support/server-only.ts'),
       '@lavoval/registry': path.resolve(__dirname, '../../packages/registry/src/index.ts'),
       '@lavoval/contracts': path.resolve(__dirname, '../../packages/contracts/src/index.ts'),
       '@lavoval/engine': path.resolve(__dirname, '../../packages/engine/src/index.ts'),

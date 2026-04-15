@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { verifyEmailAction } from '@/features/auth/actions';
 import { ResendVerificationForm } from '@/features/auth/resend-verification-form';
 import { AuthCard } from '@/features/auth/auth-card';
+import { signInHref } from '@/shared/lib/auth-navigation';
 
 export const metadata: Metadata = {
   title: 'Confirm Your Email',
@@ -31,14 +32,14 @@ export default async function VerifyEmailPage({
             <div className="form-message form-message--success" role="status">
               {result.email}
             </div>
-            <Link href="/login" className="site-nav__link site-nav__link--cta">
+            <Link href={signInHref} className="site-nav__link site-nav__link--cta">
               Continue to sign in
             </Link>
           </>
         ) : (
           <>
             <ResendVerificationForm defaultEmail={email} compact />
-            <Link href="/login" className="muted">
+            <Link href={signInHref} className="muted">
               Back to sign in
             </Link>
           </>

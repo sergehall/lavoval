@@ -1,5 +1,6 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
+import { signInHref } from '@/shared/lib/auth-navigation';
 
 const sessionCookieName = 'csl_session';
 
@@ -22,11 +23,11 @@ export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   if (pathname.startsWith('/account') && !role) {
-    return NextResponse.redirect(new URL('/login', request.url));
+    return NextResponse.redirect(new URL(signInHref, request.url));
   }
 
   if (pathname.startsWith('/admin') && role !== 'admin') {
-    return NextResponse.redirect(new URL(role ? '/account' : '/login', request.url));
+    return NextResponse.redirect(new URL(role ? '/account' : signInHref, request.url));
   }
 
   return NextResponse.next();

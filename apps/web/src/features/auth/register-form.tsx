@@ -8,6 +8,7 @@ import { registerAction, type RegisterFormState } from '@/features/auth/actions'
 import { Button } from '@/shared/ui/button';
 import { Input } from '@/shared/ui/input';
 import { RegistrationReminderModal } from '@/features/auth/registration-reminder-modal';
+import { signInHref } from '@/shared/lib/auth-navigation';
 
 const initialRegisterFormState: RegisterFormState = {
   error: null,
@@ -35,7 +36,7 @@ export function RegisterForm({
       onSwitchToSignIn();
       return;
     }
-    router.push('/login');
+    router.push(signInHref);
   };
 
   return (
@@ -71,7 +72,7 @@ export function RegisterForm({
           Already part of Lavoval?
         </button>
       ) : (
-        <Link href="/login" className="muted">
+        <Link href={signInHref} className="muted">
           Already part of Lavoval?
         </Link>
       )}
