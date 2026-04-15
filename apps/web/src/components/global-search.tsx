@@ -3,7 +3,6 @@
 import Link from 'next/link';
 import type { Route } from 'next';
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
-import { usePathname } from 'next/navigation';
 import { buildSkillSearchText, type SkillSummary } from '@lavoval/registry';
 import type { SessionUser } from '@lavoval/contracts';
 import type { NavigationItem } from '@/shared/lib/navigation';
@@ -26,7 +25,6 @@ function buildPageSearchText(item: SearchPageItem) {
 }
 
 export function GlobalSearch({ user, skills, workspaceNavigation }: GlobalSearchProps) {
-  const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState('');
   const deferredQuery = useDeferredValue(query.trim().toLowerCase());
@@ -82,13 +80,10 @@ export function GlobalSearch({ user, skills, workspaceNavigation }: GlobalSearch
       return skills.slice(0, 6);
     }
 
-    return skills.filter((skill) => buildSkillSearchText(skill).includes(deferredQuery)).slice(0, 8);
+    return skills
+      .filter((skill) => buildSkillSearchText(skill).includes(deferredQuery))
+      .slice(0, 8);
   }, [deferredQuery, skills]);
-
-  useEffect(() => {
-    setIsOpen(false);
-    setQuery('');
-  }, [pathname]);
 
   useEffect(() => {
     if (!isOpen) {
@@ -237,7 +232,8 @@ export function GlobalSearch({ user, skills, workspaceNavigation }: GlobalSearch
                     ))
                   ) : (
                     <div className="global-search__empty">
-                      No skills matched that query. Open Explore Skills for deeper catalog filtering.
+                      No skills matched that query. Open Explore Skills for deeper catalog
+                      filtering.
                     </div>
                   )}
                 </div>

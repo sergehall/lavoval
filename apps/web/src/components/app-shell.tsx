@@ -26,10 +26,6 @@ export function AppShell({
   const mobileMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    setIsMobileNavOpen(false);
-  }, [pathname]);
-
-  useEffect(() => {
     if (!isMobileNavOpen) {
       return;
     }
@@ -79,11 +75,7 @@ export function AppShell({
             skills={searchSkills}
             workspaceNavigation={workspaceNavigation}
           />
-          {user ? (
-            <AuthenticatedEntryBar user={user} />
-          ) : (
-            <GuestEntryBar />
-          )}
+          {user ? <AuthenticatedEntryBar user={user} /> : <GuestEntryBar />}
         </div>
         <div className="site-header__actions site-header__actions--mobile" ref={mobileMenuRef}>
           <GlobalSearch
@@ -140,7 +132,10 @@ export function AppShell({
                   </div>
                   <div className="mobile-nav-panel__divider" />
                   <form action={logoutAction}>
-                    <button type="submit" className="mobile-nav-panel__item mobile-nav-panel__item--danger">
+                    <button
+                      type="submit"
+                      className="mobile-nav-panel__item mobile-nav-panel__item--danger"
+                    >
                       Log out
                     </button>
                   </form>
