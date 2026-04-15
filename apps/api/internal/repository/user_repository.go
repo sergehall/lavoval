@@ -92,7 +92,7 @@ func (r *UserRepository) MarkEmailVerified(ctx context.Context, userID string) (
 		UPDATE users
 		SET email_verified_at = NOW(), updated_at = NOW()
 		WHERE id = $1 AND deleted_at IS NULL
-		RETURNING id, email, password_hash, role, status, email_verified_at, mfa_enabled, mfa_totp_secret_encrypted, mfa_pending_totp_secret_encrypted, mfa_enrolled_at, created_at, updated_at`
+		RETURNING id, email, password_hash, role, status, email_verified_at, created_at, updated_at`
 
 	var user domain.User
 	if err := r.pool.QueryRow(ctx, query, userID).Scan(
@@ -143,6 +143,33 @@ func (r *UserRepository) UpdatePasswordHash(ctx context.Context, userID string, 
 	return user, nil
 }
 
+func (r *UserRepository) UpdateRoleAndStatus(ctx context.Context, id string, role domain.Role, status domain.AccountStatus) (domain.User, error) {
+	query := `
+		UPDATE users
+		SET role = $2, status = $3, updated_at = NOW()
+		WHERE id = $1 AND deleted_at IS NULL
+		RETURNING id, email, password_hash, role, status, email_verified_at, mfa_enabled, mfa_totp_secret_encrypted, mfa_pending_totp_secret_encrypted, mfa_enrolled_at, created_at, updated_at`
+
+	var user domain.User
+	if err := r.pool.QueryRow(ctx, query, id, role, status).Scan(
+		&user.ID,
+		&user.Email,
+		&user.PasswordHash,
+		&user.Role,
+		&user.Status,
+		&user.EmailVerifiedAt,
+		&user.MFAEnabled,
+		&user.MFATOTPSecretEncrypted,
+		&user.MFAPendingTOTPSecretEncrypted,
+		&user.MFAEnrolledAt,
+		&user.CreatedAt,
+		&user.UpdatedAt,
+	); err != nil {
+		return domain.User{}, fmt.Errorf("update user role/status: %w", err)
+	}
+	return user, nil
+}
+
 func (r *UserRepository) StartTOTPEnrollment(ctx context.Context, id string, pendingSecretEncrypted string) (domain.User, error) {
 	query := `
 		UPDATE users
@@ -166,6 +193,36 @@ func (r *UserRepository) StartTOTPEnrollment(ctx context.Context, id string, pen
 		&user.UpdatedAt,
 	); err != nil {
 		return domain.User{}, fmt.Errorf("start totp enrollment: %w", err)
+	}
+
+	return user, nil
+}
+
+func (r *UserRepository) CancelTOTPEnrollment(ctx context.Context, id string) (domain.User, error) {
+	query := `
+		UPDATE users
+		SET
+			mfa_pending_totp_secret_encrypted = NULL,
+			updated_at = NOW()
+		WHERE id = $1 AND deleted_at IS NULL
+		RETURNING id, email, password_hash, role, status, email_verified_at, mfa_enabled, mfa_totp_secret_encrypted, mfa_pending_totp_secret_encrypted, mfa_enrolled_at, created_at, updated_at`
+
+	var user domain.User
+	if err := r.pool.QueryRow(ctx, query, id).Scan(
+		&user.ID,
+		&user.Email,
+		&user.PasswordHash,
+		&user.Role,
+		&user.Status,
+		&user.EmailVerifiedAt,
+		&user.MFAEnabled,
+		&user.MFATOTPSecretEncrypted,
+		&user.MFAPendingTOTPSecretEncrypted,
+		&user.MFAEnrolledAt,
+		&user.CreatedAt,
+		&user.UpdatedAt,
+	); err != nil {
+		return domain.User{}, fmt.Errorf("cancel totp enrollment: %w", err)
 	}
 
 	return user, nil

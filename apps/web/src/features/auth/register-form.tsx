@@ -5,6 +5,7 @@ import { useFormStatus } from 'react-dom';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { registerAction, type RegisterFormState } from '@/features/auth/actions';
+import { env } from '@/shared/config/env';
 import { Button } from '@/shared/ui/button';
 import { Input } from '@/shared/ui/input';
 import { RegistrationReminderModal } from '@/features/auth/registration-reminder-modal';
@@ -29,6 +30,8 @@ export function RegisterForm({
   const [state, action] = useActionState(registerAction, initialRegisterFormState);
   const [dismissedReminderForEmail, setDismissedReminderForEmail] = useState<string | null>(null);
   const isReminderOpen = state.registered && state.email !== dismissedReminderForEmail;
+  const googleOAuthStartURL = `${env.apiUrl}/api/v1/auth/oauth/google/start`;
+  const githubOAuthStartURL = `${env.apiUrl}/api/v1/auth/oauth/github/start`;
 
   const handleReturnToSignIn = () => {
     setDismissedReminderForEmail(state.email);
@@ -65,6 +68,14 @@ export function RegisterForm({
             {state.error}
           </p>
         ) : null}
+        <div className="stack stack--sm">
+          <a href={googleOAuthStartURL} className="button button--secondary button--full">
+            Continue with Google
+          </a>
+          <a href={githubOAuthStartURL} className="button button--secondary button--full">
+            Continue with GitHub
+          </a>
+        </div>
         <RegisterSubmitButton />
       </form>
       {mode === 'modal' ? (

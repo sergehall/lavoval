@@ -5,6 +5,8 @@ import { redirect } from 'next/navigation';
 import { ApiClientError, createApiClient } from '@lavoval/sdk';
 import type {
   AuthResponse,
+  GitHubOAuthCompleteRequest,
+  GoogleOAuthCompleteRequest,
   MFACompleteSignInRequest,
   MFADisableRequest,
   MFAEnrollResponse,
@@ -73,6 +75,22 @@ export async function completeMFASignIn(payload: MFACompleteSignInRequest) {
   }
 }
 
+export async function completeGoogleOAuth(payload: GoogleOAuthCompleteRequest) {
+  try {
+    return await apiClient.auth.completeGoogleOAuth(payload);
+  } catch (error) {
+    mapApiError(error);
+  }
+}
+
+export async function completeGitHubOAuth(payload: GitHubOAuthCompleteRequest) {
+  try {
+    return await apiClient.auth.completeGitHubOAuth(payload);
+  } catch (error) {
+    mapApiError(error);
+  }
+}
+
 export async function register(payload: RegisterRequest) {
   try {
     return await apiClient.auth.register(payload);
@@ -129,6 +147,14 @@ export async function enrollMFA(token: string) {
   }
 }
 
+export async function cancelMFAEnrollment(token: string) {
+  try {
+    return await apiClient.auth.mfaCancelEnrollment({ token });
+  } catch (error) {
+    mapApiError(error);
+  }
+}
+
 export async function verifyMFAEnrollment(token: string, payload: MFAVerifyEnrollmentRequest) {
   try {
     return await apiClient.auth.mfaVerifyEnrollment(payload, { token });
@@ -167,6 +193,14 @@ export async function logout(token: string) {
 export async function fetchProfile(token: string) {
   try {
     return await apiClient.me.profile({ token });
+  } catch (error) {
+    mapApiError(error);
+  }
+}
+
+export async function fetchAccountSecurity(token: string) {
+  try {
+    return await apiClient.me.security({ token });
   } catch (error) {
     mapApiError(error);
   }

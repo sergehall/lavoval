@@ -14,6 +14,10 @@ type EnrollmentStatus string
 
 type SkillRunStatus string
 
+type AvailabilityStatus string
+
+type OAuthProvider string
+
 const (
 	RoleUser  Role = "user"
 	RoleAdmin Role = "admin"
@@ -21,6 +25,13 @@ const (
 	AccountStatusActive    AccountStatus = "active"
 	AccountStatusInvited   AccountStatus = "invited"
 	AccountStatusSuspended AccountStatus = "suspended"
+
+	AvailabilityOpen    AvailabilityStatus = "open"
+	AvailabilityLimited AvailabilityStatus = "limited"
+	AvailabilityClosed  AvailabilityStatus = "closed"
+
+	OAuthProviderGoogle OAuthProvider = "google"
+	OAuthProviderGitHub OAuthProvider = "github"
 
 	SkillStatusDraft     SkillStatus = "draft"
 	SkillStatusPublished SkillStatus = "published"
@@ -86,6 +97,25 @@ type AuthSignInChallenge struct {
 	ExpiresAt  time.Time  `json:"expiresAt"`
 	ConsumedAt *time.Time `json:"consumedAt,omitempty"`
 	CreatedAt  time.Time  `json:"createdAt"`
+}
+
+type OAuthState struct {
+	ID         string        `json:"id"`
+	Provider   OAuthProvider `json:"provider"`
+	StateHash  string        `json:"-"`
+	ExpiresAt  time.Time     `json:"expiresAt"`
+	ConsumedAt *time.Time    `json:"consumedAt,omitempty"`
+	CreatedAt  time.Time     `json:"createdAt"`
+}
+
+type OAuthIdentity struct {
+	ID             string        `json:"id"`
+	UserID         string        `json:"userId"`
+	Provider       OAuthProvider `json:"provider"`
+	ProviderUserID string        `json:"providerUserId"`
+	Email          string        `json:"email"`
+	CreatedAt      time.Time     `json:"createdAt"`
+	UpdatedAt      time.Time     `json:"updatedAt"`
 }
 
 type Profile struct {

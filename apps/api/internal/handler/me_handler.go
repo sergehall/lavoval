@@ -13,10 +13,15 @@ import (
 type MeHandler struct {
 	validate *validator.Validate
 	service  *service.ProfileService
+	security *service.AccountSecurityService
 }
 
-func NewMeHandler(validate *validator.Validate, service *service.ProfileService) *MeHandler {
-	return &MeHandler{validate: validate, service: service}
+func NewMeHandler(
+	validate *validator.Validate,
+	service *service.ProfileService,
+	security *service.AccountSecurityService,
+) *MeHandler {
+	return &MeHandler{validate: validate, service: service, security: security}
 }
 
 func (h *MeHandler) Profile(w http.ResponseWriter, r *http.Request) {
@@ -47,4 +52,14 @@ func (h *MeHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	httpx.JSON(w, http.StatusOK, profile)
+}
+
+func (h *MeHandler) Security(w http.ResponseWriter, r *http.Request) {
+	claims, _ := appmiddleware.ClaimsFromContext(r.Context())
+	summary, err := h.security.Summary(r.Context(), claims.UserID)
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "security_load_failed", "Could not load security settings")
+		return
+	}
+	httpx.JSON(w, http.StatusOK, summary)
 }

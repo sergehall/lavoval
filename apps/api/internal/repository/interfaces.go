@@ -13,6 +13,7 @@ type UserStore interface {
 	MarkEmailVerified(context.Context, string) (domain.User, error)
 	UpdatePasswordHash(context.Context, string, string) (domain.User, error)
 	StartTOTPEnrollment(context.Context, string, string) (domain.User, error)
+	CancelTOTPEnrollment(context.Context, string) (domain.User, error)
 	EnableTOTP(context.Context, string, string) (domain.User, error)
 	DisableTOTP(context.Context, string) (domain.User, error)
 	List(context.Context) ([]domain.User, error)
@@ -44,6 +45,18 @@ type SignInChallengeStore interface {
 	FindByID(context.Context, string) (domain.AuthSignInChallenge, error)
 	Consume(context.Context, string, string) error
 	RevokeActiveByUserID(context.Context, string) error
+}
+
+type OAuthStateStore interface {
+	Create(context.Context, domain.OAuthState) (domain.OAuthState, error)
+	FindByStateHash(context.Context, domain.OAuthProvider, string) (domain.OAuthState, error)
+	Consume(context.Context, string) error
+}
+
+type OAuthIdentityStore interface {
+	Create(context.Context, domain.OAuthIdentity) (domain.OAuthIdentity, error)
+	FindByProviderSubject(context.Context, domain.OAuthProvider, string) (domain.OAuthIdentity, error)
+	ListByUserID(context.Context, string) ([]domain.OAuthIdentity, error)
 }
 
 type ProfileStore interface {

@@ -27,6 +27,11 @@ type Config struct {
 	MFATOTPIssuer         string
 	MFASecretKey          string
 	MFASignInChallengeTTL time.Duration
+	OAuthStateTTL         time.Duration
+	GoogleOAuthClientID   string
+	GoogleOAuthSecret     string
+	GitHubOAuthClientID   string
+	GitHubOAuthSecret     string
 	SMTPHost              string
 	SMTPPort              int
 	SMTPUsername          string
@@ -73,6 +78,11 @@ func Load() (Config, error) {
 		return Config{}, fmt.Errorf("parse MFA_SIGN_IN_CHALLENGE_TTL: %w", err)
 	}
 
+	oauthStateTTL, err := time.ParseDuration(getEnv("OAUTH_STATE_TTL", "10m"))
+	if err != nil {
+		return Config{}, fmt.Errorf("parse OAUTH_STATE_TTL: %w", err)
+	}
+
 	smtpPort, err := strconv.Atoi(getEnv("SMTP_PORT", "587"))
 	if err != nil {
 		return Config{}, fmt.Errorf("parse SMTP_PORT: %w", err)
@@ -108,6 +118,11 @@ func Load() (Config, error) {
 		MFATOTPIssuer:         getEnv("MFA_TOTP_ISSUER", getEnv("APP_NAME", "Lavoval")),
 		MFASecretKey:          getEnv("MFA_SECRET_KEY", ""),
 		MFASignInChallengeTTL: mfaSignInChallengeTTL,
+		OAuthStateTTL:         oauthStateTTL,
+		GoogleOAuthClientID:   getEnv("GOOGLE_OAUTH_CLIENT_ID", ""),
+		GoogleOAuthSecret:     getEnv("GOOGLE_OAUTH_CLIENT_SECRET", ""),
+		GitHubOAuthClientID:   getEnv("GITHUB_OAUTH_CLIENT_ID", ""),
+		GitHubOAuthSecret:     getEnv("GITHUB_OAUTH_CLIENT_SECRET", ""),
 		SMTPHost:              getEnv("SMTP_HOST", ""),
 		SMTPPort:              smtpPort,
 		SMTPUsername:          getEnv("SMTP_USERNAME", ""),

@@ -110,6 +110,100 @@ func (h *AuthHandler) CompleteMFASignIn(w http.ResponseWriter, r *http.Request) 
 	httpx.JSON(w, http.StatusOK, payload)
 }
 
+func (h *AuthHandler) GoogleOAuthStart(w http.ResponseWriter, r *http.Request) {
+	payload, err := h.service.GoogleOAuthStart(r.Context())
+	if err != nil {
+		if errors.Is(err, service.ErrOAuthNotConfigured) {
+			httpx.Error(w, http.StatusServiceUnavailable, "oauth_not_configured", "Google OAuth is not configured yet")
+			return
+		}
+		httpx.Error(w, http.StatusInternalServerError, "oauth_start_failed", "Could not start Google sign in")
+		return
+	}
+
+	http.Redirect(w, r, payload.URL, http.StatusFound)
+}
+
+func (h *AuthHandler) GitHubOAuthStart(w http.ResponseWriter, r *http.Request) {
+	payload, err := h.service.GitHubOAuthStart(r.Context())
+	if err != nil {
+		if errors.Is(err, service.ErrOAuthNotConfigured) {
+			httpx.Error(w, http.StatusServiceUnavailable, "oauth_not_configured", "GitHub OAuth is not configured yet")
+			return
+		}
+		httpx.Error(w, http.StatusInternalServerError, "oauth_start_failed", "Could not start GitHub sign in")
+		return
+	}
+
+	http.Redirect(w, r, payload.URL, http.StatusFound)
+}
+
+func (h *AuthHandler) CompleteGoogleOAuth(w http.ResponseWriter, r *http.Request) {
+	var input service.CompleteGoogleOAuthInput
+	if err := httpx.Decode(r, &input); err != nil {
+		httpx.Error(w, http.StatusBadRequest, "invalid_request", err.Error())
+		return
+	}
+	if err := h.validate.Struct(input); err != nil {
+		httpx.Error(w, http.StatusBadRequest, "validation_error", err.Error())
+		return
+	}
+
+	payload, err := h.service.CompleteGoogleOAuth(r.Context(), input)
+	if err != nil {
+		switch {
+		case errors.Is(err, service.ErrOAuthStateInvalid):
+			httpx.Error(w, http.StatusBadRequest, "oauth_state_invalid", "This Google sign-in request is invalid.")
+		case errors.Is(err, service.ErrOAuthStateExpired):
+			httpx.Error(w, http.StatusGone, "oauth_state_expired", "This Google sign-in request expired. Try again.")
+		case errors.Is(err, service.ErrOAuthEmailNotVerified):
+			httpx.Error(w, http.StatusForbidden, "oauth_email_not_verified", "Google did not return a verified email address.")
+		case errors.Is(err, service.ErrOAuthNotConfigured):
+			httpx.Error(w, http.StatusServiceUnavailable, "oauth_not_configured", "Google OAuth is not configured yet.")
+		case errors.Is(err, service.ErrOAuthMFASignInNotSupported):
+			httpx.Error(w, http.StatusConflict, "oauth_mfa_not_supported", "Use your password and authenticator flow for this account right now.")
+		default:
+			httpx.Error(w, http.StatusInternalServerError, "oauth_complete_failed", "Could not complete Google sign in.")
+		}
+		return
+	}
+
+	httpx.JSON(w, http.StatusOK, payload)
+}
+
+func (h *AuthHandler) CompleteGitHubOAuth(w http.ResponseWriter, r *http.Request) {
+	var input service.CompleteGitHubOAuthInput
+	if err := httpx.Decode(r, &input); err != nil {
+		httpx.Error(w, http.StatusBadRequest, "invalid_request", err.Error())
+		return
+	}
+	if err := h.validate.Struct(input); err != nil {
+		httpx.Error(w, http.StatusBadRequest, "validation_error", err.Error())
+		return
+	}
+
+	payload, err := h.service.CompleteGitHubOAuth(r.Context(), input)
+	if err != nil {
+		switch {
+		case errors.Is(err, service.ErrOAuthStateInvalid):
+			httpx.Error(w, http.StatusBadRequest, "oauth_state_invalid", "This GitHub sign-in request is invalid.")
+		case errors.Is(err, service.ErrOAuthStateExpired):
+			httpx.Error(w, http.StatusGone, "oauth_state_expired", "This GitHub sign-in request expired. Try again.")
+		case errors.Is(err, service.ErrOAuthEmailNotVerified):
+			httpx.Error(w, http.StatusForbidden, "oauth_email_not_verified", "GitHub did not return a verified email address.")
+		case errors.Is(err, service.ErrOAuthNotConfigured):
+			httpx.Error(w, http.StatusServiceUnavailable, "oauth_not_configured", "GitHub OAuth is not configured yet.")
+		case errors.Is(err, service.ErrOAuthMFASignInNotSupported):
+			httpx.Error(w, http.StatusConflict, "oauth_mfa_not_supported", "Use your password and authenticator flow for this account right now.")
+		default:
+			httpx.Error(w, http.StatusInternalServerError, "oauth_complete_failed", "Could not complete GitHub sign in.")
+		}
+		return
+	}
+
+	httpx.JSON(w, http.StatusOK, payload)
+}
+
 func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 	httpx.JSON(w, http.StatusOK, map[string]bool{"success": true})
 }
@@ -280,6 +374,29 @@ func (h *AuthHandler) VerifyMFAEnrollment(w http.ResponseWriter, r *http.Request
 			httpx.Error(w, http.StatusBadRequest, "mfa_code_invalid", "The authenticator code is invalid")
 		default:
 			httpx.Error(w, http.StatusInternalServerError, "mfa_verify_failed", "Could not verify MFA enrollment")
+		}
+		return
+	}
+
+	httpx.JSON(w, http.StatusOK, payload)
+}
+
+func (h *AuthHandler) CancelMFAEnrollment(w http.ResponseWriter, r *http.Request) {
+	claims, ok := appmiddleware.ClaimsFromContext(r.Context())
+	if !ok {
+		httpx.Error(w, http.StatusUnauthorized, "unauthorized", "Missing authenticated session")
+		return
+	}
+
+	payload, err := h.service.CancelMFAEnrollment(r.Context(), claims.UserID)
+	if err != nil {
+		switch {
+		case errors.Is(err, service.ErrMFAAlreadyEnabled):
+			httpx.Error(w, http.StatusConflict, "mfa_already_enabled", "MFA is already enabled for this account")
+		case errors.Is(err, service.ErrMFAPendingEnrollmentMissing):
+			httpx.Error(w, http.StatusConflict, "mfa_enrollment_missing", "There is no pending MFA setup to cancel")
+		default:
+			httpx.Error(w, http.StatusInternalServerError, "mfa_cancel_failed", "Could not cancel MFA setup")
 		}
 		return
 	}

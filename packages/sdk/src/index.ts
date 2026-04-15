@@ -1,5 +1,8 @@
 import type {
   AuthResponse,
+  AccountSecuritySummary,
+  GitHubOAuthCompleteRequest,
+  GoogleOAuthCompleteRequest,
   MFACompleteSignInRequest,
   MFADisableRequest,
   MFAEnrollResponse,
@@ -78,8 +81,13 @@ export const apiPaths = {
     resendVerification: () => '/api/v1/auth/resend-verification',
     forgotPassword: () => '/api/v1/auth/forgot-password',
     resetPassword: () => '/api/v1/auth/reset-password',
+    googleOAuthStart: () => '/api/v1/auth/oauth/google/start',
+    githubOAuthStart: () => '/api/v1/auth/oauth/github/start',
+    googleOAuthComplete: () => '/api/v1/auth/oauth/google/complete',
+    githubOAuthComplete: () => '/api/v1/auth/oauth/github/complete',
     mfaStatus: () => '/api/v1/auth/mfa/status',
     mfaEnroll: () => '/api/v1/auth/mfa/enroll',
+    mfaCancelEnrollment: () => '/api/v1/auth/mfa/cancel-enrollment',
     mfaVerifyEnrollment: () => '/api/v1/auth/mfa/verify-enrollment',
     mfaDisable: () => '/api/v1/auth/mfa/disable',
     mfaRegenerateRecoveryCodes: () => '/api/v1/auth/mfa/recovery-codes/regenerate',
@@ -88,6 +96,7 @@ export const apiPaths = {
   },
   me: {
     profile: () => '/api/v1/me',
+    security: () => '/api/v1/me/security',
     updateProfile: () => '/api/v1/me/profile',
     skills: () => '/api/v1/me/skills',
     skill: (id: string) => `/api/v1/me/skills/${id}`,
@@ -201,11 +210,26 @@ export function createApiClient(config: ApiClientConfig) {
           body: JSON.stringify(payload),
         });
       },
+      completeGoogleOAuth(payload: GoogleOAuthCompleteRequest) {
+        return request<AuthResponse>(apiPaths.auth.googleOAuthComplete(), {
+          method: 'POST',
+          body: JSON.stringify(payload),
+        });
+      },
+      completeGitHubOAuth(payload: GitHubOAuthCompleteRequest) {
+        return request<AuthResponse>(apiPaths.auth.githubOAuthComplete(), {
+          method: 'POST',
+          body: JSON.stringify(payload),
+        });
+      },
       mfaStatus(options: ApiClientRequestOptions) {
         return request<MFAStatusResponse>(apiPaths.auth.mfaStatus(), undefined, options);
       },
       mfaEnroll(options: ApiClientRequestOptions) {
         return request<MFAEnrollResponse>(apiPaths.auth.mfaEnroll(), { method: 'POST' }, options);
+      },
+      mfaCancelEnrollment(options: ApiClientRequestOptions) {
+        return request<MFAStatusResponse>(apiPaths.auth.mfaCancelEnrollment(), { method: 'POST' }, options);
       },
       mfaVerifyEnrollment(payload: MFAVerifyEnrollmentRequest, options: ApiClientRequestOptions) {
         return request<MFAStatusResponse>(apiPaths.auth.mfaVerifyEnrollment(), {
@@ -238,6 +262,9 @@ export function createApiClient(config: ApiClientConfig) {
     me: {
       profile(options: ApiClientRequestOptions) {
         return request<Profile>(apiPaths.me.profile(), undefined, options);
+      },
+      security(options: ApiClientRequestOptions) {
+        return request<AccountSecuritySummary>(apiPaths.me.security(), undefined, options);
       },
       updateProfile(payload: ProfileUpdateRequest, options: ApiClientRequestOptions) {
         return request<Profile>(

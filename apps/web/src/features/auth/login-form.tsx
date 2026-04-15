@@ -2,9 +2,11 @@
 
 import Link from 'next/link';
 import { useActionState, useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { useFormStatus } from 'react-dom';
 import { loginAction, type AuthFormState } from '@/features/auth/actions';
 import { ResendVerificationForm } from '@/features/auth/resend-verification-form';
+import { env } from '@/shared/config/env';
 import { Button } from '@/shared/ui/button';
 import { Input } from '@/shared/ui/input';
 
@@ -20,6 +22,10 @@ const initialAuthFormState: AuthFormState = {
 export function LoginForm() {
   const [state, action] = useActionState(loginAction, initialAuthFormState);
   const [recoveryMode, setRecoveryMode] = useState(false);
+  const searchParams = useSearchParams();
+  const oauthError = searchParams.get('oauthError');
+  const googleOAuthStartURL = `${env.apiUrl}/api/v1/auth/oauth/google/start`;
+  const githubOAuthStartURL = `${env.apiUrl}/api/v1/auth/oauth/github/start`;
 
   useEffect(() => {
     setRecoveryMode(Boolean(state.recoveryMode));
@@ -91,6 +97,20 @@ export function LoginForm() {
         <p className="form-message form-message--error" role="alert">
           {state.error}
         </p>
+      ) : oauthError ? (
+        <p className="form-message form-message--error" role="alert">
+          {oauthError}
+        </p>
+      ) : null}
+      {!state.mfaRequired ? (
+        <div className="stack stack--sm">
+          <a href={googleOAuthStartURL} className="button button--secondary button--full">
+            Continue with Google
+          </a>
+          <a href={githubOAuthStartURL} className="button button--secondary button--full">
+            Continue with GitHub
+          </a>
+        </div>
       ) : null}
       {state.error && !state.needsVerification && state.email ? (
         <div className="auth-guidance">

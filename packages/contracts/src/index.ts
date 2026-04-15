@@ -191,6 +191,25 @@ export const mfaEnrollResponseSchema = z.object({
 });
 export type MFAEnrollResponse = z.infer<typeof mfaEnrollResponseSchema>;
 
+export const oauthProviderSchema = z.enum(['google', 'github']);
+export type OAuthProvider = z.infer<typeof oauthProviderSchema>;
+
+export const accountSecurityProviderSchema = z.object({
+  provider: oauthProviderSchema,
+  connected: z.boolean(),
+  connectedAt: z.string(),
+});
+export type AccountSecurityProvider = z.infer<typeof accountSecurityProviderSchema>;
+
+export const accountSecuritySummarySchema = z.object({
+  hasPassword: z.boolean(),
+  passwordUpdatedAt: z.string().nullable().optional(),
+  providers: z.array(accountSecurityProviderSchema),
+  mfaEnabled: z.boolean(),
+  mfaEnrolledAt: z.string().nullable().optional(),
+});
+export type AccountSecuritySummary = z.infer<typeof accountSecuritySummarySchema>;
+
 export const mfaVerifyEnrollmentRequestSchema = z.object({
   code: z.string().length(6),
 });
@@ -216,6 +235,18 @@ export const mfaCompleteSignInRequestSchema = z.object({
   message: 'Provide an authenticator code or a recovery code.',
 });
 export type MFACompleteSignInRequest = z.infer<typeof mfaCompleteSignInRequestSchema>;
+
+export const googleOAuthCompleteRequestSchema = z.object({
+  code: z.string().min(8),
+  state: z.string().min(16),
+});
+export type GoogleOAuthCompleteRequest = z.infer<typeof googleOAuthCompleteRequestSchema>;
+
+export const githubOAuthCompleteRequestSchema = z.object({
+  code: z.string().min(8),
+  state: z.string().min(16),
+});
+export type GitHubOAuthCompleteRequest = z.infer<typeof githubOAuthCompleteRequestSchema>;
 
 export const profileUpdateSchema = z.object({
   firstName: z.string().min(2),

@@ -111,10 +111,13 @@ Important values:
 
 - `APP_URL`: frontend base URL used to build verification links
 - `NEXT_PUBLIC_API_URL`: backend base URL for the frontend
+- `NEXT_PUBLIC_APP_URL`: frontend base URL used for OAuth callbacks
 - `DATABASE_URL`: PostgreSQL connection string
 - `JWT_SECRET`: signing secret for access and refresh tokens
 - `JWT_ACCESS_TTL` and `JWT_REFRESH_TTL`: token lifetimes
 - `ADMIN_SEED_EMAIL`, `ADMIN_SEED_PASSWORD`: seed account defaults
+- `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET`: Google sign-in web application credentials
+- `GITHUB_OAUTH_CLIENT_ID`, `GITHUB_OAUTH_CLIENT_SECRET`: GitHub OAuth app credentials
 - `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `SMTP_FROM_EMAIL`: Google SMTP delivery settings for confirmation emails
 
 Google email confirmation setup:
@@ -123,6 +126,30 @@ Google email confirmation setup:
 - Create a Google App Password and place it in `SMTP_PASSWORD`
 - Keep `SMTP_HOST=smtp.gmail.com` and `SMTP_PORT=587`
 - Make sure `APP_URL` points at the frontend domain users will open from their inbox
+
+Google OAuth web application setup:
+
+- In Google Cloud Console, go to `APIs & Services -> Credentials`
+- Create an OAuth client with application type `Web application`
+- Use these local Lavoval values:
+- `Authorized JavaScript origins`: `http://localhost:3000`
+- `Authorized redirect URIs`: `http://localhost:3000/auth/oauth/google/callback`
+- Put the generated credentials into:
+- `GOOGLE_OAUTH_CLIENT_ID`
+- `GOOGLE_OAUTH_CLIENT_SECRET`
+- Keep `APP_URL=http://localhost:3000` and `NEXT_PUBLIC_APP_URL=http://localhost:3000`, because the OAuth callback lands on the frontend and is then exchanged by the Go API
+
+GitHub OAuth app setup:
+
+- In GitHub, go to `Settings -> Developer settings -> OAuth Apps`
+- Create a new OAuth App
+- Use these local Lavoval values:
+- `Homepage URL`: `http://localhost:3000`
+- `Authorization callback URL`: `http://localhost:3000/auth/oauth/github/callback`
+- Put the generated credentials into:
+- `GITHUB_OAUTH_CLIENT_ID`
+- `GITHUB_OAUTH_CLIENT_SECRET`
+- Keep `APP_URL=http://localhost:3000` and `NEXT_PUBLIC_APP_URL=http://localhost:3000`, because the OAuth callback lands on the frontend and is then exchanged by the Go API
 
 For local infrastructure runs, `docker-compose.yml` uses `.env.local` and starts only PostgreSQL.
 

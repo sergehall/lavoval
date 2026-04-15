@@ -17,6 +17,7 @@ export function cabinetNavigation(user: SessionUser): NavigationItem[] {
     { href: '/account/my-skills', label: 'My Offers' },
     { href: '/account/runs', label: 'Runs' },
     { href: '/account/profile', label: 'Identity' },
+    { href: '/account/security', label: 'Security' },
   ];
 
   if (user.role === 'admin') {

@@ -1,8 +1,12 @@
 import { loadMFAState } from '@/features/auth/actions';
 import { MFASettings } from '@/features/auth/mfa-settings';
+import { fetchAccountSecurity, withValidSession } from '@/shared/api/server-client';
 
 export default async function AccountSecurityPage() {
-  const mfaState = await loadMFAState();
+  const [mfaState, accountSecurity] = await Promise.all([
+    loadMFAState(),
+    withValidSession((session) => fetchAccountSecurity(session.accessToken).then((response) => response.data)),
+  ]);
 
   return (
     <div className="stack stack--lg">
@@ -14,7 +18,7 @@ export default async function AccountSecurityPage() {
           </p>
         </div>
       </section>
-      <MFASettings initialState={mfaState} />
+      <MFASettings initialState={mfaState} accountSecurity={accountSecurity} />
     </div>
   );
 }

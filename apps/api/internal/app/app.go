@@ -44,19 +44,35 @@ func New() (*Application, error) {
 	passwordResetRepo := repository.NewPasswordResetRepository(pool)
 	mfaRecoveryCodeRepo := repository.NewMFARecoveryCodeRepository(pool)
 	signInChallengeRepo := repository.NewSignInChallengeRepository(pool)
+	oauthStateRepo := repository.NewOAuthStateRepository(pool)
+	oauthIdentityRepo := repository.NewOAuthIdentityRepository(pool)
 	skillRepo := repository.NewSkillRepository(pool)
 	enrollmentRepo := repository.NewEnrollmentRepository(pool)
 	skillRunRepo := repository.NewSkillRunRepository(pool)
 	runtimeRegistry := appRuntime.DefaultRegistry()
 	verificationMailer := mailer.NewSMTPVerificationMailer(cfg)
 
-	authService := service.NewAuthService(userRepo, profileRepo, verificationRepo, passwordResetRepo, mfaRecoveryCodeRepo, signInChallengeRepo, tokenManager, verificationMailer, service.NoopSessionRevoker{}, cfg)
+	authService := service.NewAuthService(
+		userRepo,
+		profileRepo,
+		verificationRepo,
+		passwordResetRepo,
+		mfaRecoveryCodeRepo,
+		signInChallengeRepo,
+		oauthStateRepo,
+		oauthIdentityRepo,
+		tokenManager,
+		verificationMailer,
+		service.NoopSessionRevoker{},
+		cfg,
+	)
 	profileService := service.NewProfileService(profileRepo)
+	accountSecurityService := service.NewAccountSecurityService(userRepo, oauthIdentityRepo)
 	skillService := service.NewSkillService(skillRepo, enrollmentRepo)
 	runtimeService := service.NewRuntimeService(skillRepo, skillRunRepo, runtimeRegistry)
 	adminService := service.NewAdminService(userRepo, skillRepo)
 
-	router := handler.NewRouter(cfg, tokenManager, authService, profileService, skillService, runtimeService, adminService)
+	router := handler.NewRouter(cfg, tokenManager, authService, profileService, accountSecurityService, skillService, runtimeService, adminService)
 
 	server := &http.Server{
 		Addr:              cfg.HTTPAddr,

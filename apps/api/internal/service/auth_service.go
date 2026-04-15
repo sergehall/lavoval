@@ -37,6 +37,11 @@ var ErrMFACodeInvalid = errors.New("mfa code is invalid")
 var ErrMFARecoveryCodeInvalid = errors.New("mfa recovery code is invalid")
 var ErrMFASignInChallengeInvalid = errors.New("mfa sign-in challenge is invalid")
 var ErrMFASignInChallengeExpired = errors.New("mfa sign-in challenge expired")
+var ErrOAuthStateInvalid = errors.New("oauth state is invalid")
+var ErrOAuthStateExpired = errors.New("oauth state expired")
+var ErrOAuthEmailNotVerified = errors.New("oauth email not verified")
+var ErrOAuthNotConfigured = errors.New("oauth is not configured")
+var ErrOAuthMFASignInNotSupported = errors.New("oauth mfa sign-in not supported")
 
 type AuthService struct {
 	users            repository.UserStore
@@ -45,11 +50,15 @@ type AuthService struct {
 	passwordResets   repository.PasswordResetStore
 	recoveryCodes    repository.MFARecoveryCodeStore
 	signInChallenges repository.SignInChallengeStore
+	oauthStates      repository.OAuthStateStore
+	oauthIdentities  repository.OAuthIdentityStore
 	tokens           auth.TokenManager
 	mailer           mailer.VerificationSender
 	sessions         SessionRevoker
 	cfg              config.Config
 	totp             totpManager
+	googleOAuth      googleOAuthProvider
+	githubOAuth      githubOAuthProvider
 }
 
 type AuthPayload struct {
@@ -162,6 +171,8 @@ func NewAuthService(
 	passwordResets repository.PasswordResetStore,
 	recoveryCodes repository.MFARecoveryCodeStore,
 	signInChallenges repository.SignInChallengeStore,
+	oauthStates repository.OAuthStateStore,
+	oauthIdentities repository.OAuthIdentityStore,
 	tokens auth.TokenManager,
 	verificationMailer mailer.VerificationSender,
 	sessionRevoker SessionRevoker,
@@ -176,6 +187,12 @@ func NewAuthService(
 	if signInChallenges == nil {
 		signInChallenges = noopSignInChallengeStore{}
 	}
+	if oauthStates == nil {
+		oauthStates = noopOAuthStateStore{}
+	}
+	if oauthIdentities == nil {
+		oauthIdentities = noopOAuthIdentityStore{}
+	}
 
 	return &AuthService{
 		users:            users,
@@ -184,11 +201,15 @@ func NewAuthService(
 		passwordResets:   passwordResets,
 		recoveryCodes:    recoveryCodes,
 		signInChallenges: signInChallenges,
+		oauthStates:      oauthStates,
+		oauthIdentities:  oauthIdentities,
 		tokens:           tokens,
 		mailer:           verificationMailer,
 		sessions:         sessionRevoker,
 		cfg:              cfg,
 		totp:             newTOTPManager(cfg),
+		googleOAuth:      newGoogleOAuthProvider(cfg),
+		githubOAuth:      newGitHubOAuthProvider(cfg),
 	}
 }
 
@@ -220,6 +241,30 @@ func (noopSignInChallengeStore) Consume(context.Context, string, string) error {
 }
 func (noopSignInChallengeStore) RevokeActiveByUserID(context.Context, string) error {
 	return nil
+}
+
+type noopOAuthStateStore struct{}
+
+func (noopOAuthStateStore) Create(_ context.Context, state domain.OAuthState) (domain.OAuthState, error) {
+	return state, nil
+}
+func (noopOAuthStateStore) FindByStateHash(context.Context, domain.OAuthProvider, string) (domain.OAuthState, error) {
+	return domain.OAuthState{}, pgx.ErrNoRows
+}
+func (noopOAuthStateStore) Consume(context.Context, string) error {
+	return nil
+}
+
+type noopOAuthIdentityStore struct{}
+
+func (noopOAuthIdentityStore) Create(_ context.Context, identity domain.OAuthIdentity) (domain.OAuthIdentity, error) {
+	return identity, nil
+}
+func (noopOAuthIdentityStore) FindByProviderSubject(context.Context, domain.OAuthProvider, string) (domain.OAuthIdentity, error) {
+	return domain.OAuthIdentity{}, pgx.ErrNoRows
+}
+func (noopOAuthIdentityStore) ListByUserID(context.Context, string) ([]domain.OAuthIdentity, error) {
+	return nil, nil
 }
 
 func (s *AuthService) MFAStatus(ctx context.Context, userID string) (MFAStatusResponse, error) {
@@ -261,6 +306,30 @@ func (s *AuthService) EnrollMFA(ctx context.Context, userID string) (MFAEnrollRe
 	return MFAEnrollResponse{
 		Secret:       secret,
 		ProvisionURL: s.totp.ProvisioningURI(user.Email, secret),
+	}, nil
+}
+
+func (s *AuthService) CancelMFAEnrollment(ctx context.Context, userID string) (MFAStatusResponse, error) {
+	user, err := s.users.FindByID(ctx, userID)
+	if err != nil {
+		return MFAStatusResponse{}, fmt.Errorf("find user for mfa cancel: %w", err)
+	}
+	if user.MFAEnabled {
+		return MFAStatusResponse{}, ErrMFAAlreadyEnabled
+	}
+	if user.MFAPendingTOTPSecretEncrypted == nil || *user.MFAPendingTOTPSecretEncrypted == "" {
+		return MFAStatusResponse{}, ErrMFAPendingEnrollmentMissing
+	}
+
+	updatedUser, err := s.users.CancelTOTPEnrollment(ctx, user.ID)
+	if err != nil {
+		return MFAStatusResponse{}, fmt.Errorf("cancel mfa enrollment: %w", err)
+	}
+
+	return MFAStatusResponse{
+		Enabled:           updatedUser.MFAEnabled,
+		PendingEnrollment: updatedUser.MFAPendingTOTPSecretEncrypted != nil && *updatedUser.MFAPendingTOTPSecretEncrypted != "",
+		EnrolledAt:        updatedUser.MFAEnrolledAt,
 	}, nil
 }
 

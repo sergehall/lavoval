@@ -20,6 +20,7 @@ type authUserRepoStub struct {
 	findByEmail         func(string) (domain.User, error)
 	updatePasswordHash  func(string, string) (domain.User, error)
 	startTOTPEnrollment func(string, string) (domain.User, error)
+	cancelTOTPEnrollment func(string) (domain.User, error)
 	enableTOTP          func(string, string) (domain.User, error)
 	disableTOTP         func(string) (domain.User, error)
 }
@@ -72,6 +73,16 @@ func (s authUserRepoStub) StartTOTPEnrollment(_ context.Context, userID string, 
 
 	s.user.ID = userID
 	s.user.MFAPendingTOTPSecretEncrypted = &pendingSecretEncrypted
+	return s.user, nil
+}
+
+func (s authUserRepoStub) CancelTOTPEnrollment(_ context.Context, userID string) (domain.User, error) {
+	if s.cancelTOTPEnrollment != nil {
+		return s.cancelTOTPEnrollment(userID)
+	}
+
+	s.user.ID = userID
+	s.user.MFAPendingTOTPSecretEncrypted = nil
 	return s.user, nil
 }
 
@@ -241,6 +252,73 @@ func (s *signInChallengeRepoStub) RevokeActiveByUserID(_ context.Context, userID
 	return nil
 }
 
+type oauthStateRepoStub struct {
+	state domain.OAuthState
+}
+
+func (s *oauthStateRepoStub) Create(_ context.Context, state domain.OAuthState) (domain.OAuthState, error) {
+	s.state = state
+	s.state.CreatedAt = now()
+	return s.state, nil
+}
+
+func (s *oauthStateRepoStub) FindByStateHash(_ context.Context, _ domain.OAuthProvider, stateHash string) (domain.OAuthState, error) {
+	if s.state.StateHash == stateHash {
+		return s.state, nil
+	}
+	return domain.OAuthState{}, pgx.ErrNoRows
+}
+
+func (s *oauthStateRepoStub) Consume(_ context.Context, id string) error {
+	if s.state.ID != id {
+		return pgx.ErrNoRows
+	}
+	consumedAt := now()
+	s.state.ConsumedAt = &consumedAt
+	return nil
+}
+
+type oauthIdentityRepoStub struct {
+	identity domain.OAuthIdentity
+}
+
+func (s *oauthIdentityRepoStub) Create(_ context.Context, identity domain.OAuthIdentity) (domain.OAuthIdentity, error) {
+	s.identity = identity
+	s.identity.CreatedAt = now()
+	s.identity.UpdatedAt = now()
+	return s.identity, nil
+}
+
+func (s *oauthIdentityRepoStub) FindByProviderSubject(_ context.Context, provider domain.OAuthProvider, providerUserID string) (domain.OAuthIdentity, error) {
+	if s.identity.Provider == provider && s.identity.ProviderUserID == providerUserID {
+		return s.identity, nil
+	}
+	return domain.OAuthIdentity{}, pgx.ErrNoRows
+}
+
+func (s *oauthIdentityRepoStub) ListByUserID(_ context.Context, userID string) ([]domain.OAuthIdentity, error) {
+	if s.identity.UserID == userID {
+		return []domain.OAuthIdentity{s.identity}, nil
+	}
+	return nil, nil
+}
+
+type googleOAuthProviderStub struct {
+	identity oauthIdentityProfile
+}
+
+func (s googleOAuthProviderStub) Enabled() bool {
+	return true
+}
+
+func (s googleOAuthProviderStub) AuthorizationURL(state string) string {
+	return "https://accounts.google.com/o/oauth2/v2/auth?state=" + state
+}
+
+func (s googleOAuthProviderStub) ExchangeCode(_ context.Context, _ string) (oauthIdentityProfile, error) {
+	return s.identity, nil
+}
+
 type verificationMailerStub struct {
 	lastEmail           mailer.VerificationEmail
 	lastPasswordReset   mailer.PasswordResetEmail
@@ -291,6 +369,8 @@ func TestAuthServiceRegisterReturnsVerificationRequirement(t *testing.T) {
 		authProfileRepoStub{},
 		verificationRepo,
 		&passwordResetRepoStub{},
+		nil,
+		nil,
 		nil,
 		nil,
 		auth.NewTokenManager(cfg),
@@ -344,6 +424,8 @@ func TestAuthServiceLoginRejectsUnverifiedEmail(t *testing.T) {
 		&passwordResetRepoStub{},
 		nil,
 		nil,
+		nil,
+		nil,
 		auth.NewTokenManager(cfg),
 		&verificationMailerStub{},
 		NoopSessionRevoker{},
@@ -389,6 +471,8 @@ func TestAuthServiceRegisterRejectsExistingEmail(t *testing.T) {
 		&passwordResetRepoStub{},
 		nil,
 		nil,
+		nil,
+		nil,
 		auth.NewTokenManager(cfg),
 		&verificationMailerStub{},
 		NoopSessionRevoker{},
@@ -427,6 +511,8 @@ func TestAuthServiceLoginSucceeds(t *testing.T) {
 		authProfileRepoStub{profile: domain.Profile{FirstName: "Ada", LastName: "Lovelace"}},
 		&verificationRepoStub{},
 		&passwordResetRepoStub{},
+		nil,
+		nil,
 		nil,
 		nil,
 		auth.NewTokenManager(cfg),
@@ -480,6 +566,8 @@ func TestAuthServiceForgotPasswordIssuesResetEmail(t *testing.T) {
 		passwordResetRepo,
 		nil,
 		nil,
+		nil,
+		nil,
 		auth.NewTokenManager(cfg),
 		verificationMailer,
 		NoopSessionRevoker{},
@@ -526,6 +614,8 @@ func TestAuthServiceVerifyEmailExpiredToken(t *testing.T) {
 		&passwordResetRepoStub{},
 		nil,
 		nil,
+		nil,
+		nil,
 		auth.NewTokenManager(cfg),
 		&verificationMailerStub{},
 		NoopSessionRevoker{},
@@ -567,6 +657,8 @@ func TestAuthServiceEnrollMFAStartsPendingEnrollment(t *testing.T) {
 		&passwordResetRepoStub{},
 		nil,
 		nil,
+		nil,
+		nil,
 		auth.NewTokenManager(cfg),
 		&verificationMailerStub{},
 		NoopSessionRevoker{},
@@ -585,6 +677,41 @@ func TestAuthServiceEnrollMFAStartsPendingEnrollment(t *testing.T) {
 	}
 	if storedPendingSecret == "" {
 		t.Fatal("expected encrypted pending secret to be stored")
+	}
+}
+
+func TestAuthServiceCancelMFAEnrollmentClearsPendingState(t *testing.T) {
+	pending := "pending-secret"
+	service := NewAuthService(
+		authUserRepoStub{
+			user: domain.User{
+				ID:                            "user-1",
+				Email:                         "member@example.com",
+				MFAPendingTOTPSecretEncrypted: &pending,
+			},
+		},
+		authProfileRepoStub{},
+		&verificationRepoStub{},
+		&passwordResetRepoStub{},
+		nil,
+		nil,
+		nil,
+		nil,
+		auth.NewTokenManager(config.Config{JWTIssuer: "test", JWTAudience: "test", JWTSecret: "secret", JWTAccessTTL: time.Minute, JWTRefreshTTL: time.Hour}),
+		&verificationMailerStub{},
+		NoopSessionRevoker{},
+		config.Config{JWTIssuer: "test", JWTAudience: "test", JWTSecret: "secret", JWTAccessTTL: time.Minute, JWTRefreshTTL: time.Hour},
+	)
+
+	result, err := service.CancelMFAEnrollment(context.Background(), "user-1")
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if result.PendingEnrollment {
+		t.Fatal("expected pending enrollment to be cleared")
+	}
+	if result.Enabled {
+		t.Fatal("expected mfa to remain disabled")
 	}
 }
 
@@ -620,6 +747,8 @@ func TestAuthServiceVerifyMFAEnrollmentEnablesMFA(t *testing.T) {
 		&verificationRepoStub{},
 		&passwordResetRepoStub{},
 		&mfaRecoveryCodeRepoStub{},
+		nil,
+		nil,
 		nil,
 		auth.NewTokenManager(cfg),
 		&verificationMailerStub{},
@@ -679,6 +808,8 @@ func TestAuthServiceDisableMFARequiresPasswordAndCode(t *testing.T) {
 		&passwordResetRepoStub{},
 		&mfaRecoveryCodeRepoStub{},
 		nil,
+		nil,
+		nil,
 		auth.NewTokenManager(cfg),
 		&verificationMailerStub{},
 		sessionRevoker,
@@ -702,4 +833,75 @@ func TestAuthServiceDisableMFARequiresPasswordAndCode(t *testing.T) {
 
 func ptrTime(value time.Time) *time.Time {
 	return &value
+}
+
+func TestAuthServiceCompleteGoogleOAuthCreatesIdentityAndSession(t *testing.T) {
+	cfg := config.Config{
+		AppName:             "Lavoval",
+		AppURL:              "http://localhost:3000",
+		JWTIssuer:           "test",
+		JWTAudience:         "test",
+		JWTSecret:           "super-secret",
+		JWTAccessTTL:        time.Minute,
+		JWTRefreshTTL:       time.Hour,
+		OAuthStateTTL:       10 * time.Minute,
+		GoogleOAuthClientID: "google-client-id",
+		GoogleOAuthSecret:   "google-secret",
+	}
+
+	state, stateHash, err := newOAuthStateToken()
+	if err != nil {
+		t.Fatalf("new oauth state token: %v", err)
+	}
+
+	oauthStates := &oauthStateRepoStub{
+		state: domain.OAuthState{
+			ID:        "state-1",
+			Provider:  domain.OAuthProviderGoogle,
+			StateHash: stateHash,
+			ExpiresAt: time.Now().Add(5 * time.Minute),
+		},
+	}
+	oauthIdentities := &oauthIdentityRepoStub{}
+
+	service := NewAuthService(
+		authUserRepoStub{findByEmail: func(string) (domain.User, error) { return domain.User{}, pgx.ErrNoRows }},
+		authProfileRepoStub{},
+		&verificationRepoStub{},
+		&passwordResetRepoStub{},
+		nil,
+		nil,
+		oauthStates,
+		oauthIdentities,
+		auth.NewTokenManager(cfg),
+		&verificationMailerStub{},
+		NoopSessionRevoker{},
+		cfg,
+	)
+	service.googleOAuth = googleOAuthProviderStub{
+		identity: oauthIdentityProfile{
+			Subject:       "google-subject-1",
+			Email:         "google.user@example.com",
+			EmailVerified: true,
+			GivenName:     "Google",
+			FamilyName:    "User",
+		},
+	}
+
+	payload, err := service.CompleteGoogleOAuth(context.Background(), CompleteGoogleOAuthInput{
+		Code:  "oauth-code-value",
+		State: state,
+	})
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if payload.User.Email != "google.user@example.com" {
+		t.Fatalf("unexpected oauth user email %q", payload.User.Email)
+	}
+	if oauthIdentities.identity.ProviderUserID != "google-subject-1" {
+		t.Fatalf("expected oauth identity to be stored, got %#v", oauthIdentities.identity)
+	}
+	if oauthStates.state.ConsumedAt == nil {
+		t.Fatal("expected oauth state to be consumed")
+	}
 }

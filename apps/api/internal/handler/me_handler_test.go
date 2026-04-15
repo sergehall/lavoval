@@ -11,7 +11,7 @@ import (
 
 func TestMeHandlerUpdateProfileRejectsInvalidJSON(t *testing.T) {
 	// nil service is safe: decode failure exits before the service is called
-	h := NewMeHandler(validator.New(validator.WithRequiredStructEnabled()), nil)
+	h := NewMeHandler(validator.New(validator.WithRequiredStructEnabled()), nil, nil)
 
 	r := httptest.NewRequest(http.MethodPut, "/api/v1/me/profile", bytes.NewBufferString(`{bad json}`))
 	w := httptest.NewRecorder()
@@ -24,7 +24,7 @@ func TestMeHandlerUpdateProfileRejectsInvalidJSON(t *testing.T) {
 
 func TestMeHandlerUpdateProfileRejectsMissingRequiredFields(t *testing.T) {
 	// nil service is safe: validation failure exits before the service is called
-	h := NewMeHandler(validator.New(validator.WithRequiredStructEnabled()), nil)
+	h := NewMeHandler(validator.New(validator.WithRequiredStructEnabled()), nil, nil)
 
 	// firstName and timezone are required but absent
 	r := httptest.NewRequest(http.MethodPut, "/api/v1/me/profile", bytes.NewBufferString(`{"lastName":"Lovelace"}`))

@@ -15,7 +15,7 @@ import (
 	"github.com/sergehall/lavoval/apps/api/internal/service"
 )
 
-func NewRouter(cfg config.Config, tokens auth.TokenManager, authService *service.AuthService, profileService *service.ProfileService, skillService *service.SkillService, runtimeService *service.RuntimeService, adminService *service.AdminService) http.Handler {
+func NewRouter(cfg config.Config, tokens auth.TokenManager, authService *service.AuthService, profileService *service.ProfileService, accountSecurityService *service.AccountSecurityService, skillService *service.SkillService, runtimeService *service.RuntimeService, adminService *service.AdminService) http.Handler {
 	validate := validator.New(validator.WithRequiredStructEnabled())
 	r := chi.NewRouter()
 	r.Use(chimiddleware.RealIP)
@@ -25,7 +25,7 @@ func NewRouter(cfg config.Config, tokens auth.TokenManager, authService *service
 	r.Use(chimiddleware.Heartbeat("/livez"))
 
 	authHandler := NewAuthHandler(validate, authService)
-	meHandler := NewMeHandler(validate, profileService)
+	meHandler := NewMeHandler(validate, profileService, accountSecurityService)
 	skillHandler := NewSkillHandler(validate, skillService)
 	mySkillsHandler := NewMySkillsHandler(validate, skillService)
 	runtimeHandler := NewRuntimeHandler(validate, runtimeService)
@@ -42,6 +42,10 @@ func NewRouter(cfg config.Config, tokens auth.TokenManager, authService *service
 		api.Route("/auth", func(authRouter chi.Router) {
 			authRouter.Post("/register", authHandler.Register)
 			authRouter.Post("/login", authHandler.Login)
+			authRouter.Get("/oauth/google/start", authHandler.GoogleOAuthStart)
+			authRouter.Get("/oauth/github/start", authHandler.GitHubOAuthStart)
+			authRouter.Post("/oauth/google/complete", authHandler.CompleteGoogleOAuth)
+			authRouter.Post("/oauth/github/complete", authHandler.CompleteGitHubOAuth)
 			authRouter.Post("/mfa/complete-sign-in", authHandler.CompleteMFASignIn)
 			authRouter.Post("/verify-email", authHandler.VerifyEmail)
 			authRouter.Post("/resend-verification", authHandler.ResendVerification)
@@ -50,6 +54,7 @@ func NewRouter(cfg config.Config, tokens auth.TokenManager, authService *service
 			authRouter.With(appmiddleware.Authenticate(tokens)).Post("/logout", authHandler.Logout)
 			authRouter.With(appmiddleware.Authenticate(tokens)).Get("/mfa/status", authHandler.MFAStatus)
 			authRouter.With(appmiddleware.Authenticate(tokens)).Post("/mfa/enroll", authHandler.EnrollMFA)
+			authRouter.With(appmiddleware.Authenticate(tokens)).Post("/mfa/cancel-enrollment", authHandler.CancelMFAEnrollment)
 			authRouter.With(appmiddleware.Authenticate(tokens)).Post("/mfa/verify-enrollment", authHandler.VerifyMFAEnrollment)
 			authRouter.With(appmiddleware.Authenticate(tokens)).Post("/mfa/disable", authHandler.DisableMFA)
 			authRouter.With(appmiddleware.Authenticate(tokens)).Post("/mfa/recovery-codes/regenerate", authHandler.RegenerateMFARecoveryCodes)
@@ -61,6 +66,7 @@ func NewRouter(cfg config.Config, tokens auth.TokenManager, authService *service
 		api.Group(func(private chi.Router) {
 			private.Use(appmiddleware.Authenticate(tokens))
 			private.Get("/me", meHandler.Profile)
+			private.Get("/me/security", meHandler.Security)
 			private.Patch("/me/profile", meHandler.UpdateProfile)
 			private.Get("/me/skills", mySkillsHandler.List)
 			private.Post("/me/skills", mySkillsHandler.Create)
