@@ -18,9 +18,11 @@ const initialRegisterFormState: RegisterFormState = {
 export function RegisterForm({
   mode = 'page',
   onSwitchToSignIn,
+  initialEmail = '',
 }: {
   mode?: 'page' | 'modal';
   onSwitchToSignIn?: () => void;
+  initialEmail?: string;
 }) {
   const router = useRouter();
   const [state, action] = useActionState(registerAction, initialRegisterFormState);
@@ -51,7 +53,12 @@ export function RegisterForm({
         </div>
         <label>
           <span>Email</span>
-          <Input type="email" name="email" required defaultValue={state.email} />
+          <Input
+            type="email"
+            name="email"
+            required
+            defaultValue={state.email || initialEmail}
+          />
         </label>
         <label>
           <span>Password</span>

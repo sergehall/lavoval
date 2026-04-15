@@ -12,13 +12,20 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RegisterPage() {
+export default async function RegisterPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ email?: string }>;
+}) {
+  const params = await searchParams;
+  const initialEmail = typeof params.email === 'string' ? params.email : '';
+
   return (
     <AuthCard
       title="Create account"
       description="Create your presence in the marketplace and start exchanging real-world skills in the age of AI."
     >
-      <RegisterForm />
+      <RegisterForm initialEmail={initialEmail} />
     </AuthCard>
   );
 }

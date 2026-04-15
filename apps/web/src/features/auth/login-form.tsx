@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useActionState } from 'react';
 import { useFormStatus } from 'react-dom';
 import { loginAction, type AuthFormState } from '@/features/auth/actions';
@@ -42,6 +43,20 @@ export function LoginForm() {
         <p className="form-message form-message--error" role="alert">
           {state.error}
         </p>
+      ) : null}
+      {state.error && !state.needsVerification && state.email ? (
+        <div className="auth-guidance">
+          <p className="muted">
+            If this is your first time in this local Lavoval environment, create an account with{' '}
+            <strong>{state.email}</strong> first.
+          </p>
+          <Link
+            href={`/register?email=${encodeURIComponent(state.email)}`}
+            className="button button--secondary button--full"
+          >
+            Create account with this email
+          </Link>
+        </div>
       ) : null}
       {state.needsVerification ? <ResendVerificationForm defaultEmail={state.email} /> : null}
       <LoginSubmitButton />

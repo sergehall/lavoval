@@ -378,6 +378,20 @@ select.input {
   border: 1px solid rgba(24, 121, 78, 0.12);
 }
 
+.auth-guidance {
+  display: grid;
+  gap: 12px;
+  padding: 16px 18px;
+  border-radius: 20px;
+  background: rgba(180, 79, 35, 0.06);
+  border: 1px solid rgba(180, 79, 35, 0.12);
+}
+
+.auth-guidance .button {
+  text-decoration: none;
+  justify-content: center;
+}
+
 .form-grid__full {
   grid-column: 1 / -1;
 }
