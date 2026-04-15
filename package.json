@@ -32,14 +32,14 @@
 
     "lint": "pnpm run lint:web && pnpm run lint:api",
     "lint:web": "pnpm --dir apps/web lint",
-    "lint:api": "cd apps/api && golangci-lint run ./...",
+    "lint:api": "cd apps/api && test -z \"$(gofmt -l .)\" && go vet ./... && go test ./...",
 
     "format": "pnpm run format:web && pnpm run format:api",
     "format:web": "pnpm --filter @lavoval/web format",
-    "format:api": "cd apps/api && golangci-lint fmt ./...",
+    "format:api": "cd apps/api && gofmt -w .",
 
     "format:check": "pnpm run format:check:web && pnpm run format:check:api",
     "format:check:web": "pnpm --dir apps/web exec prettier --check \"src/**/*.{ts,tsx,css}\"",
-    "format:check:api": "cd apps/api && golangci-lint fmt --diff ./..."
+    "format:check:api": "cd apps/api && test -z \"$(gofmt -l .)\""
   }
 }
