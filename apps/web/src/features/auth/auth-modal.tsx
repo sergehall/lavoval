@@ -18,11 +18,10 @@ export function AuthModal({
 }) {
   const [registeredEmail, setRegisteredEmail] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (!isOpen) {
-      setRegisteredEmail(null);
-    }
-  }, [isOpen]);
+  const handleClose = () => {
+    setRegisteredEmail(null);
+    onClose();
+  };
 
   useEffect(() => {
     if (!isOpen) {
@@ -32,7 +31,7 @@ export function AuthModal({
     const previousOverflow = document.body.style.overflow;
     const handleEscape = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
-        onClose();
+        handleClose();
       }
     };
 
@@ -42,7 +41,7 @@ export function AuthModal({
       document.body.style.overflow = previousOverflow;
       window.removeEventListener('keydown', handleEscape);
     };
-  }, [isOpen, onClose]);
+  }, [isOpen]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!isOpen) {
     return null;
@@ -53,7 +52,7 @@ export function AuthModal({
       <RegistrationReminderModal
         isOpen
         email={registeredEmail}
-        onClose={onClose}
+        onClose={handleClose}
         onShowSignIn={() => {
           setRegisteredEmail(null);
           onChangeMode('sign-in');
@@ -68,10 +67,10 @@ export function AuthModal({
         type="button"
         className="auth-modal__overlay"
         aria-label="Close authentication dialog"
-        onClick={onClose}
+        onClick={handleClose}
       />
       <div className="auth-modal__panel" key={mode}>
-        <button type="button" className="auth-modal__close" onClick={onClose} aria-label="Close">
+        <button type="button" className="auth-modal__close" onClick={handleClose} aria-label="Close">
           ×
         </button>
         <div className="auth-modal__glow" />
