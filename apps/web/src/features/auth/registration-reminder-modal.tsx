@@ -47,17 +47,25 @@ export function RegistrationReminderModal({
           <div className="auth-reminder__callout">
             <strong>What happens now</strong>
             <p>
-              Lavoval now waits for email confirmation before the first sign-in. If the message
-              does not land right away, check spam or request a fresh confirmation link from the
-              sign-in screen.
+              Lavoval now waits for email confirmation before the first sign-in. If the message does
+              not land right away, check spam or request a fresh confirmation link from the sign-in
+              screen.
             </p>
           </div>
 
           <div className="toolbar">
-            <button type="button" className="site-nav__link site-nav__link--subtle" onClick={onClose}>
+            <button
+              type="button"
+              className="site-nav__link site-nav__link--subtle"
+              onClick={onClose}
+            >
               Close
             </button>
-            <button type="button" className="site-nav__link site-nav__link--cta" onClick={onShowSignIn}>
+            <button
+              type="button"
+              className="site-nav__link site-nav__link--cta"
+              onClick={onShowSignIn}
+            >
               Return to sign in
             </button>
           </div>

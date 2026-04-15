@@ -3,7 +3,8 @@ import { AuthCard } from '@/features/auth/auth-card';
 
 export const metadata: Metadata = {
   title: 'Password Recovery',
-  description: 'Recover access to your Lavoval account and return to your skill exchange workspace.',
+  description:
+    'Recover access to your Lavoval account and return to your skill exchange workspace.',
   robots: {
     index: false,
     follow: false,

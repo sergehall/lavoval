@@ -5,12 +5,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jackc/pgx/v5"
+	"golang.org/x/crypto/bcrypt"
+
 	"github.com/sergehall/lavoval/apps/api/internal/auth"
 	"github.com/sergehall/lavoval/apps/api/internal/config"
 	"github.com/sergehall/lavoval/apps/api/internal/domain"
 	"github.com/sergehall/lavoval/apps/api/internal/mailer"
-	"github.com/jackc/pgx/v5"
-	"golang.org/x/crypto/bcrypt"
 )
 
 type authUserRepoStub struct {

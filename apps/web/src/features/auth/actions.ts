@@ -63,7 +63,7 @@ export async function loginAction(_previousState: AuthFormState, formData: FormD
             ? 'Email or password is incorrect.'
             : error.status === 403
               ? 'Please confirm your email before signing in.'
-            : error.message || 'Could not sign in right now. Please try again.',
+              : error.message || 'Could not sign in right now. Please try again.',
         email,
         needsVerification: error.status === 403,
       };

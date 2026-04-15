@@ -8,28 +8,28 @@ import (
 )
 
 type Config struct {
-	AppEnv                   string
-	AppName                  string
-	AppURL                   string
-	HTTPAddr                 string
-	DatabaseURL              string
-	JWTIssuer                string
-	JWTAudience              string
-	JWTSecret                string
-	JWTAccessTTL             time.Duration
-	JWTRefreshTTL            time.Duration
-	CookieSecure             bool
-	AdminSeedEmail           string
-	AdminSeedSecret          string
-	EmailVerificationTTL     time.Duration
-	SMTPHost                 string
-	SMTPPort                 int
-	SMTPUsername             string
-	SMTPPassword             string
-	SMTPFromEmail            string
-	SMTPFromName             string
-	SMTPRequireTLS           bool
-	SMTPAllowInsecureAuth    bool
+	AppEnv                string
+	AppName               string
+	AppURL                string
+	HTTPAddr              string
+	DatabaseURL           string
+	JWTIssuer             string
+	JWTAudience           string
+	JWTSecret             string
+	JWTAccessTTL          time.Duration
+	JWTRefreshTTL         time.Duration
+	CookieSecure          bool
+	AdminSeedEmail        string
+	AdminSeedSecret       string
+	EmailVerificationTTL  time.Duration
+	SMTPHost              string
+	SMTPPort              int
+	SMTPUsername          string
+	SMTPPassword          string
+	SMTPFromEmail         string
+	SMTPFromName          string
+	SMTPRequireTLS        bool
+	SMTPAllowInsecureAuth bool
 }
 
 func Load() (Config, error) {

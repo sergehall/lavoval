@@ -19,8 +19,8 @@ export default async function VerifyEmailPage({
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const params = searchParams ? await searchParams : {};
-  const token = Array.isArray(params.token) ? params.token[0] ?? '' : params.token ?? '';
-  const email = Array.isArray(params.email) ? params.email[0] ?? '' : params.email ?? '';
+  const token = Array.isArray(params.token) ? (params.token[0] ?? '') : (params.token ?? '');
+  const email = Array.isArray(params.email) ? (params.email[0] ?? '') : (params.email ?? '');
   const result = await verifyEmailAction(token);
 
   return (

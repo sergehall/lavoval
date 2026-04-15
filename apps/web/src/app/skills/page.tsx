@@ -25,7 +25,7 @@ export default async function SkillsPage({
 }) {
   const { data: skills } = await fetchSkills();
   const params = searchParams ? await searchParams : {};
-  const initialQuery = Array.isArray(params.q) ? params.q[0] ?? '' : params.q ?? '';
+  const initialQuery = Array.isArray(params.q) ? (params.q[0] ?? '') : (params.q ?? '');
 
   return (
     <div className="stack stack--lg">

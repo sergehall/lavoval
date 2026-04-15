@@ -38,8 +38,8 @@ export default function LandingPage() {
           <h1>Exchange real human skills in the age of AI.</h1>
           <p>
             Lavoval is a growth-ready foundation for a platform where users publish expertise,
-            discover other people&apos;s strengths, and turn practical knowledge into exchangeable skill
-            pages and modules.
+            discover other people&apos;s strengths, and turn practical knowledge into exchangeable
+            skill pages and modules.
           </p>
           <div className="toolbar">
             <Link href="/register">

@@ -25,7 +25,10 @@ export function ResendVerificationForm({
   });
 
   return (
-    <form action={action} className={compact ? 'stack stack--sm' : 'stack stack--md resend-verification'}>
+    <form
+      action={action}
+      className={compact ? 'stack stack--sm' : 'stack stack--md resend-verification'}
+    >
       <div className="stack stack--xs">
         <strong>Need a fresh confirmation email?</strong>
         <span className="muted">

@@ -1,6 +1,6 @@
 'use client';
 
-import { useActionState, useEffect, useState } from 'react';
+import { useActionState, useState } from 'react';
 import { useFormStatus } from 'react-dom';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -24,16 +24,11 @@ export function RegisterForm({
 }) {
   const router = useRouter();
   const [state, action] = useActionState(registerAction, initialRegisterFormState);
-  const [isReminderOpen, setIsReminderOpen] = useState(false);
-
-  useEffect(() => {
-    if (state.registered) {
-      setIsReminderOpen(true);
-    }
-  }, [state.registered]);
+  const [dismissedReminderForEmail, setDismissedReminderForEmail] = useState<string | null>(null);
+  const isReminderOpen = state.registered && state.email !== dismissedReminderForEmail;
 
   const handleReturnToSignIn = () => {
-    setIsReminderOpen(false);
+    setDismissedReminderForEmail(state.email);
     if (onSwitchToSignIn) {
       onSwitchToSignIn();
       return;
@@ -81,7 +76,7 @@ export function RegisterForm({
       <RegistrationReminderModal
         email={state.email}
         isOpen={isReminderOpen}
-        onClose={() => setIsReminderOpen(false)}
+        onClose={() => setDismissedReminderForEmail(state.email)}
         onShowSignIn={handleReturnToSignIn}
       />
     </>
