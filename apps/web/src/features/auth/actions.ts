@@ -172,7 +172,7 @@ export async function logoutAction() {
   const session = await requireSession();
   await logout(session.accessToken).catch(() => undefined);
   await clearSession();
-  redirect('/login');
+  redirect('/');
 }
 
 export async function verifyEmailAction(token: string) {

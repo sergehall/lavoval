@@ -11,10 +11,9 @@ export const publicNavigation: NavigationItem[] = [
   { href: '/skills', label: 'Explore Skills' },
 ];
 
-export function accountNavigation(user: SessionUser): NavigationItem[] {
+export function cabinetNavigation(user: SessionUser): NavigationItem[] {
   const items: NavigationItem[] = [
     { href: '/account', label: 'Home' },
-    { href: '/skills', label: 'Explore Skills' },
     { href: '/account/my-skills', label: 'My Offers' },
     { href: '/account/runs', label: 'Runs' },
     { href: '/account/profile', label: 'Identity' },

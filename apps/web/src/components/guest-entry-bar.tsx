@@ -1,53 +1,31 @@
 'use client';
 
+import Link from 'next/link';
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { AuthModal } from '@/features/auth/auth-modal';
 
 export function GuestEntryBar() {
-  const router = useRouter();
-  const [query, setQuery] = useState('');
   const [authMode, setAuthMode] = useState<'sign-in' | 'sign-up'>('sign-in');
   const [isAuthOpen, setIsAuthOpen] = useState(false);
 
   return (
     <>
       <div className="site-auth-actions">
-        <form
-          className="header-search"
-          onSubmit={(event) => {
-            event.preventDefault();
-            const trimmed = query.trim();
-            router.push(trimmed ? `/skills?q=${encodeURIComponent(trimmed)}` : '/skills');
-          }}
-        >
-          <input
-            aria-label="Search skills and creators"
-            className="input header-search__input"
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder="Search skills, creators, or topics"
-          />
-        </form>
+        <Link href="/skills" aria-label="Search skills" className="header-icon-button">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="11" cy="11" r="6.8" />
+            <path d="M16.2 16.2 21 21" />
+          </svg>
+        </Link>
         <button
           type="button"
-          className="site-nav__link site-nav__link--subtle"
+          className="guest-sign-in"
           onClick={() => {
             setAuthMode('sign-in');
             setIsAuthOpen(true);
           }}
         >
           Sign in
-        </button>
-        <button
-          type="button"
-          className="site-nav__link site-nav__link--cta"
-          onClick={() => {
-            setAuthMode('sign-up');
-            setIsAuthOpen(true);
-          }}
-        >
-          Create account
         </button>
       </div>
       <AuthModal
