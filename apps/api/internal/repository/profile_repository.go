@@ -42,13 +42,15 @@ func (r *ProfileRepository) Update(ctx context.Context, profile domain.Profile) 
 
 func (r *ProfileRepository) FindByUserID(ctx context.Context, userID string) (domain.Profile, error) {
 	query := `
-		SELECT user_id, first_name, last_name, bio, timezone, created_at, updated_at, deleted_at
-		FROM profiles
-		WHERE user_id = $1 AND deleted_at IS NULL`
+		SELECT p.user_id, u.role, p.first_name, p.last_name, p.bio, p.timezone, p.created_at, p.updated_at, p.deleted_at
+		FROM profiles p
+		JOIN users u ON u.id = p.user_id
+		WHERE p.user_id = $1 AND p.deleted_at IS NULL`
 
 	var profile domain.Profile
 	if err := r.pool.QueryRow(ctx, query, userID).Scan(
 		&profile.UserID,
+		&profile.Role,
 		&profile.FirstName,
 		&profile.LastName,
 		&profile.Bio,

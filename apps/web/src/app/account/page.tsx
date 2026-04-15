@@ -29,7 +29,7 @@ export default async function AccountDashboardPage() {
             discover from other people.
           </p>
         </div>
-        <Badge tone="success">Role: {session.user.role}</Badge>
+        <Badge tone="success">Role: {profile.role}</Badge>
       </section>
       <section className="grid">
         <Card>

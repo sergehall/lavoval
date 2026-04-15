@@ -69,6 +69,7 @@ export type VerificationResponse = z.infer<typeof verificationResponseSchema>;
 
 export const profileSchema = z.object({
   userId: z.string().uuid(),
+  role: roleSchema,
   firstName: z.string().min(1),
   lastName: z.string().min(1),
   bio: z.string().max(500).nullable(),

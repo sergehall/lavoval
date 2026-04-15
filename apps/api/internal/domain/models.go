@@ -61,6 +61,7 @@ type EmailVerificationToken struct {
 
 type Profile struct {
 	UserID    string     `json:"userId"`
+	Role      Role       `json:"role"`
 	FirstName string     `json:"firstName"`
 	LastName  string     `json:"lastName"`
 	Bio       *string    `json:"bio"`
