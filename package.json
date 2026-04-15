@@ -2,6 +2,10 @@
   "name": "lavoval",
   "private": true,
   "packageManager": "pnpm@10.1.0",
+  "engines": {
+    "node": "22.14.0",
+    "pnpm": "10.1.0"
+  },
   "workspaces": [
     "apps/*",
     "packages/*"
