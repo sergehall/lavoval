@@ -330,3 +330,15 @@ func (r *UserRepository) List(ctx context.Context) ([]domain.User, error) {
 	}
 	return users, rows.Err()
 }
+
+func (r *UserRepository) SoftDelete(ctx context.Context, id string) error {
+	query := `
+		UPDATE users
+		SET deleted_at = NOW(), updated_at = NOW()
+		WHERE id = $1 AND deleted_at IS NULL`
+
+	if _, err := r.pool.Exec(ctx, query, id); err != nil {
+		return fmt.Errorf("soft delete user: %w", err)
+	}
+	return nil
+}

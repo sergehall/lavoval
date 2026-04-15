@@ -23,7 +23,7 @@ func TestRenderVerificationEmailUsesLavovalBranding(t *testing.T) {
 	for _, snippet := range []string{
 		"Confirm your email to activate Lavoval",
 		"https://lavoval.test/verify-email?token=abc123",
-		"https://lavoval.test/og-image.png",
+		"https://lavoval.test/email-brand-120x40.png",
 		"#b44f23",
 		"Human skill exchange for the AI era",
 	} {
@@ -81,7 +81,7 @@ func TestRenderPasswordResetEmailUsesLavovalBranding(t *testing.T) {
 	for _, snippet := range []string{
 		"Reset your Lavoval password",
 		"https://lavoval.test/reset-password?token=abc123",
-		"https://lavoval.test/og-image.png",
+		"https://lavoval.test/email-brand-120x40.png",
 		"Password recovery",
 	} {
 		if !strings.Contains(rendered.HTMLBody, snippet) {

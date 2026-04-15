@@ -152,3 +152,15 @@ func (r *ProfileRepository) FindByUserID(ctx context.Context, userID string) (do
 	}
 	return profile, nil
 }
+
+func (r *ProfileRepository) SoftDeleteByUserID(ctx context.Context, userID string) error {
+	query := `
+		UPDATE profiles
+		SET deleted_at = NOW(), updated_at = NOW()
+		WHERE user_id = $1 AND deleted_at IS NULL`
+
+	if _, err := r.pool.Exec(ctx, query, userID); err != nil {
+		return fmt.Errorf("soft delete profile: %w", err)
+	}
+	return nil
+}

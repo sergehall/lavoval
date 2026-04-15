@@ -129,11 +129,21 @@ var brandedEmailHTMLTemplate = template.Must(template.New("branded-email").Parse
               <td style="padding:0 0 14px 0;">
                 <table role="presentation" cellpadding="0" cellspacing="0" border="0">
                   <tr>
-                    <td style="font-size:28px; font-weight:700; letter-spacing:-0.03em; line-height:1.05; color:{{.Brand.Title}};">
+                    <td style="padding-right:12px; vertical-align:top;">
+                      <img
+                        src="{{.HeroImageURL}}"
+                        alt="{{.AppName}}"
+                        width="120"
+                        height="40"
+                        style="display:block; width:120px; height:40px; border-radius:10px;"
+                      />
+                    </td>
+                    <td style="font-size:28px; font-weight:700; letter-spacing:-0.03em; line-height:1.05; color:{{.Brand.Title}}; vertical-align:top;">
                       {{.AppName}}
                     </td>
                   </tr>
                   <tr>
+                    <td></td>
                     <td style="padding-top:6px; font-size:14px; line-height:20px; color:{{.Brand.Muted}};">
                       Human skill exchange for the AI era
                     </td>
@@ -144,16 +154,6 @@ var brandedEmailHTMLTemplate = template.Must(template.New("branded-email").Parse
             <tr>
               <td style="background:{{.Brand.CardBackground}}; border:1px solid {{.Brand.CardBorder}}; border-radius:22px; padding:24px; box-shadow:0 14px 36px rgba(45,30,16,0.10);">
                 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
-                  <tr>
-                    <td style="padding:0 0 18px 0;">
-                      <img
-                        src="{{.HeroImageURL}}"
-                        alt="{{.AppName}}"
-                        width="552"
-                        style="display:block; width:100%; max-width:552px; height:auto; border-radius:18px; border:1px solid {{.Brand.CardBorder}};"
-                      />
-                    </td>
-                  </tr>
                   <tr>
                     <td style="padding:0 0 16px 0;">
                       <span style="display:inline-block; padding:7px 12px; border-radius:999px; background:{{.Brand.AccentSoft}}; border:1px solid {{.Brand.AccentBorder}}; color:{{.Brand.AccentDark}}; font-size:12px; font-weight:700; letter-spacing:0.06em; text-transform:uppercase;">
@@ -468,9 +468,9 @@ func buildBrandImageURL(appURL string) string {
 	base, _ := buildWebsiteLink(appURL)
 	parsed, err := url.Parse(base)
 	if err != nil {
-		return "http://localhost:3000/og-image.png"
+		return "http://localhost:3000/email-brand-120x40.png"
 	}
 
-	imageURL := parsed.ResolveReference(&url.URL{Path: "/og-image.png"})
+	imageURL := parsed.ResolveReference(&url.URL{Path: "/email-brand-120x40.png"})
 	return imageURL.String()
 }

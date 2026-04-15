@@ -23,6 +23,10 @@ func (s profileRepoStub) FindByUserID(_ context.Context, _ string) (domain.Profi
 	return s.profile, nil
 }
 
+func (s profileRepoStub) SoftDeleteByUserID(_ context.Context, _ string) error {
+	return nil
+}
+
 func TestProfileServiceFindByUserIDReturnsProfile(t *testing.T) {
 	bio := "Go developer"
 	svc := NewProfileService(profileRepoStub{

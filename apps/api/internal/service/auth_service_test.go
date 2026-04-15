@@ -23,6 +23,7 @@ type authUserRepoStub struct {
 	cancelTOTPEnrollment func(string) (domain.User, error)
 	enableTOTP           func(string, string) (domain.User, error)
 	disableTOTP          func(string) (domain.User, error)
+	softDeletedID        string
 }
 
 func (s authUserRepoStub) Create(_ context.Context, user domain.User) (domain.User, error) {
@@ -113,8 +114,14 @@ func (s authUserRepoStub) DisableTOTP(_ context.Context, userID string) (domain.
 	return s.user, nil
 }
 
+func (s authUserRepoStub) SoftDelete(_ context.Context, id string) error {
+	s.softDeletedID = id
+	return nil
+}
+
 type authProfileRepoStub struct {
-	profile domain.Profile
+	profile              domain.Profile
+	softDeletedForUserID string
 }
 
 func (s authProfileRepoStub) Create(_ context.Context, profile domain.Profile) (domain.Profile, error) {
@@ -127,6 +134,11 @@ func (s authProfileRepoStub) Update(_ context.Context, profile domain.Profile) (
 
 func (s authProfileRepoStub) FindByUserID(_ context.Context, _ string) (domain.Profile, error) {
 	return s.profile, nil
+}
+
+func (s authProfileRepoStub) SoftDeleteByUserID(_ context.Context, userID string) error {
+	s.softDeletedForUserID = userID
+	return nil
 }
 
 type verificationRepoStub struct {

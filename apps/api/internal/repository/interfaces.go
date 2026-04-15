@@ -17,6 +17,7 @@ type UserStore interface {
 	CancelTOTPEnrollment(context.Context, string) (domain.User, error)
 	EnableTOTP(context.Context, string, string) (domain.User, error)
 	DisableTOTP(context.Context, string) (domain.User, error)
+	SoftDelete(context.Context, string) error
 	List(context.Context) ([]domain.User, error)
 }
 
@@ -64,6 +65,7 @@ type ProfileStore interface {
 	Create(context.Context, domain.Profile) (domain.Profile, error)
 	Update(context.Context, domain.Profile) (domain.Profile, error)
 	FindByUserID(context.Context, string) (domain.Profile, error)
+	SoftDeleteByUserID(context.Context, string) error
 }
 
 type SkillStore interface {

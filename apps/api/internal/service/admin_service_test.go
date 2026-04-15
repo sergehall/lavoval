@@ -48,6 +48,9 @@ func (s adminUserStub) EnableTOTP(_ context.Context, _ string, _ string) (domain
 func (s adminUserStub) DisableTOTP(_ context.Context, _ string) (domain.User, error) {
 	return s.user, s.err
 }
+func (s adminUserStub) SoftDelete(_ context.Context, _ string) error {
+	return s.err
+}
 func (s adminUserStub) List(_ context.Context) ([]domain.User, error) {
 	return []domain.User{s.user}, s.err
 }
@@ -65,6 +68,9 @@ func (s adminProfileStub) Update(_ context.Context, p domain.Profile) (domain.Pr
 }
 func (s adminProfileStub) FindByUserID(_ context.Context, _ string) (domain.Profile, error) {
 	return s.profile, s.err
+}
+func (s adminProfileStub) SoftDeleteByUserID(_ context.Context, _ string) error {
+	return s.err
 }
 
 type adminSkillStub struct{}
