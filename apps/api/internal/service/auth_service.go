@@ -708,9 +708,11 @@ func (s *AuthService) ResendVerification(ctx context.Context, input ResendVerifi
 		return RegisterResponse{}, fmt.Errorf("find profile for verification resend: %w", err)
 	}
 
-	if err := s.issueVerificationEmail(ctx, user, profile); err != nil {
-		return RegisterResponse{}, err
-	}
+	go func() {
+		if err := s.issueVerificationEmail(context.Background(), user, profile); err != nil {
+			log.Printf("auth: resend verification email failed for %s: %v", user.Email, err)
+		}
+	}()
 
 	return RegisterResponse{
 		Email:                user.Email,

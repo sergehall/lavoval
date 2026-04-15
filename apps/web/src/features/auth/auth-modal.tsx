@@ -89,6 +89,7 @@ export function AuthModal({
                 key="sign-up-form"
                 mode="modal"
                 onSwitchToSignIn={() => onChangeMode('sign-in')}
+                onRegistered={onClose}
               />
             </>
           )}

@@ -1,6 +1,6 @@
 'use client';
 
-import { useActionState, useState } from 'react';
+import { useActionState, useEffect, useState } from 'react';
 import { useFormStatus } from 'react-dom';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -20,15 +20,23 @@ const initialRegisterFormState: RegisterFormState = {
 export function RegisterForm({
   mode = 'page',
   onSwitchToSignIn,
+  onRegistered,
   initialEmail = '',
 }: {
   mode?: 'page' | 'modal';
   onSwitchToSignIn?: () => void;
+  onRegistered?: () => void;
   initialEmail?: string;
 }) {
   const router = useRouter();
   const [state, action] = useActionState(registerAction, initialRegisterFormState);
   const [dismissedReminderForEmail, setDismissedReminderForEmail] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (state.registered) {
+      onRegistered?.();
+    }
+  }, [state.registered, onRegistered]);
   const isReminderOpen = state.registered && state.email !== dismissedReminderForEmail;
   const googleOAuthStartURL = `${env.apiUrl}/api/v1/auth/oauth/google/start`;
   const githubOAuthStartURL = `${env.apiUrl}/api/v1/auth/oauth/github/start`;
