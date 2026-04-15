@@ -52,8 +52,10 @@ lavoval/
 ## Local setup
 
 1. Copy environment variables:
-   - local infrastructure/dev setup already has `.env.local`
-   - if you want a separate shared env file, copy `.env.example` as needed
+   - `.env` is the base runtime profile for production-style values
+   - `.env.local` is for localhost overrides and docker-backed local database settings
+   - scripts now load `.env` first and then `.env.local` for `dev` and `prod-local`
+   - copy `.env.example` if you want to rebuild either file from a clean template
 2. Install dependencies:
    - `pnpm install`
 3. Start the full local stack:
@@ -97,6 +99,14 @@ Environment variables for CLI usage:
 
 See [.env.example](./.env.example) for the full list.
 
+Environment layering:
+
+- `.env`: base application/runtime profile, intended for production-style defaults
+- `.env.local`: local overrides for localhost URLs, docker Postgres, and any machine-specific settings
+- `dev` profile loads `.env` and then `.env.local`
+- `prod-local` profile also loads `.env` and then `.env.local`, but starts the app in a production-style local mode
+- Docker compose continues to read `.env.local` for local Postgres
+
 Important values:
 
 - `APP_URL`: frontend base URL used to build verification links
@@ -115,6 +125,13 @@ Google email confirmation setup:
 - Make sure `APP_URL` points at the frontend domain users will open from their inbox
 
 For local infrastructure runs, `docker-compose.yml` uses `.env.local` and starts only PostgreSQL.
+
+Useful runtime commands:
+
+- `pnpm run dev:api`
+- `pnpm run dev:web`
+- `pnpm run prod:local:api`
+- `pnpm run prod:local:web`
 
 ## Database and migrations
 

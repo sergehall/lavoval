@@ -9,7 +9,7 @@ up:
 	docker compose --env-file .env.local up -d
 
 down:
-	docker compose --env-file .env.local stop
+	docker compose --env-file .env.local down
 
 logs:
 	docker compose --env-file .env.local logs -f

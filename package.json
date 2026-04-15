@@ -8,7 +8,7 @@
   ],
   "scripts": {
     "infra:up": "docker compose --env-file .env.local up -d",
-    "infra:down": "docker compose --env-file .env.local stop",
+    "infra:down": "docker compose --env-file .env.local down",
     "infra:logs": "docker compose --env-file .env.local logs -f",
     "db:migrate": "bash ./scripts/db-migrate.sh",
     "db:migrate:status": "bash ./scripts/db-migrate-status.sh",
@@ -18,8 +18,10 @@
     "lavoval": "node --experimental-strip-types ./packages/cli/src/index.ts",
     "dev:stack": "node ./scripts/dev-stack.mjs",
     "dev:stack:stop": "node ./scripts/dev-stack-stop.mjs",
-    "dev:web": "pnpm --dir apps/web dev",
-    "dev:api": "cd apps/api && go run ./cmd/server",
+    "dev:web": "LAVOVAL_ENV_PROFILE=dev bash ./scripts/run-web.sh dev dev",
+    "dev:api": "LAVOVAL_ENV_PROFILE=dev bash ./scripts/run-api.sh dev",
+    "prod:local:web": "LAVOVAL_ENV_PROFILE=prod-local bash ./scripts/run-web.sh prod-local prod",
+    "prod:local:api": "LAVOVAL_ENV_PROFILE=prod-local bash ./scripts/run-api.sh prod-local",
 
     "build": "pnpm run build:web",
     "build:web": "pnpm --dir apps/web build",

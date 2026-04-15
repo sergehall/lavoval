@@ -2,18 +2,15 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-ENV_FILE="${ROOT_DIR}/.env.local"
+PROFILE="${LAVOVAL_ENV_PROFILE:-dev}"
 MIGRATIONS_DIR="${ROOT_DIR}/infrastructure/db/migrations"
 
-if [[ -f "${ENV_FILE}" ]]; then
-  set -a
-  # shellcheck disable=SC1090
-  source "${ENV_FILE}"
-  set +a
-fi
+# shellcheck disable=SC1091
+source "${ROOT_DIR}/scripts/load-env.sh"
+load_lavoval_env "${ROOT_DIR}" "${PROFILE}"
 
 if [[ -z "${DATABASE_URL:-}" ]]; then
-  echo "DATABASE_URL is not set. Check ${ENV_FILE} or your environment." >&2
+  echo "DATABASE_URL is not set. Check .env/.env.local or your environment." >&2
   exit 1
 fi
 
