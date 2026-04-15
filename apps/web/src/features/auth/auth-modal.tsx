@@ -47,7 +47,7 @@ export function AuthModal({
         aria-label="Close authentication dialog"
         onClick={onClose}
       />
-      <div className="auth-modal__panel">
+      <div className="auth-modal__panel" key={mode}>
         <button type="button" className="auth-modal__close" onClick={onClose} aria-label="Close">
           ×
         </button>
@@ -63,7 +63,7 @@ export function AuthModal({
                   and marketplace identity.
                 </p>
               </div>
-              <LoginForm />
+              <LoginForm key="sign-in-form" />
               <p className="muted">
                 Need an account?{' '}
                 <button
@@ -85,7 +85,11 @@ export function AuthModal({
                   into skill offers for the AI era.
                 </p>
               </div>
-              <RegisterForm mode="modal" onSwitchToSignIn={() => onChangeMode('sign-in')} />
+              <RegisterForm
+                key="sign-up-form"
+                mode="modal"
+                onSwitchToSignIn={() => onChangeMode('sign-in')}
+              />
             </>
           )}
         </div>

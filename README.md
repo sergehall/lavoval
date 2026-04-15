@@ -172,6 +172,7 @@ Run migrations manually when needed:
 
 ```bash
 pnpm run db:migrate
+pnpm run db:migrate:prod
 pnpm run db:migrate:status
 pnpm run db:seed
 ```
@@ -179,6 +180,7 @@ pnpm run db:seed
 Professional local migration flow:
 
 - `db:migrate` applies only new SQL files and records them in `schema_migrations`
+- `db:migrate:prod` applies migrations using only `.env` values, which is useful for the production database URL and Render/hosted environments
 - `db:migrate:status` shows which migration files are already applied
 - `dev:stack` automatically runs `db:migrate` after infrastructure startup
 - seed files remain manual so demo data is an explicit choice

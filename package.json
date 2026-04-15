@@ -15,6 +15,7 @@
     "infra:down": "docker compose --env-file .env.local down",
     "infra:logs": "docker compose --env-file .env.local logs -f",
     "db:migrate": "bash ./scripts/db-migrate.sh",
+    "db:migrate:prod": "bash ./scripts/db-migrate-prod.sh",
     "db:migrate:status": "bash ./scripts/db-migrate-status.sh",
     "db:seed": "bash ./scripts/db-seed.sh",
 
@@ -23,6 +24,7 @@
     "dev:stack": "node ./scripts/dev-stack.mjs",
     "dev:stack:stop": "node ./scripts/dev-stack-stop.mjs",
     "dev:web": "LAVOVAL_ENV_PROFILE=dev bash ./scripts/run-web.sh dev dev",
+    "dev:web:prod-api": "NEXT_PUBLIC_APP_URL=https://lavoval.com NEXT_PUBLIC_API_URL=https://api.lavoval.com LAVOVAL_ENV_PROFILE=production bash ./scripts/run-web.sh production dev",
     "dev:api": "LAVOVAL_ENV_PROFILE=dev bash ./scripts/run-api.sh dev",
     "prod:local:web": "LAVOVAL_ENV_PROFILE=prod-local bash ./scripts/run-web.sh prod-local prod",
     "prod:local:api": "LAVOVAL_ENV_PROFILE=prod-local bash ./scripts/run-api.sh prod-local",
