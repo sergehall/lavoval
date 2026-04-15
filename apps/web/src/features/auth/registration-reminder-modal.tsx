@@ -32,11 +32,10 @@ export function RegistrationReminderModal({
         <div className="stack stack--lg">
           <div className="stack stack--sm">
             <span className="badge badge--success">Registration complete</span>
-            <h2>Keep this email ready for confirmation.</h2>
+            <h2>Check your inbox and confirm your email.</h2>
             <p className="muted">
-              We borrowed this step from the stronger auth flow in the reference project. Lavoval
-              account confirmation email delivery is the next auth upgrade, and this is the address
-              that will be used for it.
+              We just sent a confirmation link to the address below. Open that email, confirm your
+              Lavoval account, and then come back to sign in.
             </p>
           </div>
 
@@ -48,8 +47,9 @@ export function RegistrationReminderModal({
           <div className="auth-reminder__callout">
             <strong>What happens now</strong>
             <p>
-              Your account is created. Email confirmation delivery is not wired on the backend yet,
-              so for now you can continue straight to sign in with the credentials you just created.
+              Lavoval now waits for email confirmation before the first sign-in. If the message
+              does not land right away, check spam or request a fresh confirmation link from the
+              sign-in screen.
             </p>
           </div>
 

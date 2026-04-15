@@ -55,6 +55,18 @@ export const authResponseSchema = z.object({
 });
 export type AuthResponse = z.infer<typeof authResponseSchema>;
 
+export const registerResponseSchema = z.object({
+  email: z.string().email(),
+  verificationRequired: z.boolean()
+});
+export type RegisterResponse = z.infer<typeof registerResponseSchema>;
+
+export const verificationResponseSchema = z.object({
+  email: z.string().email(),
+  alreadyVerified: z.boolean()
+});
+export type VerificationResponse = z.infer<typeof verificationResponseSchema>;
+
 export const profileSchema = z.object({
   userId: z.string().uuid(),
   firstName: z.string().min(1),
@@ -130,6 +142,16 @@ export const registerRequestSchema = z.object({
   lastName: z.string().min(2)
 });
 export type RegisterRequest = z.infer<typeof registerRequestSchema>;
+
+export const verifyEmailRequestSchema = z.object({
+  token: z.string().min(24)
+});
+export type VerifyEmailRequest = z.infer<typeof verifyEmailRequestSchema>;
+
+export const resendVerificationRequestSchema = z.object({
+  email: z.string().email()
+});
+export type ResendVerificationRequest = z.infer<typeof resendVerificationRequestSchema>;
 
 export const profileUpdateSchema = z.object({
   firstName: z.string().min(2),

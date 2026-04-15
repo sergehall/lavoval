@@ -9,9 +9,11 @@ import type {
   Profile,
   ProfileUpdateRequest,
   RegisterRequest,
+  ResendVerificationRequest,
   SkillDetail,
   SkillMutationRequest,
   SkillSummary,
+  VerifyEmailRequest,
 } from '@lavoval/contracts';
 import type { RuntimeRunRequest, SkillRun } from '@lavoval/contracts/runtime';
 import { env } from '@/shared/config/env';
@@ -55,6 +57,22 @@ export async function login(payload: LoginRequest) {
 export async function register(payload: RegisterRequest) {
   try {
     return await apiClient.auth.register(payload);
+  } catch (error) {
+    mapApiError(error);
+  }
+}
+
+export async function verifyEmail(payload: VerifyEmailRequest) {
+  try {
+    return await apiClient.auth.verifyEmail(payload);
+  } catch (error) {
+    mapApiError(error);
+  }
+}
+
+export async function resendVerification(payload: ResendVerificationRequest) {
+  try {
+    return await apiClient.auth.resendVerification(payload);
   } catch (error) {
     mapApiError(error);
   }

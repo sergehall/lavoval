@@ -336,6 +336,12 @@ select.input {
   border: 1px solid rgba(180, 35, 24, 0.14);
 }
 
+.form-message--success {
+  color: var(--success);
+  background: rgba(24, 121, 78, 0.08);
+  border: 1px solid rgba(24, 121, 78, 0.14);
+}
+
 .auth-link-button {
   appearance: none;
   border: none;
@@ -351,6 +357,25 @@ select.input {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 18px;
+}
+
+.form-inline {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: end;
+}
+
+.form-inline .input {
+  flex: 1 1 220px;
+  margin-top: 0;
+}
+
+.resend-verification {
+  padding: 16px 18px;
+  border-radius: 20px;
+  background: rgba(24, 121, 78, 0.05);
+  border: 1px solid rgba(24, 121, 78, 0.12);
 }
 
 .form-grid__full {

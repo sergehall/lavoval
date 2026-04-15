@@ -3,12 +3,14 @@
 import { useActionState } from 'react';
 import { useFormStatus } from 'react-dom';
 import { loginAction, type AuthFormState } from '@/features/auth/actions';
+import { ResendVerificationForm } from '@/features/auth/resend-verification-form';
 import { Button } from '@/shared/ui/button';
 import { Input } from '@/shared/ui/input';
 
 const initialAuthFormState: AuthFormState = {
   error: null,
   email: '',
+  needsVerification: false,
 };
 
 export function LoginForm() {
@@ -41,6 +43,7 @@ export function LoginForm() {
           {state.error}
         </p>
       ) : null}
+      {state.needsVerification ? <ResendVerificationForm defaultEmail={state.email} /> : null}
       <LoginSubmitButton />
     </form>
   );

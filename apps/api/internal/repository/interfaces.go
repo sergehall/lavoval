@@ -10,7 +10,15 @@ type UserStore interface {
 	Create(context.Context, domain.User) (domain.User, error)
 	FindByEmail(context.Context, string) (domain.User, error)
 	FindByID(context.Context, string) (domain.User, error)
+	MarkEmailVerified(context.Context, string) (domain.User, error)
 	List(context.Context) ([]domain.User, error)
+}
+
+type EmailVerificationStore interface {
+	Create(context.Context, domain.EmailVerificationToken) (domain.EmailVerificationToken, error)
+	FindByTokenHash(context.Context, string) (domain.EmailVerificationToken, error)
+	Consume(context.Context, string, string) error
+	RevokeActiveByUserID(context.Context, string) error
 }
 
 type ProfileStore interface {

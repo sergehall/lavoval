@@ -99,11 +99,20 @@ See [.env.example](./.env.example) for the full list.
 
 Important values:
 
+- `APP_URL`: frontend base URL used to build verification links
 - `NEXT_PUBLIC_API_URL`: backend base URL for the frontend
 - `DATABASE_URL`: PostgreSQL connection string
 - `JWT_SECRET`: signing secret for access and refresh tokens
 - `JWT_ACCESS_TTL` and `JWT_REFRESH_TTL`: token lifetimes
 - `ADMIN_SEED_EMAIL`, `ADMIN_SEED_PASSWORD`: seed account defaults
+- `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `SMTP_FROM_EMAIL`: Google SMTP delivery settings for confirmation emails
+
+Google email confirmation setup:
+
+- Enable 2-Step Verification on the Google account you want to send from
+- Create a Google App Password and place it in `SMTP_PASSWORD`
+- Keep `SMTP_HOST=smtp.gmail.com` and `SMTP_PORT=587`
+- Make sure `APP_URL` points at the frontend domain users will open from their inbox
 
 For local infrastructure runs, `docker-compose.yml` uses `.env.local` and starts only PostgreSQL.
 
@@ -132,7 +141,7 @@ Professional local migration flow:
 
 ## Frontend areas
 
-- Public: marketplace landing page, login, registration, recovery placeholder, skills catalog
+- Public: marketplace landing page, login, registration, email confirmation, recovery placeholder, skills catalog
 - Account: dashboard, profile, authored skills, skill detail, future exchange activity
 - Admin: dashboard, users list, skills CRUD and governance surface
 
@@ -182,7 +191,7 @@ cd apps/api && go test ./...
 
 Included examples cover:
 
-- auth service token issuance
+- auth service email verification and token issuance
 - skill service create flow
 - auth handler validation failure path
 - reusable button component rendering
@@ -232,5 +241,5 @@ The repository is shaped to support the next product steps without a painful rew
 ## Notes
 
 - The frontend uses server actions as a pragmatic auth boundary so tokens can stay in HTTP-only cookies.
-- The backend exposes stateless JWT auth now, while leaving room for future refresh rotation, email verification, stronger session tracking, rate limiting, and audit logging.
+- The backend exposes stateless JWT auth with email confirmation now, while leaving room for future refresh rotation, stronger session tracking, rate limiting, and audit logging.
 - The shared contracts package currently serves TypeScript consumers. A future OpenAPI-driven workflow can become the cross-language contract source if the product needs stronger generation flows.

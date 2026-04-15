@@ -2,31 +2,55 @@ package service
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/base64"
 	"errors"
 	"fmt"
+	"net/url"
+	"strings"
+	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"golang.org/x/crypto/bcrypt"
 
 	"github.com/sergehall/lavoval/apps/api/internal/auth"
 	"github.com/sergehall/lavoval/apps/api/internal/config"
 	"github.com/sergehall/lavoval/apps/api/internal/domain"
+	"github.com/sergehall/lavoval/apps/api/internal/mailer"
 	"github.com/sergehall/lavoval/apps/api/internal/repository"
 )
 
 var ErrInvalidCredentials = errors.New("invalid credentials")
+var ErrEmailAlreadyExists = errors.New("email already exists")
+var ErrEmailNotVerified = errors.New("email not verified")
+var ErrVerificationTokenInvalid = errors.New("verification token is invalid")
+var ErrVerificationTokenExpired = errors.New("verification token expired")
+var ErrEmailAlreadyVerified = errors.New("email already verified")
 
 type AuthService struct {
-	users    repository.UserStore
-	profiles repository.ProfileStore
-	tokens   auth.TokenManager
-	cfg      config.Config
+	users         repository.UserStore
+	profiles      repository.ProfileStore
+	verifications repository.EmailVerificationStore
+	tokens        auth.TokenManager
+	mailer        mailer.VerificationSender
+	cfg           config.Config
 }
 
 type AuthPayload struct {
 	AccessToken  string      `json:"accessToken"`
 	RefreshToken string      `json:"refreshToken"`
 	User         SessionUser `json:"user"`
+}
+
+type RegisterResponse struct {
+	Email                string `json:"email"`
+	VerificationRequired bool   `json:"verificationRequired"`
+}
+
+type VerificationResponse struct {
+	Email           string `json:"email"`
+	AlreadyVerified bool   `json:"alreadyVerified"`
 }
 
 type SessionUser struct {
@@ -49,14 +73,44 @@ type LoginInput struct {
 	Password string `json:"password" validate:"required,min=8"`
 }
 
-func NewAuthService(users repository.UserStore, profiles repository.ProfileStore, tokens auth.TokenManager, cfg config.Config) *AuthService {
-	return &AuthService{users: users, profiles: profiles, tokens: tokens, cfg: cfg}
+type VerifyEmailInput struct {
+	Token string `json:"token" validate:"required,min=24"`
 }
 
-func (s *AuthService) Register(ctx context.Context, input RegisterInput) (AuthPayload, error) {
+type ResendVerificationInput struct {
+	Email string `json:"email" validate:"required,email"`
+}
+
+func NewAuthService(
+	users repository.UserStore,
+	profiles repository.ProfileStore,
+	verifications repository.EmailVerificationStore,
+	tokens auth.TokenManager,
+	verificationMailer mailer.VerificationSender,
+	cfg config.Config,
+) *AuthService {
+	return &AuthService{
+		users:         users,
+		profiles:      profiles,
+		verifications: verifications,
+		tokens:        tokens,
+		mailer:        verificationMailer,
+		cfg:           cfg,
+	}
+}
+
+func (s *AuthService) Register(ctx context.Context, input RegisterInput) (RegisterResponse, error) {
+	existingUser, err := s.users.FindByEmail(ctx, input.Email)
+	if err == nil && existingUser.ID != "" {
+		return RegisterResponse{}, ErrEmailAlreadyExists
+	}
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		return RegisterResponse{}, fmt.Errorf("check existing user: %w", err)
+	}
+
 	hash, err := bcrypt.GenerateFromPassword([]byte(input.Password), bcrypt.DefaultCost)
 	if err != nil {
-		return AuthPayload{}, fmt.Errorf("hash password: %w", err)
+		return RegisterResponse{}, fmt.Errorf("hash password: %w", err)
 	}
 
 	user := domain.User{
@@ -69,7 +123,7 @@ func (s *AuthService) Register(ctx context.Context, input RegisterInput) (AuthPa
 
 	createdUser, err := s.users.Create(ctx, user)
 	if err != nil {
-		return AuthPayload{}, fmt.Errorf("create user: %w", err)
+		return RegisterResponse{}, fmt.Errorf("create user: %w", err)
 	}
 
 	profile := domain.Profile{
@@ -81,10 +135,17 @@ func (s *AuthService) Register(ctx context.Context, input RegisterInput) (AuthPa
 
 	createdProfile, err := s.profiles.Create(ctx, profile)
 	if err != nil {
-		return AuthPayload{}, fmt.Errorf("create profile: %w", err)
+		return RegisterResponse{}, fmt.Errorf("create profile: %w", err)
 	}
 
-	return s.buildAuthPayload(createdUser, createdProfile)
+	if err := s.issueVerificationEmail(ctx, createdUser, createdProfile); err != nil {
+		return RegisterResponse{}, err
+	}
+
+	return RegisterResponse{
+		Email:                createdUser.Email,
+		VerificationRequired: true,
+	}, nil
 }
 
 func (s *AuthService) Login(ctx context.Context, input LoginInput) (AuthPayload, error) {
@@ -96,6 +157,9 @@ func (s *AuthService) Login(ctx context.Context, input LoginInput) (AuthPayload,
 	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(input.Password)); err != nil {
 		return AuthPayload{}, ErrInvalidCredentials
 	}
+	if user.EmailVerifiedAt == nil {
+		return AuthPayload{}, ErrEmailNotVerified
+	}
 
 	profile, err := s.profiles.FindByUserID(ctx, user.ID)
 	if err != nil {
@@ -103,6 +167,67 @@ func (s *AuthService) Login(ctx context.Context, input LoginInput) (AuthPayload,
 	}
 
 	return s.buildAuthPayload(user, profile)
+}
+
+func (s *AuthService) VerifyEmail(ctx context.Context, input VerifyEmailInput) (VerificationResponse, error) {
+	tokenHash := hashVerificationToken(input.Token)
+	record, err := s.verifications.FindByTokenHash(ctx, tokenHash)
+	if err != nil {
+		return VerificationResponse{}, ErrVerificationTokenInvalid
+	}
+	if record.ConsumedAt != nil {
+		return VerificationResponse{}, ErrVerificationTokenInvalid
+	}
+	if time.Now().After(record.ExpiresAt) {
+		return VerificationResponse{}, ErrVerificationTokenExpired
+	}
+
+	user, err := s.users.FindByID(ctx, record.UserID)
+	if err != nil {
+		return VerificationResponse{}, fmt.Errorf("find user for verification: %w", err)
+	}
+	if user.EmailVerifiedAt != nil {
+		return VerificationResponse{
+			Email:           user.Email,
+			AlreadyVerified: true,
+		}, nil
+	}
+
+	if _, err := s.users.MarkEmailVerified(ctx, user.ID); err != nil {
+		return VerificationResponse{}, fmt.Errorf("mark email verified: %w", err)
+	}
+	if err := s.verifications.Consume(ctx, record.ID, user.ID); err != nil {
+		return VerificationResponse{}, fmt.Errorf("consume verification token: %w", err)
+	}
+
+	return VerificationResponse{
+		Email:           user.Email,
+		AlreadyVerified: false,
+	}, nil
+}
+
+func (s *AuthService) ResendVerification(ctx context.Context, input ResendVerificationInput) (RegisterResponse, error) {
+	user, err := s.users.FindByEmail(ctx, input.Email)
+	if err != nil {
+		return RegisterResponse{}, ErrInvalidCredentials
+	}
+	if user.EmailVerifiedAt != nil {
+		return RegisterResponse{}, ErrEmailAlreadyVerified
+	}
+
+	profile, err := s.profiles.FindByUserID(ctx, user.ID)
+	if err != nil {
+		return RegisterResponse{}, fmt.Errorf("find profile for verification resend: %w", err)
+	}
+
+	if err := s.issueVerificationEmail(ctx, user, profile); err != nil {
+		return RegisterResponse{}, err
+	}
+
+	return RegisterResponse{
+		Email:                user.Email,
+		VerificationRequired: true,
+	}, nil
 }
 
 func (s *AuthService) buildAuthPayload(user domain.User, profile domain.Profile) (AuthPayload, error) {
@@ -122,4 +247,52 @@ func (s *AuthService) buildAuthPayload(user domain.User, profile domain.Profile)
 			LastName:  profile.LastName,
 		},
 	}, nil
+}
+
+func (s *AuthService) issueVerificationEmail(ctx context.Context, user domain.User, profile domain.Profile) error {
+	if s.mailer == nil {
+		return fmt.Errorf("email delivery is not configured")
+	}
+
+	if err := s.verifications.RevokeActiveByUserID(ctx, user.ID); err != nil {
+		return fmt.Errorf("revoke active verification tokens: %w", err)
+	}
+
+	plainToken, tokenHash, err := newVerificationToken()
+	if err != nil {
+		return fmt.Errorf("generate verification token: %w", err)
+	}
+
+	record := domain.EmailVerificationToken{
+		ID:        uuid.NewString(),
+		UserID:    user.ID,
+		TokenHash: tokenHash,
+		ExpiresAt: time.Now().Add(s.cfg.EmailVerificationTTL),
+	}
+
+	if _, err := s.verifications.Create(ctx, record); err != nil {
+		return fmt.Errorf("store verification token: %w", err)
+	}
+
+	verifyURL := fmt.Sprintf("%s/verify-email?token=%s&email=%s", s.cfg.AppURL, url.QueryEscape(plainToken), url.QueryEscape(user.Email))
+	if err := s.mailer.SendVerificationEmail(ctx, mailer.VerificationEmail{
+		ToEmail:     user.Email,
+		ToName:      strings.TrimSpace(profile.FirstName + " " + profile.LastName),
+		VerifyURL:   verifyURL,
+		ProductName: s.cfg.AppName,
+	}); err != nil {
+		return fmt.Errorf("send verification email: %w", err)
+	}
+
+	return nil
+}
+
+func newVerificationToken() (plain string, hashed string, err error) {
+	raw := uuid.NewString() + "." + uuid.NewString()
+	return raw, hashVerificationToken(raw), nil
+}
+
+func hashVerificationToken(token string) string {
+	sum := sha256.Sum256([]byte(token))
+	return base64.RawURLEncoding.EncodeToString(sum[:])
 }

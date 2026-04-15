@@ -32,6 +32,10 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 
 	payload, err := h.service.Register(r.Context(), input)
 	if err != nil {
+		if errors.Is(err, service.ErrEmailAlreadyExists) {
+			httpx.Error(w, http.StatusConflict, "email_in_use", "An account with this email already exists")
+			return
+		}
 		httpx.Error(w, http.StatusInternalServerError, "register_failed", "Could not register account")
 		return
 	}
@@ -56,6 +60,10 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 			httpx.Error(w, http.StatusUnauthorized, "invalid_credentials", "Email or password is incorrect")
 			return
 		}
+		if errors.Is(err, service.ErrEmailNotVerified) {
+			httpx.Error(w, http.StatusForbidden, "email_not_verified", "Please confirm your email before signing in")
+			return
+		}
 		httpx.Error(w, http.StatusInternalServerError, "login_failed", "Could not sign in")
 		return
 	}
@@ -65,4 +73,58 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 
 func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 	httpx.JSON(w, http.StatusOK, map[string]bool{"success": true})
+}
+
+func (h *AuthHandler) VerifyEmail(w http.ResponseWriter, r *http.Request) {
+	var input service.VerifyEmailInput
+	if err := httpx.Decode(r, &input); err != nil {
+		httpx.Error(w, http.StatusBadRequest, "invalid_request", err.Error())
+		return
+	}
+	if err := h.validate.Struct(input); err != nil {
+		httpx.Error(w, http.StatusBadRequest, "validation_error", err.Error())
+		return
+	}
+
+	payload, err := h.service.VerifyEmail(r.Context(), input)
+	if err != nil {
+		switch {
+		case errors.Is(err, service.ErrVerificationTokenExpired):
+			httpx.Error(w, http.StatusGone, "verification_token_expired", "This confirmation link has expired")
+		case errors.Is(err, service.ErrVerificationTokenInvalid):
+			httpx.Error(w, http.StatusBadRequest, "verification_token_invalid", "This confirmation link is invalid")
+		default:
+			httpx.Error(w, http.StatusInternalServerError, "verify_email_failed", "Could not confirm email")
+		}
+		return
+	}
+
+	httpx.JSON(w, http.StatusOK, payload)
+}
+
+func (h *AuthHandler) ResendVerification(w http.ResponseWriter, r *http.Request) {
+	var input service.ResendVerificationInput
+	if err := httpx.Decode(r, &input); err != nil {
+		httpx.Error(w, http.StatusBadRequest, "invalid_request", err.Error())
+		return
+	}
+	if err := h.validate.Struct(input); err != nil {
+		httpx.Error(w, http.StatusBadRequest, "validation_error", err.Error())
+		return
+	}
+
+	payload, err := h.service.ResendVerification(r.Context(), input)
+	if err != nil {
+		switch {
+		case errors.Is(err, service.ErrInvalidCredentials):
+			httpx.Error(w, http.StatusNotFound, "email_not_found", "No account found for this email")
+		case errors.Is(err, service.ErrEmailAlreadyVerified):
+			httpx.Error(w, http.StatusConflict, "email_already_verified", "This email is already confirmed")
+		default:
+			httpx.Error(w, http.StatusInternalServerError, "resend_verification_failed", "Could not resend confirmation email")
+		}
+		return
+	}
+
+	httpx.JSON(w, http.StatusOK, payload)
 }

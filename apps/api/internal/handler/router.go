@@ -42,6 +42,8 @@ func NewRouter(cfg config.Config, tokens auth.TokenManager, authService *service
 		api.Route("/auth", func(authRouter chi.Router) {
 			authRouter.Post("/register", authHandler.Register)
 			authRouter.Post("/login", authHandler.Login)
+			authRouter.Post("/verify-email", authHandler.VerifyEmail)
+			authRouter.Post("/resend-verification", authHandler.ResendVerification)
 			authRouter.With(appmiddleware.Authenticate(tokens)).Post("/logout", authHandler.Logout)
 		})
 

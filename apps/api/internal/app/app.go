@@ -11,6 +11,7 @@ import (
 	"github.com/sergehall/lavoval/apps/api/internal/auth"
 	"github.com/sergehall/lavoval/apps/api/internal/config"
 	"github.com/sergehall/lavoval/apps/api/internal/handler"
+	"github.com/sergehall/lavoval/apps/api/internal/mailer"
 	"github.com/sergehall/lavoval/apps/api/internal/repository"
 	appRuntime "github.com/sergehall/lavoval/apps/api/internal/runtime"
 	"github.com/sergehall/lavoval/apps/api/internal/service"
@@ -39,12 +40,14 @@ func New() (*Application, error) {
 	tokenManager := auth.NewTokenManager(cfg)
 	userRepo := repository.NewUserRepository(pool)
 	profileRepo := repository.NewProfileRepository(pool)
+	verificationRepo := repository.NewEmailVerificationRepository(pool)
 	skillRepo := repository.NewSkillRepository(pool)
 	enrollmentRepo := repository.NewEnrollmentRepository(pool)
 	skillRunRepo := repository.NewSkillRunRepository(pool)
 	runtimeRegistry := appRuntime.DefaultRegistry()
+	verificationMailer := mailer.NewSMTPVerificationMailer(cfg)
 
-	authService := service.NewAuthService(userRepo, profileRepo, tokenManager, cfg)
+	authService := service.NewAuthService(userRepo, profileRepo, verificationRepo, tokenManager, verificationMailer, cfg)
 	profileService := service.NewProfileService(profileRepo)
 	skillService := service.NewSkillService(skillRepo, enrollmentRepo)
 	runtimeService := service.NewRuntimeService(skillRepo, skillRunRepo, runtimeRegistry)

@@ -4,7 +4,11 @@ import type {
   Profile,
   ProfileUpdateRequest,
   RegisterRequest,
+  RegisterResponse,
+  ResendVerificationRequest,
   SessionUser,
+  VerificationResponse,
+  VerifyEmailRequest,
 } from '@lavoval/contracts';
 import type { RuntimeRunRequest, SkillRun } from '@lavoval/contracts/runtime';
 import type { SkillDetail, SkillMutationRequest, SkillSummary } from '@lavoval/registry';
@@ -54,6 +58,8 @@ export const apiPaths = {
   auth: {
     login: () => '/api/v1/auth/login',
     register: () => '/api/v1/auth/register',
+    verifyEmail: () => '/api/v1/auth/verify-email',
+    resendVerification: () => '/api/v1/auth/resend-verification',
     logout: () => '/api/v1/auth/logout',
   },
   me: {
@@ -137,7 +143,19 @@ export function createApiClient(config: ApiClientConfig) {
         });
       },
       register(payload: RegisterRequest) {
-        return request<AuthResponse>(apiPaths.auth.register(), {
+        return request<RegisterResponse>(apiPaths.auth.register(), {
+          method: 'POST',
+          body: JSON.stringify(payload),
+        });
+      },
+      verifyEmail(payload: VerifyEmailRequest) {
+        return request<VerificationResponse>(apiPaths.auth.verifyEmail(), {
+          method: 'POST',
+          body: JSON.stringify(payload),
+        });
+      },
+      resendVerification(payload: ResendVerificationRequest) {
+        return request<RegisterResponse>(apiPaths.auth.resendVerification(), {
           method: 'POST',
           body: JSON.stringify(payload),
         });
