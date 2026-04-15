@@ -291,7 +291,9 @@ export async function createAdminModule(
   payload: ModuleMutationRequest,
 ) {
   try {
-    return (await apiClient.admin.createModule(skillID, payload, { token })) as ApiEnvelope<SkillModule>;
+    return (await apiClient.admin.createModule(skillID, payload, {
+      token,
+    })) as ApiEnvelope<SkillModule>;
   } catch (error) {
     mapApiError(error);
   }
@@ -320,7 +322,9 @@ export async function updateAdminModule(
   payload: ModuleMutationRequest,
 ) {
   try {
-    return (await apiClient.admin.updateModule(moduleID, payload, { token })) as ApiEnvelope<SkillModule>;
+    return (await apiClient.admin.updateModule(moduleID, payload, {
+      token,
+    })) as ApiEnvelope<SkillModule>;
   } catch (error) {
     mapApiError(error);
   }
@@ -344,7 +348,9 @@ export async function deleteAdminSkill(token: string, id: string) {
 
 export async function deleteAdminModule(token: string, _skillID: string, moduleID: string) {
   try {
-    return (await apiClient.admin.deleteModule(moduleID, { token })) as ApiEnvelope<{ success: boolean }>;
+    return (await apiClient.admin.deleteModule(moduleID, { token })) as ApiEnvelope<{
+      success: boolean;
+    }>;
   } catch (error) {
     mapApiError(error);
   }
