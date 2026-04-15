@@ -9,7 +9,12 @@ export async function loadPublicSkills(timeoutMs = PUBLIC_SKILLS_TIMEOUT_MS) {
     }, timeoutMs);
 
     // avoid keeping the process alive for the timer in server runtimes that support it
-    if (typeof timer === 'object' && timer && 'unref' in timer && typeof timer.unref === 'function') {
+    if (
+      typeof timer === 'object' &&
+      timer &&
+      'unref' in timer &&
+      typeof timer.unref === 'function'
+    ) {
       timer.unref();
     }
   });
