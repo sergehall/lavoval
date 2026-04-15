@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
@@ -186,4 +187,106 @@ func mustHashPassword(t *testing.T, password string) string {
 	}
 
 	return string(hash)
+}
+
+func TestAuthServiceRegisterRejectsExistingEmail(t *testing.T) {
+	cfg := config.Config{
+		JWTIssuer:            "test",
+		JWTAudience:          "test",
+		JWTSecret:            "super-secret",
+		JWTAccessTTL:         time.Minute,
+		JWTRefreshTTL:        time.Hour,
+		EmailVerificationTTL: 24 * time.Hour,
+	}
+	service := NewAuthService(
+		authUserRepoStub{user: domain.User{ID: "user-1", Email: "existing@example.com"}},
+		authProfileRepoStub{},
+		&verificationRepoStub{},
+		auth.NewTokenManager(cfg),
+		&verificationMailerStub{},
+		cfg,
+	)
+
+	_, err := service.Register(context.Background(), RegisterInput{
+		Email:     "existing@example.com",
+		Password:  "SuperSecurePass123",
+		FirstName: "Ada",
+		LastName:  "Lovelace",
+	})
+	if !errors.Is(err, ErrEmailAlreadyExists) {
+		t.Fatalf("expected ErrEmailAlreadyExists, got %v", err)
+	}
+}
+
+func TestAuthServiceLoginSucceeds(t *testing.T) {
+	verified := now()
+	cfg := config.Config{
+		JWTIssuer:     "test",
+		JWTAudience:   "test",
+		JWTSecret:     "super-secret",
+		JWTAccessTTL:  time.Minute,
+		JWTRefreshTTL: time.Hour,
+	}
+	service := NewAuthService(
+		authUserRepoStub{
+			user: domain.User{
+				ID:              "user-1",
+				Email:           "user@example.com",
+				PasswordHash:    mustHashPassword(t, "SuperSecurePass123"),
+				EmailVerifiedAt: &verified,
+			},
+		},
+		authProfileRepoStub{profile: domain.Profile{FirstName: "Ada", LastName: "Lovelace"}},
+		&verificationRepoStub{},
+		auth.NewTokenManager(cfg),
+		&verificationMailerStub{},
+		cfg,
+	)
+
+	payload, err := service.Login(context.Background(), LoginInput{
+		Email:    "user@example.com",
+		Password: "SuperSecurePass123",
+	})
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if payload.AccessToken == "" {
+		t.Fatal("expected non-empty access token")
+	}
+	if payload.User.Email != "user@example.com" {
+		t.Fatalf("unexpected email %s", payload.User.Email)
+	}
+	if payload.User.FirstName != "Ada" {
+		t.Fatalf("expected firstName Ada, got %s", payload.User.FirstName)
+	}
+}
+
+func TestAuthServiceVerifyEmailExpiredToken(t *testing.T) {
+	cfg := config.Config{
+		JWTIssuer:     "test",
+		JWTAudience:   "test",
+		JWTSecret:     "super-secret",
+		JWTAccessTTL:  time.Minute,
+		JWTRefreshTTL: time.Hour,
+	}
+	pastTime := now().Add(-time.Hour)
+	service := NewAuthService(
+		authUserRepoStub{},
+		authProfileRepoStub{},
+		&verificationRepoStub{
+			token: domain.EmailVerificationToken{
+				ID:        "token-1",
+				UserID:    "user-1",
+				ExpiresAt: pastTime,
+			},
+		},
+		auth.NewTokenManager(cfg),
+		&verificationMailerStub{},
+		cfg,
+	)
+
+	_, err := service.VerifyEmail(context.Background(), VerifyEmailInput{Token: "some-plain-token-value"})
+	if !errors.Is(err, ErrVerificationTokenExpired) {
+		t.Fatalf("expected ErrVerificationTokenExpired, got %v", err)
+	}
 }
