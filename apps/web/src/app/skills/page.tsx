@@ -3,6 +3,8 @@ import { fetchSkills } from '@/shared/api/server-client';
 import { SkillsCatalog } from '@/features/skills/skills-catalog';
 import { Card } from '@/shared/ui/card';
 
+export const dynamic = 'force-dynamic';
+
 export const metadata: Metadata = {
   title: 'Browse Skill Offers And Human Expertise',
   description:

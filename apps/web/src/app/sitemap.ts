@@ -2,6 +2,8 @@ import type { MetadataRoute } from 'next';
 import { fetchSkills } from '@/shared/api/server-client';
 import { env } from '@/shared/config/env';
 
+export const dynamic = 'force-dynamic';
+
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const base = env.appUrl;
   const now = new Date();

@@ -1,8 +1,9 @@
 import type { Metadata } from 'next';
 import './globals.css';
 import { AppShell } from '@/components/app-shell';
-import { fetchSkills, getSession } from '@/shared/api/server-client';
+import { getSession } from '@/shared/api/server-client';
 import { env } from '@/shared/config/env';
+import { loadPublicSkills } from '@/shared/lib/public-skill-loader';
 
 const siteDescription =
   'Lavoval is a skill-exchange marketplace for the AI era where people publish expertise, discover trusted specialists, and turn human know-how into reusable skill offers, practical modules, and run-ready workflows.';
@@ -82,9 +83,7 @@ export const metadata: Metadata = {
 
 export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   const session = await getSession();
-  const publicSkills = await fetchSkills()
-    .then((response) => response.data)
-    .catch(() => []);
+  const publicSkills = await loadPublicSkills();
 
   return (
     <html lang="en">
