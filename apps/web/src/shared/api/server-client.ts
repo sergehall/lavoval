@@ -361,7 +361,9 @@ export async function updateAdminEnrollment(
   payload: EnrollmentUpdateRequest,
 ) {
   try {
-    return (await apiClient.admin.updateEnrollment(id, payload, { token })) as ApiEnvelope<EnrollmentDetail>;
+    return (await apiClient.admin.updateEnrollment(id, payload, {
+      token,
+    })) as ApiEnvelope<EnrollmentDetail>;
   } catch (error) {
     mapApiError(error);
   }
