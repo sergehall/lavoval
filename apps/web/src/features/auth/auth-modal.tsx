@@ -70,7 +70,12 @@ export function AuthModal({
         onClick={handleClose}
       />
       <div className="auth-modal__panel" key={mode}>
-        <button type="button" className="auth-modal__close" onClick={handleClose} aria-label="Close">
+        <button
+          type="button"
+          className="auth-modal__close"
+          onClick={handleClose}
+          aria-label="Close"
+        >
           ×
         </button>
         <div className="auth-modal__glow" />
