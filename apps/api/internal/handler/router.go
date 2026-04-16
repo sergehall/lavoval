@@ -30,29 +30,38 @@ func NewRouter(cfg config.Config, tokens auth.TokenManager, authService *service
 	mySkillsHandler := NewMySkillsHandler(validate, skillService)
 	runtimeHandler := NewRuntimeHandler(validate, runtimeService)
 	adminHandler := NewAdminHandler(validate, adminService, skillService)
+	publicHandler := NewPublicHandler(cfg)
+
+	r.Get("/", publicHandler.Index)
 
 	r.Get("/healthz", func(w http.ResponseWriter, r *http.Request) {
-		mailProvider := cfg.MailProvider
-		if mailProvider == "" {
-			mailProvider = "smtp"
-		}
-
-		mailConfigured := cfg.SMTPHost != "" && cfg.SMTPUsername != "" && cfg.SMTPPassword != ""
-		if mailProvider == "gmail_api" {
-			mailConfigured = cfg.GmailAPIAccessToken != "" ||
-				(cfg.GmailAPIRefreshToken != "" && cfg.GmailAPIClientID != "" && cfg.GmailAPIClientSecret != "")
-		}
-		if mailProvider == "noop" {
-			mailConfigured = true
-		}
+		flags := cfg.HealthFlags()
 
 		httpx.JSON(w, http.StatusOK, map[string]any{
-			"status":            "ok",
-			"service":           cfg.AppName,
-			"mail_provider":     mailProvider,
-			"mail_configured":   mailConfigured,
-			"smtp_configured":   cfg.SMTPHost != "" && cfg.SMTPUsername != "" && cfg.SMTPPassword != "",
-			"gmail_api_enabled": cfg.GmailAPIAccessToken != "",
+			"status":                       "ok",
+			"service":                      cfg.AppName,
+			"app_env":                      flags.AppEnv,
+			"app_url_configured":           flags.AppURLConfigured,
+			"app_url_valid":                flags.AppURLValid,
+			"app_url_https":                flags.AppURLHTTPS,
+			"database_configured":          flags.DatabaseConfigured,
+			"database_production_safe":     flags.DatabaseProductionSafe,
+			"jwt_configured":               flags.JWTConfigured,
+			"jwt_strong":                   flags.JWTStrong,
+			"cookie_secure":                flags.CookieSecure,
+			"mfa_configured":               flags.MFAConfigured,
+			"google_oauth_configured":      flags.GoogleOAuthConfigured,
+			"google_oauth_valid":           flags.GoogleOAuthValid,
+			"github_oauth_configured":      flags.GitHubOAuthConfigured,
+			"github_oauth_valid":           flags.GitHubOAuthValid,
+			"mail_provider":                flags.MailProvider,
+			"mail_configured":              flags.MailConfigured,
+			"mail_valid":                   flags.MailValid,
+			"mail_alerting_enabled":        flags.MailAlertingEnabled,
+			"mail_cleanup_auto_enabled":    flags.MailCleanupAutoEnabled,
+			"smtp_configured":              flags.SMTPConfigured,
+			"gmail_api_enabled":            flags.GmailAPIEnabled,
+			"gmail_api_refresh_configured": flags.GmailAPIRefreshConfigured,
 		})
 	})
 	r.Get("/readyz", func(w http.ResponseWriter, r *http.Request) {

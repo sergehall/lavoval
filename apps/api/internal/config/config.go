@@ -2,8 +2,10 @@ package config
 
 import (
 	"fmt"
+	"net/url"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -70,6 +72,31 @@ type Config struct {
 	GmailAPIClientID                string
 	GmailAPIClientSecret            string
 	GmailAPITokenURL                string
+}
+
+type HealthFlags struct {
+	AppEnv                    string `json:"app_env"`
+	AppURLConfigured          bool   `json:"app_url_configured"`
+	AppURLValid               bool   `json:"app_url_valid"`
+	AppURLHTTPS               bool   `json:"app_url_https"`
+	DatabaseConfigured        bool   `json:"database_configured"`
+	DatabaseProductionSafe    bool   `json:"database_production_safe"`
+	JWTConfigured             bool   `json:"jwt_configured"`
+	JWTStrong                 bool   `json:"jwt_strong"`
+	CookieSecure              bool   `json:"cookie_secure"`
+	MFAConfigured             bool   `json:"mfa_configured"`
+	GoogleOAuthConfigured     bool   `json:"google_oauth_configured"`
+	GoogleOAuthValid          bool   `json:"google_oauth_valid"`
+	GitHubOAuthConfigured     bool   `json:"github_oauth_configured"`
+	GitHubOAuthValid          bool   `json:"github_oauth_valid"`
+	MailProvider              string `json:"mail_provider"`
+	MailConfigured            bool   `json:"mail_configured"`
+	MailValid                 bool   `json:"mail_valid"`
+	MailAlertingEnabled       bool   `json:"mail_alerting_enabled"`
+	MailCleanupAutoEnabled    bool   `json:"mail_cleanup_auto_enabled"`
+	SMTPConfigured            bool   `json:"smtp_configured"`
+	GmailAPIEnabled           bool   `json:"gmail_api_enabled"`
+	GmailAPIRefreshConfigured bool   `json:"gmail_api_refresh_configured"`
 }
 
 func Load() (Config, error) {
@@ -298,6 +325,10 @@ func Load() (Config, error) {
 		GmailAPITokenURL:                getEnv("GMAIL_API_TOKEN_URL", "https://oauth2.googleapis.com/token"),
 	}
 
+	if err := cfg.Validate(); err != nil {
+		return Config{}, err
+	}
+
 	return cfg, nil
 }
 
@@ -307,4 +338,172 @@ func getEnv(key string, fallback string) string {
 		return fallback
 	}
 	return value
+}
+
+func (c Config) Validate() error {
+	var problems []string
+
+	flags := c.HealthFlags()
+
+	if !flags.AppURLConfigured || !flags.AppURLValid {
+		problems = append(problems, "APP_URL must be a valid absolute http(s) URL")
+	}
+	if !flags.DatabaseConfigured {
+		problems = append(problems, "DATABASE_URL must be configured")
+	}
+	if !flags.JWTConfigured {
+		problems = append(problems, "JWT_ISSUER, JWT_AUDIENCE, and JWT_SECRET must be configured")
+	}
+	if !flags.JWTStrong {
+		problems = append(problems, "JWT_SECRET must not use a placeholder value and should be at least 32 characters")
+	}
+	if c.JWTAccessTTL <= 0 || c.JWTRefreshTTL <= 0 {
+		problems = append(problems, "JWT_ACCESS_TTL and JWT_REFRESH_TTL must be greater than zero")
+	}
+	if c.EmailVerificationTTL <= 0 || c.PasswordResetTTL <= 0 {
+		problems = append(problems, "EMAIL_VERIFICATION_TTL and PASSWORD_RESET_TTL must be greater than zero")
+	}
+	if c.MailSendTimeout <= 0 || c.MailLeaseTTL <= 0 || c.MailPollInterval <= 0 {
+		problems = append(problems, "MAIL_SEND_TIMEOUT, MAIL_LEASE_TTL, and MAIL_POLL_INTERVAL must be greater than zero")
+	}
+	if c.MailWorkerCount <= 0 || c.MailMaxAttempts <= 0 || c.MailRateLimitBurst <= 0 {
+		problems = append(problems, "MAIL_WORKER_COUNT, MAIL_MAX_ATTEMPTS, and MAIL_RATE_LIMIT_BURST must be greater than zero")
+	}
+	if c.MailCleanupBatchSize <= 0 {
+		problems = append(problems, "MAIL_CLEANUP_BATCH_SIZE must be greater than zero")
+	}
+	if !flags.MailValid {
+		problems = append(problems, "mail provider configuration is incomplete for MAIL_PROVIDER="+normalizedMailProvider(c.MailProvider))
+	}
+	if !flags.GoogleOAuthValid {
+		problems = append(problems, "GOOGLE_OAUTH_CLIENT_ID and GOOGLE_OAUTH_CLIENT_SECRET must either both be set or both be empty")
+	}
+	if !flags.GitHubOAuthValid {
+		problems = append(problems, "GITHUB_OAUTH_CLIENT_ID and GITHUB_OAUTH_CLIENT_SECRET must either both be set or both be empty")
+	}
+
+	if c.isProduction() {
+		if !flags.AppURLHTTPS {
+			problems = append(problems, "APP_URL must use https in production")
+		}
+		if !flags.DatabaseProductionSafe {
+			problems = append(problems, "DATABASE_URL must not use a localhost/default development DSN in production")
+		}
+		if !c.CookieSecure {
+			problems = append(problems, "COOKIE_SECURE must be true in production")
+		}
+	}
+
+	if len(problems) > 0 {
+		return fmt.Errorf("invalid runtime configuration: %s", strings.Join(problems, "; "))
+	}
+
+	return nil
+}
+
+func (c Config) HealthFlags() HealthFlags {
+	appURLValid, appURLHTTPS := validateAppURL(c.AppURL)
+	mailProvider := normalizedMailProvider(c.MailProvider)
+	smtpConfigured := isPresent(c.SMTPHost) && c.SMTPPort > 0 && isPresent(c.SMTPUsername) && isPresent(c.SMTPPassword) && isPresent(c.SMTPFromEmail)
+	gmailAPIDirectConfigured := isPresent(c.GmailAPIAccessToken)
+	gmailAPIRefreshConfigured := isPresent(c.GmailAPIRefreshToken) && isPresent(c.GmailAPIClientID) && isPresent(c.GmailAPIClientSecret)
+	googleConfigured, googleValid := oauthPairState(c.GoogleOAuthClientID, c.GoogleOAuthSecret)
+	githubConfigured, githubValid := oauthPairState(c.GitHubOAuthClientID, c.GitHubOAuthSecret)
+
+	mailConfigured := false
+	mailValid := true
+	switch mailProvider {
+	case "smtp":
+		mailConfigured = smtpConfigured
+		mailValid = smtpConfigured
+	case "gmail_api":
+		mailConfigured = isPresent(c.SMTPFromEmail) && (gmailAPIDirectConfigured || gmailAPIRefreshConfigured)
+		mailValid = mailConfigured
+	case "noop":
+		mailConfigured = true
+		mailValid = true
+	default:
+		mailValid = false
+	}
+
+	return HealthFlags{
+		AppEnv:                    c.AppEnv,
+		AppURLConfigured:          isPresent(c.AppURL),
+		AppURLValid:               appURLValid,
+		AppURLHTTPS:               appURLHTTPS,
+		DatabaseConfigured:        isPresent(c.DatabaseURL),
+		DatabaseProductionSafe:    !looksLikeDefaultDatabaseURL(c.DatabaseURL),
+		JWTConfigured:             isPresent(c.JWTIssuer) && isPresent(c.JWTAudience) && isPresent(c.JWTSecret),
+		JWTStrong:                 isStrongSecret(c.JWTSecret),
+		CookieSecure:              c.CookieSecure,
+		MFAConfigured:             isPresent(c.MFASecretKey),
+		GoogleOAuthConfigured:     googleConfigured,
+		GoogleOAuthValid:          googleValid,
+		GitHubOAuthConfigured:     githubConfigured,
+		GitHubOAuthValid:          githubValid,
+		MailProvider:              mailProvider,
+		MailConfigured:            mailConfigured,
+		MailValid:                 mailValid,
+		MailAlertingEnabled:       isPresent(c.MailAlertWebhookURL),
+		MailCleanupAutoEnabled:    c.MailCleanupInterval > 0,
+		SMTPConfigured:            smtpConfigured,
+		GmailAPIEnabled:           gmailAPIDirectConfigured,
+		GmailAPIRefreshConfigured: gmailAPIRefreshConfigured,
+	}
+}
+
+func (c Config) isProduction() bool {
+	return strings.EqualFold(strings.TrimSpace(c.AppEnv), "production")
+}
+
+func validateAppURL(raw string) (valid bool, https bool) {
+	if !isPresent(raw) {
+		return false, false
+	}
+	parsed, err := url.Parse(raw)
+	if err != nil || parsed == nil || parsed.Host == "" {
+		return false, false
+	}
+	if parsed.Scheme != "http" && parsed.Scheme != "https" {
+		return false, false
+	}
+	return true, parsed.Scheme == "https"
+}
+
+func normalizedMailProvider(value string) string {
+	normalized := strings.TrimSpace(strings.ToLower(value))
+	if normalized == "" {
+		return "smtp"
+	}
+	return normalized
+}
+
+func oauthPairState(clientID string, clientSecret string) (configured bool, valid bool) {
+	idConfigured := isPresent(clientID)
+	secretConfigured := isPresent(clientSecret)
+	if !idConfigured && !secretConfigured {
+		return false, true
+	}
+	return idConfigured && secretConfigured, idConfigured && secretConfigured
+}
+
+func looksLikeDefaultDatabaseURL(value string) bool {
+	normalized := strings.ToLower(strings.TrimSpace(value))
+	return strings.Contains(normalized, "localhost") ||
+		strings.Contains(normalized, "127.0.0.1") ||
+		strings.Contains(normalized, "codex:codex@") ||
+		strings.Contains(normalized, "lavoval:lavoval@postgres")
+}
+
+func isStrongSecret(value string) bool {
+	trimmed := strings.TrimSpace(value)
+	if len(trimmed) < 32 {
+		return false
+	}
+	lower := strings.ToLower(trimmed)
+	return !strings.Contains(lower, "change-me") && !strings.Contains(lower, "replace-me")
+}
+
+func isPresent(value string) bool {
+	return strings.TrimSpace(value) != ""
 }
