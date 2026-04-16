@@ -31,6 +31,14 @@ export function AppShell({
   const authMode = authRequest === 'sign-up' ? 'sign-up' : 'sign-in';
   const initialRegisterEmail = authMode === 'sign-up' ? (searchParams.get('email') ?? '') : '';
 
+  const isWorkspaceItemActive = (href: Route) => {
+    if (href === '/admin') {
+      return pathname === '/admin' || pathname.startsWith('/admin/');
+    }
+
+    return pathname === href;
+  };
+
   useEffect(() => {
     if (!isMobileNavOpen) {
       return;
@@ -130,7 +138,7 @@ export function AppShell({
                     href={item.href}
                     role="menuitem"
                     onClick={() => setIsMobileNavOpen(false)}
-                    className={`mobile-nav-panel__item${pathname === item.href ? ' mobile-nav-panel__item--active' : ''}`}
+                    className={`mobile-nav-panel__item${isWorkspaceItemActive(item.href) ? ' mobile-nav-panel__item--active' : ''}`}
                   >
                     {item.label}
                   </Link>
@@ -189,7 +197,7 @@ export function AppShell({
             <Link
               key={item.href}
               href={item.href}
-              className={`workspace-nav__link${pathname === item.href ? ' workspace-nav__link--active' : ''}`}
+              className={`workspace-nav__link${isWorkspaceItemActive(item.href) ? ' workspace-nav__link--active' : ''}`}
             >
               {item.label}
             </Link>
