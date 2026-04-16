@@ -443,7 +443,7 @@ const publicAPIPageHTML = `<!doctype html>
         </div>
         <h1>{{ .AppName }} API</h1>
         <p class="subtitle">
-          A minimal public gateway for health, readiness, metrics, and versioned application routes.
+          A minimal public gateway for health, readiness, and versioned application routes.
           Built for operators, integrations, and quick verification.
         </p>
         <div class="toolbar">
