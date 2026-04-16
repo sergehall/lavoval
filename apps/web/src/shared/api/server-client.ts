@@ -798,8 +798,7 @@ export async function requireAdminSession() {
   return session;
 }
 
-async function clearSessionAndRedirectToLogin(): Promise<never> {
-  await clearSession();
+function redirectToLogin(): never {
   redirect(signInHref);
 }
 
@@ -810,7 +809,7 @@ export async function withValidSession<T>(handler: (session: SessionState) => Pr
     return await handler(session);
   } catch (error) {
     if (error instanceof ApiError && error.status === 401) {
-      await clearSessionAndRedirectToLogin();
+      redirectToLogin();
     }
 
     throw error;

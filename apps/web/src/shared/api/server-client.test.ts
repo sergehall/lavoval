@@ -58,17 +58,14 @@ describe('withValidSession', () => {
     expect(redirectMock).not.toHaveBeenCalled();
   });
 
-  it('clears auth cookies before redirecting on 401', async () => {
+  it('redirects to login on 401 without mutating cookies during render', async () => {
     await expect(
       withValidSession(async () => {
         throw new ApiError('Unauthorized', 401);
       }),
     ).rejects.toThrow('NEXT_REDIRECT:/?auth=sign-in');
 
-    expect(cookieStore.delete).toHaveBeenCalledTimes(3);
-    expect(cookieStore.delete).toHaveBeenNthCalledWith(1, 'csl_access_token');
-    expect(cookieStore.delete).toHaveBeenNthCalledWith(2, 'csl_refresh_token');
-    expect(cookieStore.delete).toHaveBeenNthCalledWith(3, 'csl_session');
+    expect(cookieStore.delete).not.toHaveBeenCalled();
     expect(redirectMock).toHaveBeenCalledWith('/?auth=sign-in');
   });
 });
