@@ -1,5 +1,7 @@
 import type { Route } from 'next';
 import Link from 'next/link';
+import type { AdminStats } from '@lavoval/contracts';
+import type { ApiEnvelope, MailOperationalSnapshot } from '@/shared/api/types';
 import { Card } from '@/shared/ui/card';
 import {
   fetchAdminMailOperations,
@@ -8,14 +10,27 @@ import {
   withValidSession,
 } from '@/shared/api/server-client';
 
+function unwrapData<T>(payload: T | ApiEnvelope<T>): T {
+  if (typeof payload === 'object' && payload !== null && 'data' in payload) {
+    return payload.data;
+  }
+
+  return payload;
+}
+
 export default async function AdminDashboardPage() {
   const { stats, runs, mailOps } = await withValidSession(async (activeSession) => {
-    const [{ data: stats }, { data: runs }, { data: mailOps }] = await Promise.all([
+    const [statsPayload, { data: runs }, mailOpsPayload] = await Promise.all([
       fetchAdminStats(activeSession.accessToken),
       fetchAdminRuns(activeSession.accessToken),
       fetchAdminMailOperations(activeSession.accessToken),
     ]);
-    return { stats, runs, mailOps };
+
+    return {
+      stats: unwrapData<AdminStats>(statsPayload),
+      runs,
+      mailOps: unwrapData<MailOperationalSnapshot>(mailOpsPayload),
+    };
   });
 
   return (
