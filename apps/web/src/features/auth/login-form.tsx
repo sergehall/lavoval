@@ -33,7 +33,7 @@ export function LoginForm() {
         <Input
           type="email"
           name="email"
-          placeholder="admin@lavoval.local"
+          placeholder="yoursemail@lavoval.com"
           required
           defaultValue={state.email}
         />
