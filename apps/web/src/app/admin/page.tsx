@@ -35,14 +35,6 @@ export default async function AdminDashboardPage() {
 
   return (
     <div className="stack stack--lg">
-      <div className="stack stack--sm">
-        <h1>Marketplace governance</h1>
-        <p className="muted">
-          Steward trust across the exchange: monitor people, oversee published offers, and keep the
-          marketplace healthy as it grows.
-        </p>
-      </div>
-
       {/* ── People ─────────────────────────────────── */}
       <section className="grid">
         <Card>
