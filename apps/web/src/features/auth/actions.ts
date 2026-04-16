@@ -106,10 +106,9 @@ export async function loginAction(_previousState: AuthFormState, formData: FormD
       };
     }
 
+    let response;
     try {
-      const response = await completeMFASignIn(parsed.data);
-      await persistSession(response.data);
-      redirect(canAccessAdmin(response.data.user.role) ? '/admin' : '/account');
+      response = await completeMFASignIn(parsed.data);
     } catch (error) {
       if (error instanceof ApiError) {
         return {
@@ -138,6 +137,9 @@ export async function loginAction(_previousState: AuthFormState, formData: FormD
         recoveryMode,
       };
     }
+
+    await persistSession(response.data);
+    redirect(canAccessAdmin(response.data.user.role) ? '/admin' : '/account');
   }
 
   const parsed = loginRequestSchema.safeParse({
@@ -152,10 +154,9 @@ export async function loginAction(_previousState: AuthFormState, formData: FormD
     };
   }
 
+  let response;
   try {
-    const response = await login(parsed.data);
-    await persistSession(response.data);
-    redirect(canAccessAdmin(response.data.user.role) ? '/admin' : '/account');
+    response = await login(parsed.data);
   } catch (error) {
     if (error instanceof ApiError) {
       return {
@@ -184,6 +185,9 @@ export async function loginAction(_previousState: AuthFormState, formData: FormD
       recoveryMode: false,
     };
   }
+
+  await persistSession(response.data);
+  redirect(canAccessAdmin(response.data.user.role) ? '/admin' : '/account');
 }
 
 export async function registerAction(_previousState: RegisterFormState, formData: FormData) {
