@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { Card } from '@/shared/ui/card';
 import { Button } from '@/shared/ui/button';
-import { signInHref } from '@/shared/lib/auth-navigation';
+import { signInHref, signUpHref } from '@/shared/lib/auth-navigation';
 
 const publicHighlights = [
   'Marketplace structure for discovering and exchanging human skills',
@@ -43,7 +43,7 @@ export default function LandingPage() {
             skill pages and modules.
           </p>
           <div className="toolbar">
-            <Link href="/register">
+            <Link href={signUpHref}>
               <Button>Create workspace</Button>
             </Link>
             <Link href={signInHref}>

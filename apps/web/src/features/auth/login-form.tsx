@@ -7,6 +7,7 @@ import { useFormStatus } from 'react-dom';
 import { loginAction, type AuthFormState } from '@/features/auth/actions';
 import { ResendVerificationForm } from '@/features/auth/resend-verification-form';
 import { env } from '@/shared/config/env';
+import { signUpHref } from '@/shared/lib/auth-navigation';
 import { Button } from '@/shared/ui/button';
 import { Input } from '@/shared/ui/input';
 
@@ -89,7 +90,7 @@ export function LoginForm() {
             <strong>{state.email}</strong> first.
           </p>
           <Link
-            href={`/register?email=${encodeURIComponent(state.email)}`}
+            href={`${signUpHref}&email=${encodeURIComponent(state.email)}`}
             className="button button--secondary button--full"
           >
             Create account with this email

@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { Badge } from '@/shared/ui/badge';
 import { Card } from '@/shared/ui/card';
 import { ApiError, fetchSkillById, getSession } from '@/shared/api/server-client';
-import { signInHref } from '@/shared/lib/auth-navigation';
+import { signInHref, signUpHref } from '@/shared/lib/auth-navigation';
 import { formatDate } from '@/shared/lib/utils';
 import { SkillMarkdown } from '@/features/skills/skill-markdown';
 import { RunSkillForm } from '@/features/runtime/run-skill-form';
@@ -174,7 +174,7 @@ export default async function PublicSkillDetailPage({
               <Link href={signInHref} className="site-nav__link site-nav__link--cta">
                 Sign in
               </Link>
-              <Link href="/register" className="site-nav__link site-nav__link--subtle">
+              <Link href={signUpHref} className="site-nav__link site-nav__link--subtle">
                 Create account
               </Link>
             </div>

@@ -29,6 +29,7 @@ export function AppShell({
   const authRequest = searchParams.get('auth');
   const isAuthOpen = !user && isAuthMode(authRequest);
   const authMode = authRequest === 'sign-up' ? 'sign-up' : 'sign-in';
+  const initialRegisterEmail = authMode === 'sign-up' ? (searchParams.get('email') ?? '') : '';
 
   useEffect(() => {
     if (!isMobileNavOpen) {
@@ -200,6 +201,7 @@ export function AppShell({
         <AuthModal
           isOpen={isAuthOpen}
           mode={authMode}
+          initialRegisterEmail={initialRegisterEmail}
           onClose={() => updateAuthRoute(null)}
           onChangeMode={(mode) => updateAuthRoute(mode)}
         />

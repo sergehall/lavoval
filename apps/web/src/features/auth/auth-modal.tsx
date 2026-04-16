@@ -8,11 +8,13 @@ import { RegistrationReminderModal } from '@/features/auth/registration-reminder
 export function AuthModal({
   isOpen,
   mode,
+  initialRegisterEmail,
   onClose,
   onChangeMode,
 }: {
   isOpen: boolean;
   mode: 'sign-in' | 'sign-up';
+  initialRegisterEmail?: string;
   onClose: () => void;
   onChangeMode: (mode: 'sign-in' | 'sign-up') => void;
 }) {
@@ -115,6 +117,7 @@ export function AuthModal({
               <RegisterForm
                 key="sign-up-form"
                 mode="modal"
+                initialEmail={initialRegisterEmail}
                 onSwitchToSignIn={() => onChangeMode('sign-in')}
                 onRegistered={setRegisteredEmail}
               />
