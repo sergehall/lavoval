@@ -1631,6 +1631,10 @@ select.input {
 }
 
 @media (max-width: 960px) {
+  .app-frame {
+    padding: 0 8px 18px;
+  }
+
   .hero,
   .grid,
   .metrics,
@@ -1642,9 +1646,25 @@ select.input {
     grid-template-columns: 1fr;
   }
 
+  .hero__copy {
+    padding: 22px;
+    border-radius: 28px;
+  }
+
+  .hero__panel {
+    padding: 22px;
+    border-radius: 28px;
+  }
+
+  .card {
+    padding: 18px;
+    border-radius: 22px;
+  }
+
   .site-header {
     position: static;
     min-height: var(--site-header-height);
+    padding: 9px 12px;
   }
 
   .site-nav--primary {
