@@ -1,52 +1,68 @@
-PROJECT_NAME := lavoval
+SHELL := /bin/bash
 
-.PHONY: dev up down logs format format-web format-api lint lint-web lint-api test test-backend test-frontend migrate seed
+.PHONY: \
+	dev \
+	up \
+	down \
+	logs \
+	format \
+	format-web \
+	format-api \
+	lint \
+	lint-web \
+	lint-api \
+	test \
+	test-backend \
+	test-frontend \
+	migrate \
+	migrate-prod \
+	migrate-status \
+	seed
 
 dev:
 	pnpm run dev:stack
 
 up:
-	docker compose --env-file .env.local up -d
+	pnpm run infra:up
 
 down:
-	docker compose --env-file .env.local down
+	pnpm run infra:down
 
 logs:
-	docker compose --env-file .env.local logs -f
+	pnpm run infra:logs
 
-## Format all code (frontend + backend)
 format: format-web format-api
 
 format-web:
-	pnpm --dir apps/web format
+	pnpm run format:web
 
-## goimports = gofmt + organised import groups (stdlib / third-party / local).
-## Install once: go install golang.org/x/tools/cmd/goimports@latest
 format-api:
-	cd apps/api && goimports -w -local github.com/sergehall/lavoval \
-		$$(find . -name '*.go' -not -path './vendor/*')
+	pnpm run format:api
 
-## Lint all code (frontend + backend)
 lint: lint-web lint-api
 
 lint-web:
-	pnpm --dir apps/web lint
+	pnpm run lint:web
 
-## Requires golangci-lint. Install: https://golangci-lint.run/usage/install/
 lint-api:
-	cd apps/api && golangci-lint run ./...
+	pnpm run lint:api
 
 test: test-backend test-frontend
 
 test-backend:
-	cd apps/api && go test ./...
+	pnpm run test:api
 
 test-frontend:
-	pnpm --dir apps/web test --run
+	pnpm run test:web
 
 migrate:
-	psql "$${DATABASE_URL}" -f infrastructure/db/migrations/001_init.sql
-	psql "$${DATABASE_URL}" -f infrastructure/db/migrations/002_seed_admin.sql
+	pnpm run db:migrate
+
+migrate-prod:
+	pnpm run db:migrate:prod
+
+migrate-status:
+	pnpm run db:migrate:status
 
 seed:
-	psql "$${DATABASE_URL}" -f infrastructure/db/seeds/001_demo_data.sql
+	pnpm run db:seed

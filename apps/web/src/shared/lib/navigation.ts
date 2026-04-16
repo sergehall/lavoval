@@ -9,6 +9,7 @@ export type NavigationItem = {
 export const publicNavigation: NavigationItem[] = [
   { href: '/', label: 'Marketplace' },
   { href: '/skills', label: 'Explore Skills' },
+  { href: '/contact' as Route, label: 'Contact' },
 ];
 
 export function cabinetNavigation(user: SessionUser): NavigationItem[] {
