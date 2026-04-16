@@ -34,7 +34,6 @@ func TestPublicHandlerIndexRendersAPIPage(t *testing.T) {
 		"/livez",
 		"/healthz",
 		"/readyz",
-		"/metrics",
 		"/api/v1/auth",
 		"/api/v1/admin",
 		"Quick start",
@@ -42,7 +41,9 @@ func TestPublicHandlerIndexRendersAPIPage(t *testing.T) {
 		"Public skills",
 		"Runtime",
 		"api.lavoval.com",
-		"api v1",
+		"API V1",
+		`aria-controls="usage-panel"`,
+		`aria-controls="quickstart-panel"`,
 	} {
 		if !strings.Contains(body, snippet) {
 			t.Fatalf("expected body to contain %q", snippet)

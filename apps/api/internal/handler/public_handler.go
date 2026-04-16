@@ -37,7 +37,6 @@ func (h *PublicHandler) Index(w http.ResponseWriter, r *http.Request) {
 			"livez":   "/livez",
 			"healthz": "/healthz",
 			"readyz":  "/readyz",
-			"metrics": "/metrics",
 		},
 		"api": map[string]any{
 			"base": "/api/v1",
@@ -171,12 +170,10 @@ const publicAPIPageHTML = `<!doctype html>
       }
 
       .btn,
-      .link-chip {
+      .link-chip,
+      .panel-toggle {
         appearance: none;
-        border: 0;
         cursor: pointer;
-        border-radius: 14px;
-        padding: 13px 16px;
         font: inherit;
         text-decoration: none;
         transition:
@@ -185,7 +182,14 @@ const publicAPIPageHTML = `<!doctype html>
           border-color 160ms ease;
       }
 
+      .btn,
+      .link-chip {
+        border-radius: 14px;
+        padding: 13px 16px;
+      }
+
       .btn {
+        border: 0;
         background: linear-gradient(135deg, #6dd3ff, #9ff7d8);
         color: #04111b;
         font-weight: 700;
@@ -297,23 +301,56 @@ const publicAPIPageHTML = `<!doctype html>
         font-size: 18px;
       }
 
+      .panel-heading {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+      }
+
       .panel-copy {
         margin: 0;
         color: var(--muted);
         line-height: 1.65;
       }
 
+      .panel-toggle {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        padding: 10px 14px;
+        background: rgba(255, 255, 255, 0.03);
+        color: var(--text);
+      }
+
+      .panel-toggle::after {
+        content: "▾";
+        color: var(--accent);
+        transition: transform 160ms ease;
+      }
+
+      .panel-toggle[aria-expanded="true"]::after {
+        transform: rotate(180deg);
+      }
+
+      .panel-content,
       .json-panel {
         display: none;
         margin-top: 16px;
+      }
+
+      .panel-content.is-open,
+      .json-panel.is-open {
+        display: block;
+      }
+
+      .json-panel {
         border-radius: 20px;
         border: 1px solid var(--border);
         background: #04101e;
         overflow: hidden;
-      }
-
-      .json-panel.is-open {
-        display: block;
       }
 
       .json-header {
@@ -359,7 +396,7 @@ const publicAPIPageHTML = `<!doctype html>
 
       .footer {
         display: flex;
-        justify-content: space-between;
+        justify-content: flex-end;
         flex-wrap: wrap;
         gap: 12px;
         padding: 18px 32px 28px;
@@ -415,7 +452,6 @@ const publicAPIPageHTML = `<!doctype html>
           </button>
           <a class="link-chip" href="/healthz">Health</a>
           <a class="link-chip" href="/readyz">Ready</a>
-          <a class="link-chip" href="/metrics">Metrics</a>
         </div>
       </section>
 
@@ -433,31 +469,44 @@ const publicAPIPageHTML = `<!doctype html>
             <p class="label">Health Endpoint</p>
             <p id="health-status" class="value">Checking…</p>
           </article>
+          <article class="card">
+            <p class="label">API V1</p>
+            <p class="value">{{ .APIVersion }}</p>
+          </article>
         </div>
 
         <article class="card">
-          <h2 class="panel-title">Usage</h2>
-          <p class="panel-copy">
-            Use <code>/healthz</code> for effective runtime configuration flags, <code>/readyz</code> for readiness,
-            <code>/livez</code> for heartbeat checks, and <code>/api/v1/*</code> for the versioned application surface.
-          </p>
+          <div class="panel-heading">
+            <h2 class="panel-title">Usage</h2>
+            <button
+              id="usage-toggle"
+              class="panel-toggle"
+              type="button"
+              aria-expanded="false"
+              aria-controls="usage-panel"
+            >
+              Open
+            </button>
+          </div>
+          <div id="usage-panel" class="panel-content">
+            <p class="panel-copy">
+              Use <code>/healthz</code> for effective runtime configuration flags, <code>/readyz</code> for readiness,
+              <code>/livez</code> for heartbeat checks, and <code>/api/v1/*</code> for the versioned application surface.
+            </p>
 
-          <div class="route-list" aria-label="Core routes">
-            <div class="route-row">
-              <code>GET /livez</code>
-              <span class="route-copy">Simple heartbeat for liveness probes.</span>
-            </div>
-            <div class="route-row">
-              <code>GET /healthz</code>
-              <span class="route-copy">Safe runtime flags for env and provider health.</span>
-            </div>
-            <div class="route-row">
-              <code>GET /readyz</code>
-              <span class="route-copy">Readiness signal for traffic acceptance.</span>
-            </div>
-            <div class="route-row">
-              <code>GET /metrics</code>
-              <span class="route-copy">Prometheus metrics surface.</span>
+            <div class="route-list" aria-label="Core routes">
+              <div class="route-row">
+                <code>GET /livez</code>
+                <span class="route-copy">Simple heartbeat for liveness probes.</span>
+              </div>
+              <div class="route-row">
+                <code>GET /healthz</code>
+                <span class="route-copy">Safe runtime flags for env and provider health.</span>
+              </div>
+              <div class="route-row">
+                <code>GET /readyz</code>
+                <span class="route-copy">Readiness signal for traffic acceptance.</span>
+              </div>
             </div>
           </div>
 
@@ -510,26 +559,39 @@ const publicAPIPageHTML = `<!doctype html>
         </section>
 
         <article class="card">
-          <h2 class="panel-title">Quick start</h2>
-          <p class="panel-copy">
-            Start with the health surfaces, then move into the versioned API. For authenticated routes,
-            send a bearer token after completing the auth flow under
-            <span class="code-inline"> /api/v1/auth</span>.
-          </p>
+          <div class="panel-heading">
+            <h2 class="panel-title">Quick start</h2>
+            <button
+              id="quickstart-toggle"
+              class="panel-toggle"
+              type="button"
+              aria-expanded="false"
+              aria-controls="quickstart-panel"
+            >
+              Open
+            </button>
+          </div>
+          <div id="quickstart-panel" class="panel-content">
+            <p class="panel-copy">
+              Start with the health surfaces, then move into the versioned API. For authenticated routes,
+              send a bearer token after completing the auth flow under
+              <span class="code-inline"> /api/v1/auth</span>.
+            </p>
 
-          <div class="example-list">
-            <div class="example-block">
-              <div class="example-label">Health</div>
-              <pre><code>curl https://api.lavoval.com/healthz</code></pre>
-            </div>
-            <div class="example-block">
-              <div class="example-label">Public catalog</div>
-              <pre><code>curl https://api.lavoval.com/api/v1/skills</code></pre>
-            </div>
-            <div class="example-block">
-              <div class="example-label">Authenticated request</div>
-              <pre><code>curl https://api.lavoval.com/api/v1/me \
+            <div class="example-list">
+              <div class="example-block">
+                <div class="example-label">Health</div>
+                <pre><code>curl https://api.lavoval.com/healthz</code></pre>
+              </div>
+              <div class="example-block">
+                <div class="example-label">Public catalog</div>
+                <pre><code>curl https://api.lavoval.com/api/v1/skills</code></pre>
+              </div>
+              <div class="example-block">
+                <div class="example-label">Authenticated request</div>
+                <pre><code>curl https://api.lavoval.com/api/v1/me \
   -H "Authorization: Bearer &lt;access-token&gt;"</code></pre>
+              </div>
             </div>
           </div>
         </article>
@@ -539,10 +601,6 @@ const publicAPIPageHTML = `<!doctype html>
         <div class="footer-meta">
           <span>Serving public API entrypoint for <strong>{{ .Host }}</strong></span>
         </div>
-        <div class="footer-meta">
-          <span class="footer-badge">env {{ .AppEnv }}</span>
-          <span class="footer-badge">api {{ .APIVersion }}</span>
-        </div>
       </footer>
     </main>
 
@@ -550,12 +608,22 @@ const publicAPIPageHTML = `<!doctype html>
       const button = document.getElementById('info-toggle');
       const panel = document.getElementById('api-info-panel');
       const healthStatus = document.getElementById('health-status');
+      const usageToggle = document.getElementById('usage-toggle');
+      const usagePanel = document.getElementById('usage-panel');
+      const quickstartToggle = document.getElementById('quickstart-toggle');
+      const quickstartPanel = document.getElementById('quickstart-panel');
 
-      button.addEventListener('click', () => {
-        const isOpen = panel.classList.toggle('is-open');
-        button.setAttribute('aria-expanded', String(isOpen));
-        button.textContent = isOpen ? 'Hide info' : 'Info';
-      });
+      const bindToggle = (toggle, target, openLabel, closedLabel) => {
+        toggle.addEventListener('click', () => {
+          const isOpen = target.classList.toggle('is-open');
+          toggle.setAttribute('aria-expanded', String(isOpen));
+          toggle.textContent = isOpen ? openLabel : closedLabel;
+        });
+      };
+
+      bindToggle(button, panel, 'Hide info', 'Info');
+      bindToggle(usageToggle, usagePanel, 'Close', 'Open');
+      bindToggle(quickstartToggle, quickstartPanel, 'Close', 'Open');
 
       fetch('{{ .HealthURL }}', { headers: { Accept: 'application/json' } })
         .then((response) => {
