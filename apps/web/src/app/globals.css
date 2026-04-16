@@ -1241,6 +1241,44 @@ select.input {
   border-radius: var(--radius-md);
 }
 
+.contact-page__grid {
+  display: grid;
+  gap: 20px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.contact-page__list {
+  gap: 10px;
+}
+
+.contact-page__item {
+  gap: 8px;
+  padding: 14px 16px;
+}
+
+.contact-page__item p {
+  margin: 0;
+}
+
+.contact-page__item-stack {
+  gap: 6px;
+}
+
+.contact-page__item--interactive {
+  transition:
+    transform 0.18s ease,
+    background 0.18s ease,
+    border-color 0.18s ease,
+    box-shadow 0.18s ease;
+}
+
+.contact-page__item--interactive:hover {
+  transform: translateY(-2px);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(249, 242, 233, 0.96));
+  border-color: rgba(180, 79, 35, 0.16);
+  box-shadow: 0 14px 28px rgba(86, 53, 24, 0.08);
+}
+
 .toolbar,
 .inline-actions {
   display: flex;
@@ -1597,6 +1635,10 @@ select.input {
   .grid,
   .metrics,
   .form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .contact-page__grid {
     grid-template-columns: 1fr;
   }
 

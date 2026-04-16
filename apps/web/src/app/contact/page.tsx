@@ -1,26 +1,13 @@
 import type { Metadata } from 'next';
-import Link from 'next/link';
 import { Card } from '@/shared/ui/card';
 import { Button } from '@/shared/ui/button';
 
 const directChannels = [
   {
     title: 'Email',
-    value: 'sergioartg@gmail.com',
-    href: 'mailto:sergioartg@gmail.com',
+    value: 'serge.hall.dev@gmail.com',
+    href: 'mailto:serge.hall.dev@gmail.com',
     note: 'Best for product, partnership, architecture, and delivery conversations.',
-  },
-  {
-    title: 'Phone',
-    value: '+1 347 210 2000',
-    href: 'tel:+13472102000',
-    note: 'Useful for urgent coordination or quick production decisions.',
-  },
-  {
-    title: 'Location',
-    value: 'Los Angeles, CA',
-    href: 'https://www.google.com/maps/place/Los+Angeles,+CA',
-    note: 'Remote-friendly, with a Pacific Time workflow.',
   },
 ] as const;
 
@@ -40,10 +27,12 @@ const socialProfiles = [
 ] as const;
 
 const collaborationTopics = [
-  'Product and platform architecture',
-  'Next.js and Go delivery systems',
-  'Skill marketplace strategy and operations',
-  'Production hardening, cleanup, and ongoing improvements',
+  'Shape the product and platform architecture before complexity starts compounding.',
+  'Turn Next.js and Go delivery into a cleaner, faster, more reliable production system.',
+  'Sharpen marketplace strategy, governance, and operational flow before scale creates drag.',
+  'Design and package human skills for the AI era so expertise becomes clearer, more usable, and easier to exchange.',
+  'Push through hardening, cleanup, and the kind of improvements that make the product feel ready.',
+  'Translate ambitious ideas into a roadmap the team can actually ship with confidence.',
 ] as const;
 
 export const metadata: Metadata = {
@@ -66,21 +55,20 @@ export const metadata: Metadata = {
 
 export default function ContactPage() {
   return (
-    <div className="stack stack--lg">
+    <div className="stack stack--lg contact-page">
       <section className="hero">
         <div className="hero__copy">
           <span className="badge badge--warning">Get in touch</span>
-          <h1>Let&apos;s talk about Lavoval, delivery, and what comes next.</h1>
+          <h1 style={{ fontSize: 'clamp(1.9rem, 4vw, 3.1rem)', marginBottom: 12 }}>
+            Let&apos;s talk about Lavoval, delivery, and what comes next.
+          </h1>
           <p>
             If you want to collaborate on the platform, discuss product direction, or move through
             backend and frontend improvements together, this is the fastest path to reach me.
           </p>
           <div className="toolbar">
-            <a href="mailto:sergioartg@gmail.com">
+            <a href="mailto:serge.hall.dev@gmail.com">
               <Button>Email now</Button>
-            </a>
-            <a href="tel:+13472102000">
-              <Button variant="secondary">Call</Button>
             </a>
           </div>
         </div>
@@ -108,41 +96,29 @@ export default function ContactPage() {
         </div>
       </section>
 
-      <section className="grid">
-        {directChannels.map((channel) => (
-          <Card key={channel.title}>
-            <div className="stack stack--sm">
-              <div className="card__title">{channel.title}</div>
-              <a href={channel.href} className="site-nav__link site-nav__link--active">
-                {channel.value}
-              </a>
-              <p className="muted">{channel.note}</p>
-            </div>
-          </Card>
-        ))}
-      </section>
-
-      <section className="grid">
+      <section className="contact-page__grid">
         <Card>
-          <div className="stack stack--md">
-            <div className="card__title">What to reach out about</div>
-            <div className="data-list">
-              {collaborationTopics.map((topic) => (
-                <div key={topic} className="data-list__item">
-                  <strong>{topic}</strong>
+          <div className="stack stack--sm">
+            <div className="card__title">Email and profiles</div>
+            <div className="data-list contact-page__list">
+              {directChannels.map((channel) => (
+                <div
+                  key={channel.title}
+                  className="data-list__item contact-page__item contact-page__item--interactive"
+                >
+                  <strong>{channel.title}</strong>
+                  <a href={channel.href} className="muted">
+                    {channel.value}
+                  </a>
+                  <p className="muted">{channel.note}</p>
                 </div>
               ))}
-            </div>
-          </div>
-        </Card>
-
-        <Card>
-          <div className="stack stack--md">
-            <div className="card__title">Profiles</div>
-            <div className="data-list">
               {socialProfiles.map((profile) => (
-                <div key={profile.label} className="data-list__item">
-                  <div className="stack stack--sm">
+                <div
+                  key={profile.label}
+                  className="data-list__item contact-page__item contact-page__item--interactive"
+                >
+                  <div className="stack stack--sm contact-page__item-stack">
                     <strong>{profile.label}</strong>
                     <a href={profile.href} target="_blank" rel="noreferrer" className="muted">
                       {profile.handle}
@@ -156,19 +132,14 @@ export default function ContactPage() {
         </Card>
 
         <Card>
-          <div className="stack stack--md">
-            <div className="card__title">Quick path</div>
-            <p className="muted">
-              If the conversation is about Lavoval itself, send the goal, the current state, and the
-              concrete next step you want to land. That makes it much easier to move fast.
-            </p>
-            <div className="toolbar">
-              <a href="mailto:sergioartg@gmail.com?subject=Lavoval%20Collaboration">
-                <Button>Start by email</Button>
-              </a>
-              <Link href="/skills">
-                <Button variant="ghost">Explore skills</Button>
-              </Link>
+          <div className="stack stack--sm">
+            <div className="card__title">What to reach out about</div>
+            <div className="data-list contact-page__list">
+              {collaborationTopics.map((topic) => (
+                <div key={topic} className="data-list__item contact-page__item">
+                  <strong>{topic}</strong>
+                </div>
+              ))}
             </div>
           </div>
         </Card>
