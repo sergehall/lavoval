@@ -35,6 +35,7 @@ type PrometheusHandler struct {
 	cleanupRuns         map[cleanupRunKey]int64
 	cleanupDeletedTotal map[string]int64
 	cleanupCandidates   map[string]int64
+	alertNotifications  map[alertNotificationKey]int64
 	lastCleanupAt       time.Time
 	lastCleanupDuration float64
 }
@@ -47,6 +48,11 @@ type counterKey struct {
 
 type cleanupRunKey struct {
 	Mode   string
+	Status string
+}
+
+type alertNotificationKey struct {
+	Type   string
 	Status string
 }
 
@@ -63,6 +69,7 @@ func NewPrometheusHandler(jobCounter repository.MailJobStore) *PrometheusHandler
 		cleanupRuns:         map[cleanupRunKey]int64{},
 		cleanupDeletedTotal: map[string]int64{"jobs": 0, "events": 0},
 		cleanupCandidates:   map[string]int64{"jobs": 0, "events": 0},
+		alertNotifications:  map[alertNotificationKey]int64{},
 	}
 }
 
@@ -93,6 +100,13 @@ func (h *PrometheusHandler) RecordCleanup(mode string, status string, duration t
 	}
 	h.lastCleanupAt = time.Now().UTC()
 	h.lastCleanupDuration = duration.Seconds()
+}
+
+func (h *PrometheusHandler) RecordAlertNotification(alertType string, status string) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
+	h.alertNotifications[alertNotificationKey{Type: alertType, Status: status}]++
 }
 
 func (h *PrometheusHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -205,6 +219,21 @@ func (h *PrometheusHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	fmt.Fprintln(w, "# TYPE lavoval_mail_cleanup_last_duration_seconds gauge")
 	fmt.Fprintf(w, "lavoval_mail_cleanup_last_duration_seconds %f\n", h.lastCleanupDuration)
+
+	fmt.Fprintln(w, "# TYPE lavoval_mail_alert_notifications_total counter")
+	alertKeys := make([]alertNotificationKey, 0, len(h.alertNotifications))
+	for key := range h.alertNotifications {
+		alertKeys = append(alertKeys, key)
+	}
+	sort.Slice(alertKeys, func(i, j int) bool {
+		if alertKeys[i].Type != alertKeys[j].Type {
+			return alertKeys[i].Type < alertKeys[j].Type
+		}
+		return alertKeys[i].Status < alertKeys[j].Status
+	})
+	for _, key := range alertKeys {
+		fmt.Fprintf(w, "lavoval_mail_alert_notifications_total{type=%q,status=%q} %d\n", key.Type, key.Status, h.alertNotifications[key])
+	}
 	h.mu.RUnlock()
 }
 

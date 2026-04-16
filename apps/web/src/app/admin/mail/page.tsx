@@ -166,6 +166,13 @@ export default async function AdminMailPage({ searchParams }: AdminMailPageProps
               Periodic retention worker inside the Go API process.
             </div>
           </div>
+          <div>
+            <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 4 }}>Webhook alerts</div>
+            <strong>{retention.webhookAlertingEnabled ? 'enabled' : 'disabled'}</strong>
+            <div className="muted" style={{ fontSize: 12 }}>
+              Sends notifications on cleanup failures and backlog threshold breaches.
+            </div>
+          </div>
         </div>
         <div className="stack stack--sm" style={{ marginBottom: 16 }}>
           {retention.alerts.length > 0 ? (

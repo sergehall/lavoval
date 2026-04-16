@@ -60,6 +60,7 @@ export type MailRetentionSnapshot = {
   eventsRetentionActive: boolean;
   latestCleanupRun?: MailCleanupRun | null;
   alerts: MailRetentionAlert[];
+  webhookAlertingEnabled: boolean;
 };
 
 export type MailCleanupResult = {

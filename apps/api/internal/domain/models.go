@@ -8,6 +8,8 @@ type AccountStatus string
 
 type SkillStatus string
 
+type SkillAccessType string
+
 type Visibility string
 
 type EnrollmentStatus string
@@ -27,6 +29,7 @@ const (
 	AccountStatusActive    AccountStatus = "active"
 	AccountStatusInvited   AccountStatus = "invited"
 	AccountStatusSuspended AccountStatus = "suspended"
+	AccountStatusBlocked   AccountStatus = "blocked"
 
 	AvailabilityOpen    AvailabilityStatus = "open"
 	AvailabilityLimited AvailabilityStatus = "limited"
@@ -35,9 +38,16 @@ const (
 	OAuthProviderGoogle OAuthProvider = "google"
 	OAuthProviderGitHub OAuthProvider = "github"
 
-	SkillStatusDraft     SkillStatus = "draft"
-	SkillStatusPublished SkillStatus = "published"
-	SkillStatusArchived  SkillStatus = "archived"
+	SkillStatusDraft         SkillStatus = "draft"
+	SkillStatusPendingReview SkillStatus = "pending_review"
+	SkillStatusPublished     SkillStatus = "published"
+	SkillStatusHidden        SkillStatus = "hidden"
+	SkillStatusArchived      SkillStatus = "archived"
+	SkillStatusRejected      SkillStatus = "rejected"
+
+	AccessTypeFree       SkillAccessType = "free"
+	AccessTypePaid       SkillAccessType = "paid"
+	AccessTypeInviteOnly SkillAccessType = "invite_only"
 
 	VisibilityPublic  Visibility = "public"
 	VisibilityPrivate Visibility = "private"
@@ -72,6 +82,12 @@ type User struct {
 	MFATOTPSecretEncrypted        *string       `json:"-"`
 	MFAPendingTOTPSecretEncrypted *string       `json:"-"`
 	MFAEnrolledAt                 *time.Time    `json:"mfaEnrolledAt,omitempty"`
+	SuspensionReason              *string       `json:"suspensionReason,omitempty"`
+	SuspendedAt                   *time.Time    `json:"suspendedAt,omitempty"`
+	SuspendedBy                   *string       `json:"suspendedBy,omitempty"`
+	BlockReason                   *string       `json:"blockReason,omitempty"`
+	BlockedAt                     *time.Time    `json:"blockedAt,omitempty"`
+	BlockedBy                     *string       `json:"blockedBy,omitempty"`
 	CreatedAt                     time.Time     `json:"createdAt"`
 	UpdatedAt                     time.Time     `json:"updatedAt"`
 }
@@ -265,22 +281,30 @@ type Profile struct {
 }
 
 type Skill struct {
-	ID           string         `json:"id"`
-	Slug         string         `json:"slug"`
-	Title        string         `json:"title"`
-	Summary      string         `json:"summary"`
-	Description  string         `json:"description"`
-	Provider     string         `json:"provider"`
-	Entrypoint   string         `json:"entrypoint"`
-	Config       map[string]any `json:"config"`
-	Status       SkillStatus    `json:"status"`
-	Visibility   Visibility     `json:"visibility"`
-	CreatedBy    string         `json:"createdBy"`
-	Creator      Creator        `json:"creator"`
-	Modules      []Module       `json:"modules,omitempty"`
-	ModulesCount int            `json:"modulesCount"`
-	CreatedAt    time.Time      `json:"createdAt"`
-	UpdatedAt    time.Time      `json:"updatedAt"`
+	ID               string          `json:"id"`
+	Slug             string          `json:"slug"`
+	Title            string          `json:"title"`
+	Summary          string          `json:"summary"`
+	Description      string          `json:"description"`
+	Provider         string          `json:"provider"`
+	Entrypoint       string          `json:"entrypoint"`
+	Config           map[string]any  `json:"config"`
+	Status           SkillStatus     `json:"status"`
+	Visibility       Visibility      `json:"visibility"`
+	PriceCents       int             `json:"priceCents"`
+	Currency         string          `json:"currency"`
+	AccessType       SkillAccessType `json:"accessType"`
+	IsFeatured       bool            `json:"isFeatured"`
+	IsVerified       bool            `json:"isVerified"`
+	ModerationReason *string         `json:"moderationReason,omitempty"`
+	ModeratedBy      *string         `json:"moderatedBy,omitempty"`
+	ModeratedAt      *time.Time      `json:"moderatedAt,omitempty"`
+	CreatedBy        string          `json:"createdBy"`
+	Creator          Creator         `json:"creator"`
+	Modules          []Module        `json:"modules,omitempty"`
+	ModulesCount     int             `json:"modulesCount"`
+	CreatedAt        time.Time       `json:"createdAt"`
+	UpdatedAt        time.Time       `json:"updatedAt"`
 }
 
 type Creator struct {
@@ -351,4 +375,53 @@ type SkillRunMeta struct {
 	HasError        bool   `json:"hasError"`
 	InputKeysCount  int    `json:"inputKeysCount"`
 	OutputKeysCount int    `json:"outputKeysCount"`
+}
+
+// SkillAccess records explicit access grants for paid / invite-only skills.
+type SkillAccess struct {
+	ID         string          `json:"id"`
+	SkillID    string          `json:"skillId"`
+	UserID     string          `json:"userId"`
+	AccessType SkillAccessType `json:"accessType"`
+	GrantedBy  *string         `json:"grantedBy,omitempty"`
+	ExpiresAt  *time.Time      `json:"expiresAt,omitempty"`
+	CreatedAt  time.Time       `json:"createdAt"`
+}
+
+// AdminAuditLog records every governance action taken by an admin.
+type AdminAuditLog struct {
+	ID           string    `json:"id"`
+	EntityType   string    `json:"entityType"`
+	EntityID     string    `json:"entityId"`
+	Action       string    `json:"action"`
+	OldValueJSON *string   `json:"oldValue,omitempty"`
+	NewValueJSON *string   `json:"newValue,omitempty"`
+	Reason       *string   `json:"reason,omitempty"`
+	ActorID      string    `json:"actorId"`
+	CreatedAt    time.Time `json:"createdAt"`
+}
+
+// AdminStats is the top-level admin dashboard snapshot.
+type AdminStats struct {
+	Users  AdminUserStats  `json:"users"`
+	Skills AdminSkillStats `json:"skills"`
+}
+
+type AdminUserStats struct {
+	Total      int64 `json:"total"`
+	Active     int64 `json:"active"`
+	Suspended  int64 `json:"suspended"`
+	Blocked    int64 `json:"blocked"`
+	NewLast7d  int64 `json:"newLast7d"`
+	NewLast30d int64 `json:"newLast30d"`
+}
+
+type AdminSkillStats struct {
+	Total         int64 `json:"total"`
+	Published     int64 `json:"published"`
+	PendingReview int64 `json:"pendingReview"`
+	Hidden        int64 `json:"hidden"`
+	Free          int64 `json:"free"`
+	Paid          int64 `json:"paid"`
+	NewLast7d     int64 `json:"newLast7d"`
 }

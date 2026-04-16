@@ -60,6 +60,9 @@ type Config struct {
 	MailCleanupAlertEventsThreshold int64
 	MailCleanupAlertFailureStreak   int
 	MailCleanupAlertStaleAfter      time.Duration
+	MailAlertWebhookURL             string
+	MailAlertWebhookTimeout         time.Duration
+	MailAlertWebhookCooldown        time.Duration
 	GmailAPIBaseURL                 string
 	GmailAPIUser                    string
 	GmailAPIAccessToken             string
@@ -220,6 +223,16 @@ func Load() (Config, error) {
 		return Config{}, fmt.Errorf("parse MAIL_CLEANUP_ALERT_STALE_AFTER: %w", err)
 	}
 
+	mailAlertWebhookTimeout, err := time.ParseDuration(getEnv("MAIL_ALERT_WEBHOOK_TIMEOUT", "5s"))
+	if err != nil {
+		return Config{}, fmt.Errorf("parse MAIL_ALERT_WEBHOOK_TIMEOUT: %w", err)
+	}
+
+	mailAlertWebhookCooldown, err := time.ParseDuration(getEnv("MAIL_ALERT_WEBHOOK_COOLDOWN", "30m"))
+	if err != nil {
+		return Config{}, fmt.Errorf("parse MAIL_ALERT_WEBHOOK_COOLDOWN: %w", err)
+	}
+
 	cfg := Config{
 		AppEnv:                          getEnv("APP_ENV", "development"),
 		AppName:                         getEnv("APP_NAME", "Lavoval"),
@@ -273,6 +286,9 @@ func Load() (Config, error) {
 		MailCleanupAlertEventsThreshold: mailCleanupAlertEventsThreshold,
 		MailCleanupAlertFailureStreak:   mailCleanupAlertFailureStreak,
 		MailCleanupAlertStaleAfter:      mailCleanupAlertStaleAfter,
+		MailAlertWebhookURL:             getEnv("MAIL_ALERT_WEBHOOK_URL", ""),
+		MailAlertWebhookTimeout:         mailAlertWebhookTimeout,
+		MailAlertWebhookCooldown:        mailAlertWebhookCooldown,
 		GmailAPIBaseURL:                 getEnv("GMAIL_API_BASE_URL", "https://gmail.googleapis.com/gmail/v1"),
 		GmailAPIUser:                    getEnv("GMAIL_API_USER", "me"),
 		GmailAPIAccessToken:             getEnv("GMAIL_API_ACCESS_TOKEN", ""),

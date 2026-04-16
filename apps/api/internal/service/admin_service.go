@@ -26,15 +26,16 @@ type AdminService struct {
 }
 
 type MailRetentionPolicy struct {
-	JobsRetention        time.Duration
-	EventsRetention      time.Duration
-	CleanupBatchSize     int
-	CleanupInterval      time.Duration
-	CleanupDryRun        bool
-	AlertJobsThreshold   int64
-	AlertEventsThreshold int64
-	AlertFailureStreak   int
-	AlertStaleAfter      time.Duration
+	JobsRetention          time.Duration
+	EventsRetention        time.Duration
+	CleanupBatchSize       int
+	CleanupInterval        time.Duration
+	CleanupDryRun          bool
+	AlertJobsThreshold     int64
+	AlertEventsThreshold   int64
+	AlertFailureStreak     int
+	AlertStaleAfter        time.Duration
+	WebhookAlertingEnabled bool
 }
 
 func NewAdminService(users repository.UserStore, profiles repository.ProfileStore, skills repository.SkillStore, enrollments repository.EnrollmentStore, modules repository.ModuleStore, mailJobs repository.MailJobStore, mailEvents repository.MailEventStore, suppressions repository.MailSuppressionStore, cleanupRuns repository.MailCleanupRunStore, retention MailRetentionPolicy) *AdminService {
@@ -337,15 +338,16 @@ func (s *AdminService) MailRetentionSnapshot(ctx context.Context) (domain.MailRe
 	}
 
 	snapshot := domain.MailRetentionSnapshot{
-		JobsRetention:         s.retention.JobsRetention.String(),
-		EventsRetention:       s.retention.EventsRetention.String(),
-		CleanupBatchSize:      normalizedCleanupBatchSize(s.retention.CleanupBatchSize),
-		CleanupInterval:       s.retention.CleanupInterval.String(),
-		CleanupDryRun:         s.retention.CleanupDryRun,
-		AutoCleanupEnabled:    s.retention.CleanupInterval > 0,
-		JobsRetentionActive:   s.retention.JobsRetention > 0,
-		EventsRetentionActive: s.retention.EventsRetention > 0,
-		Alerts:                make([]domain.MailRetentionAlert, 0),
+		JobsRetention:          s.retention.JobsRetention.String(),
+		EventsRetention:        s.retention.EventsRetention.String(),
+		CleanupBatchSize:       normalizedCleanupBatchSize(s.retention.CleanupBatchSize),
+		CleanupInterval:        s.retention.CleanupInterval.String(),
+		CleanupDryRun:          s.retention.CleanupDryRun,
+		AutoCleanupEnabled:     s.retention.CleanupInterval > 0,
+		JobsRetentionActive:    s.retention.JobsRetention > 0,
+		EventsRetentionActive:  s.retention.EventsRetention > 0,
+		Alerts:                 make([]domain.MailRetentionAlert, 0),
+		WebhookAlertingEnabled: s.retention.WebhookAlertingEnabled,
 	}
 
 	if s.retention.JobsRetention > 0 {

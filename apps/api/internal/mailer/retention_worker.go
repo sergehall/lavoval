@@ -19,6 +19,7 @@ type MailRetentionWorker struct {
 	events      repository.MailEventStore
 	runs        repository.MailCleanupRunStore
 	metrics     *PrometheusHandler
+	notifier    cleanupAlertNotifier
 	rootCtx     context.Context
 	cancel      context.CancelFunc
 	wg          sync.WaitGroup
@@ -37,6 +38,7 @@ func NewMailRetentionWorker(cfg config.Config, jobs repository.MailJobStore, eve
 		events:      events,
 		runs:        runs,
 		metrics:     metrics,
+		notifier:    newCleanupAlertNotifier(cfg, metrics),
 		interval:    cfg.MailCleanupInterval,
 		batchSize:   cfg.MailCleanupBatchSize,
 		jobsTTL:     cfg.MailJobsRetention,
@@ -173,6 +175,10 @@ func (w *MailRetentionWorker) runOnce() {
 		deletedEvents,
 		time.Since(start).Milliseconds(),
 	)
+
+	if alert := buildBacklogCleanupAlert(w.cfg, candidateJobs, candidateEvents, mode, w.dryRun); alert != nil {
+		w.notify(*alert)
+	}
 }
 
 func (w *MailRetentionWorker) recordFailure(mode string, start time.Time, candidateJobs int64, candidateEvents int64, err error) {
@@ -192,6 +198,7 @@ func (w *MailRetentionWorker) recordFailure(mode string, start time.Time, candid
 		ErrorMessage:    &message,
 		DurationMs:      time.Since(start).Milliseconds(),
 	})
+	w.notify(buildFailureCleanupAlert(mode, w.dryRun, candidateJobs, candidateEvents, err))
 }
 
 func normalizedCleanupBatchSize(size int) int {
@@ -207,5 +214,17 @@ func (w *MailRetentionWorker) recordRun(run domain.MailCleanupRun) {
 	}
 	if _, err := w.runs.Create(context.Background(), run); err != nil {
 		log.Printf("mailer: component=retention_cleanup status=record_run_failed err=%v", err)
+	}
+}
+
+func (w *MailRetentionWorker) notify(alert cleanupAlert) {
+	if w.notifier == nil {
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	if err := w.notifier.Notify(ctx, alert); err != nil {
+		log.Printf("mailer: component=retention_cleanup status=alert_notify_failed type=%s err=%v", alert.Type, err)
 	}
 }

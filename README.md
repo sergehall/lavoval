@@ -127,6 +127,7 @@ Important values:
 - `MAIL_JOBS_RETENTION`, `MAIL_EVENTS_RETENTION`, `MAIL_CLEANUP_BATCH_SIZE`: bounded cleanup policy for terminal `mail_jobs` and historical `mail_events`
 - `MAIL_CLEANUP_INTERVAL`, `MAIL_CLEANUP_DRY_RUN`: periodic cleanup worker schedule and safe dry-run mode
 - `MAIL_CLEANUP_ALERT_JOBS_THRESHOLD`, `MAIL_CLEANUP_ALERT_EVENTS_THRESHOLD`, `MAIL_CLEANUP_ALERT_FAILURE_STREAK`, `MAIL_CLEANUP_ALERT_STALE_AFTER`: admin alert thresholds for retention backlog, repeated failures, and stale worker activity
+- `MAIL_ALERT_WEBHOOK_URL`, `MAIL_ALERT_WEBHOOK_TIMEOUT`, `MAIL_ALERT_WEBHOOK_COOLDOWN`: outbound webhook notifications for cleanup failures and backlog threshold breaches
 
 Mail delivery runtime notes:
 
@@ -136,6 +137,7 @@ Mail delivery runtime notes:
 - retention cleanup is exposed in admin mail ops as a preview plus manual batch cleanup trigger, so operators can prune old terminal jobs and historical events without deleting live queue state
 - a periodic retention worker can also run automatically inside the API process; in dry-run mode it reports candidate rows and metrics without deleting data
 - `mail_cleanup_runs` stores a durable history of cleanup attempts so admin UI can show explicit run history, failure logs, and retention alerts
+- webhook alerting can notify external ops systems when cleanup fails or when retained job/event backlog crosses configured thresholds
 - `/metrics` exposes Prometheus-compatible mail counters, queue gauges, oldest-ready age, and dead-letter error-code breakdowns
 - failed delivery attempts are retried with backoff; exhausted jobs move to a dead-letter status in `mail_jobs`
 - dispatch workers can be throttled with rate limiting, which is useful for Gmail and other providers with burst constraints
