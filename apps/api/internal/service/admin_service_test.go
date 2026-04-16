@@ -12,8 +12,10 @@ import (
 // ── store stubs ───────────────────────────────────────────────────────────────
 
 type adminUserStub struct {
-	user domain.User
-	err  error
+	user  domain.User
+	users map[string]domain.User
+	list  []domain.User
+	err   error
 }
 
 func (s adminUserStub) Create(_ context.Context, u domain.User) (domain.User, error) {
@@ -22,7 +24,14 @@ func (s adminUserStub) Create(_ context.Context, u domain.User) (domain.User, er
 func (s adminUserStub) FindByEmail(_ context.Context, _ string) (domain.User, error) {
 	return s.user, s.err
 }
-func (s adminUserStub) FindByID(_ context.Context, _ string) (domain.User, error) {
+func (s adminUserStub) FindByID(_ context.Context, id string) (domain.User, error) {
+	if s.users != nil {
+		user, ok := s.users[id]
+		if !ok {
+			return domain.User{}, s.err
+		}
+		return user, s.err
+	}
 	return s.user, s.err
 }
 func (s adminUserStub) MarkEmailVerified(_ context.Context, _ string) (domain.User, error) {
@@ -33,14 +42,30 @@ func (s adminUserStub) UpdatePasswordHash(_ context.Context, _, _ string) (domai
 }
 func (s adminUserStub) UpdateRoleAndStatus(_ context.Context, _ string, role domain.Role, status domain.AccountStatus) (domain.User, error) {
 	u := s.user
+	if s.users != nil {
+		u = s.users["u1"]
+	}
 	u.Role = role
 	u.Status = status
 	return u, s.err
 }
 func (s adminUserStub) UpdateRoleStatusModeration(_ context.Context, _, _ string, role domain.Role, status domain.AccountStatus, _ *string) (domain.User, error) {
 	u := s.user
+	if s.users != nil {
+		u = s.users["u1"]
+	}
 	u.Role = role
 	u.Status = status
+	return u, s.err
+}
+func (s adminUserStub) BumpSessionVersion(_ context.Context, id string) (domain.User, error) {
+	if s.users != nil {
+		u := s.users[id]
+		u.SessionVersion++
+		return u, s.err
+	}
+	u := s.user
+	u.SessionVersion++
 	return u, s.err
 }
 func (s adminUserStub) GetStats(_ context.Context) (domain.AdminUserStats, error) {
@@ -62,6 +87,16 @@ func (s adminUserStub) SoftDelete(_ context.Context, _ string) error {
 	return s.err
 }
 func (s adminUserStub) List(_ context.Context) ([]domain.User, error) {
+	if s.list != nil {
+		return s.list, s.err
+	}
+	if s.users != nil {
+		items := make([]domain.User, 0, len(s.users))
+		for _, user := range s.users {
+			items = append(items, user)
+		}
+		return items, s.err
+	}
 	return []domain.User{s.user}, s.err
 }
 
@@ -236,6 +271,20 @@ func (s adminMailCleanupRunStub) ListRecent(_ context.Context, _ int) ([]domain.
 	return s.runs, s.err
 }
 
+type adminSessionRevokerStub struct {
+	lastUserID string
+	lastReason string
+	calls      int
+	err        error
+}
+
+func (s *adminSessionRevokerStub) RevokeAllSessionsForUser(_ context.Context, userID string, reason string) error {
+	s.lastUserID = userID
+	s.lastReason = reason
+	s.calls++
+	return s.err
+}
+
 // ── helpers ───────────────────────────────────────────────────────────────────
 
 func newAdminSvc(
@@ -245,6 +294,16 @@ func newAdminSvc(
 	modules adminModuleStub,
 ) *AdminService {
 	return NewAdminService(users, profiles, adminSkillStub{}, enrollments, modules, nil, nil, nil, nil, MailRetentionPolicy{})
+}
+
+func newAdminSvcWithOptions(
+	users adminUserStub,
+	profiles adminProfileStub,
+	enrollments adminEnrollmentStub,
+	modules adminModuleStub,
+	opts ...AdminServiceOption,
+) *AdminService {
+	return NewAdminService(users, profiles, adminSkillStub{}, enrollments, modules, nil, nil, nil, nil, MailRetentionPolicy{}, opts...)
 }
 
 // ── user tests ────────────────────────────────────────────────────────────────
@@ -287,8 +346,23 @@ func TestAdminGetUserPropagatesUserError(t *testing.T) {
 }
 
 func TestAdminUpdateUserSetsRoleAndStatus(t *testing.T) {
+	now := time.Now().UTC()
 	svc := newAdminSvc(
-		adminUserStub{user: domain.User{ID: "u1"}},
+		adminUserStub{users: map[string]domain.User{
+			"actor-id": {
+				ID:              "actor-id",
+				Role:            domain.RoleRootOwner,
+				Status:          domain.AccountStatusActive,
+				EmailVerifiedAt: &now,
+				MFAEnabled:      true,
+			},
+			"u1": {
+				ID:              "u1",
+				Role:            domain.RoleUser,
+				Status:          domain.AccountStatusActive,
+				EmailVerifiedAt: &now,
+			},
+		}},
 		adminProfileStub{},
 		adminEnrollmentStub{},
 		adminModuleStub{},
@@ -309,6 +383,194 @@ func TestAdminUpdateUserSetsRoleAndStatus(t *testing.T) {
 	}
 	if user.Status != domain.AccountStatusSuspended {
 		t.Fatalf("expected status suspended, got %s", user.Status)
+	}
+}
+
+func TestAdminUpdateUserRoleRequiresRootOwner(t *testing.T) {
+	now := time.Now().UTC()
+	svc := newAdminSvc(
+		adminUserStub{users: map[string]domain.User{
+			"actor-id": {
+				ID:              "actor-id",
+				Role:            domain.RoleAdmin,
+				Status:          domain.AccountStatusActive,
+				EmailVerifiedAt: &now,
+			},
+			"u1": {
+				ID:              "u1",
+				Role:            domain.RoleUser,
+				Status:          domain.AccountStatusActive,
+				EmailVerifiedAt: &now,
+			},
+		}},
+		adminProfileStub{},
+		adminEnrollmentStub{},
+		adminModuleStub{},
+	)
+
+	reason := "Need elevated access"
+	_, err := svc.UpdateUserRole(context.Background(), "actor-id", "u1", UpdateUserRoleInput{
+		Role:   domain.RoleAdmin,
+		Reason: &reason,
+	})
+	if !errors.Is(err, ErrOnlyRootOwnerCanManageRoles) {
+		t.Fatalf("expected ErrOnlyRootOwnerCanManageRoles, got %v", err)
+	}
+}
+
+func TestAdminUpdateUserRoleRequiresMFAForRootOwner(t *testing.T) {
+	now := time.Now().UTC()
+	svc := newAdminSvc(
+		adminUserStub{users: map[string]domain.User{
+			"actor-id": {
+				ID:              "actor-id",
+				Role:            domain.RoleRootOwner,
+				Status:          domain.AccountStatusActive,
+				EmailVerifiedAt: &now,
+				MFAEnabled:      true,
+			},
+			"u1": {
+				ID:              "u1",
+				Role:            domain.RoleAdmin,
+				Status:          domain.AccountStatusActive,
+				EmailVerifiedAt: &now,
+				MFAEnabled:      false,
+			},
+		}},
+		adminProfileStub{},
+		adminEnrollmentStub{},
+		adminModuleStub{},
+	)
+
+	reason := "Break-glass escalation"
+	_, err := svc.UpdateUserRole(context.Background(), "actor-id", "u1", UpdateUserRoleInput{
+		Role:   domain.RoleRootOwner,
+		Reason: &reason,
+	})
+	if !errors.Is(err, ErrRootOwnerRequiresMFA) {
+		t.Fatalf("expected ErrRootOwnerRequiresMFA, got %v", err)
+	}
+}
+
+func TestAdminUpdateUserRoleRevokesSessions(t *testing.T) {
+	now := time.Now().UTC()
+	revoker := &adminSessionRevokerStub{}
+	svc := newAdminSvcWithOptions(
+		adminUserStub{users: map[string]domain.User{
+			"actor-id": {
+				ID:              "actor-id",
+				Role:            domain.RoleRootOwner,
+				Status:          domain.AccountStatusActive,
+				EmailVerifiedAt: &now,
+				MFAEnabled:      true,
+			},
+			"u1": {
+				ID:              "u1",
+				Role:            domain.RoleUser,
+				Status:          domain.AccountStatusActive,
+				EmailVerifiedAt: &now,
+				MFAEnabled:      true,
+			},
+		}},
+		adminProfileStub{},
+		adminEnrollmentStub{},
+		adminModuleStub{},
+		WithSessionRevoker(revoker),
+	)
+
+	reason := "Promoting trusted operator"
+	_, err := svc.UpdateUserRole(context.Background(), "actor-id", "u1", UpdateUserRoleInput{
+		Role:   domain.RoleAdmin,
+		Reason: &reason,
+	})
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if revoker.calls != 1 {
+		t.Fatalf("expected 1 revocation call, got %d", revoker.calls)
+	}
+	if revoker.lastUserID != "u1" {
+		t.Fatalf("expected revocation for u1, got %s", revoker.lastUserID)
+	}
+	if revoker.lastReason != "admin_user_role_update" {
+		t.Fatalf("expected role update revocation reason, got %q", revoker.lastReason)
+	}
+}
+
+func TestAdminUpdateUserStatusRequiresRootOwnerForPrivilegedTarget(t *testing.T) {
+	now := time.Now().UTC()
+	svc := newAdminSvc(
+		adminUserStub{users: map[string]domain.User{
+			"actor-id": {
+				ID:              "actor-id",
+				Role:            domain.RoleAdmin,
+				Status:          domain.AccountStatusActive,
+				EmailVerifiedAt: &now,
+			},
+			"u1": {
+				ID:              "u1",
+				Role:            domain.RoleRootOwner,
+				Status:          domain.AccountStatusActive,
+				EmailVerifiedAt: &now,
+				MFAEnabled:      true,
+			},
+		}},
+		adminProfileStub{},
+		adminEnrollmentStub{},
+		adminModuleStub{},
+	)
+
+	reason := "Emergency freeze"
+	_, err := svc.UpdateUserStatus(context.Background(), "actor-id", "u1", UpdateUserStatusInput{
+		Status: domain.AccountStatusSuspended,
+		Reason: &reason,
+	})
+	if !errors.Is(err, ErrPrivilegedUserModerationRequiresRootOwner) {
+		t.Fatalf("expected ErrPrivilegedUserModerationRequiresRootOwner, got %v", err)
+	}
+}
+
+func TestAdminUpdateUserStatusRevokesSessionsOnChange(t *testing.T) {
+	now := time.Now().UTC()
+	revoker := &adminSessionRevokerStub{}
+	svc := newAdminSvcWithOptions(
+		adminUserStub{users: map[string]domain.User{
+			"actor-id": {
+				ID:              "actor-id",
+				Role:            domain.RoleRootOwner,
+				Status:          domain.AccountStatusActive,
+				EmailVerifiedAt: &now,
+				MFAEnabled:      true,
+			},
+			"u1": {
+				ID:              "u1",
+				Role:            domain.RoleUser,
+				Status:          domain.AccountStatusActive,
+				EmailVerifiedAt: &now,
+			},
+		}},
+		adminProfileStub{},
+		adminEnrollmentStub{},
+		adminModuleStub{},
+		WithSessionRevoker(revoker),
+	)
+
+	reason := "Policy violation"
+	_, err := svc.UpdateUserStatus(context.Background(), "actor-id", "u1", UpdateUserStatusInput{
+		Status: domain.AccountStatusSuspended,
+		Reason: &reason,
+	})
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if revoker.calls != 1 {
+		t.Fatalf("expected 1 revocation call, got %d", revoker.calls)
+	}
+	if revoker.lastUserID != "u1" {
+		t.Fatalf("expected revocation for u1, got %s", revoker.lastUserID)
+	}
+	if revoker.lastReason != "admin_user_status_update" {
+		t.Fatalf("expected status update revocation reason, got %q", revoker.lastReason)
 	}
 }
 

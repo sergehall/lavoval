@@ -3,7 +3,7 @@ VALUES (
   '93af53e2-0c31-4a38-a5fa-bc1c3ff6fb7f',
   'admin@lavoval.local',
   '$2a$10$h8y5nbQzNziiTL0KWs/o2e.YN9x6mJQm3RWdltcGbGj9LIcYsEMJm',
-  'admin',
+  'root_owner',
   'active'
 )
 ON CONFLICT (email) DO NOTHING;

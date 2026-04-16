@@ -12,10 +12,11 @@ import (
 	"github.com/sergehall/lavoval/apps/api/internal/domain"
 	"github.com/sergehall/lavoval/apps/api/internal/httpx"
 	appmiddleware "github.com/sergehall/lavoval/apps/api/internal/middleware"
+	"github.com/sergehall/lavoval/apps/api/internal/repository"
 	"github.com/sergehall/lavoval/apps/api/internal/service"
 )
 
-func NewRouter(cfg config.Config, tokens auth.TokenManager, authService *service.AuthService, profileService *service.ProfileService, accountSecurityService *service.AccountSecurityService, skillService *service.SkillService, runtimeService *service.RuntimeService, adminService *service.AdminService, metricsHandler http.Handler) http.Handler {
+func NewRouter(cfg config.Config, tokens auth.TokenManager, users repository.UserStore, authService *service.AuthService, profileService *service.ProfileService, accountSecurityService *service.AccountSecurityService, skillService *service.SkillService, runtimeService *service.RuntimeService, adminService *service.AdminService, metricsHandler http.Handler) http.Handler {
 	validate := validator.New(validator.WithRequiredStructEnabled())
 	r := chi.NewRouter()
 	r.Use(chimiddleware.RealIP)
@@ -84,20 +85,20 @@ func NewRouter(cfg config.Config, tokens auth.TokenManager, authService *service
 			authRouter.Post("/resend-verification", authHandler.ResendVerification)
 			authRouter.Post("/forgot-password", authHandler.ForgotPassword)
 			authRouter.Post("/reset-password", authHandler.ResetPassword)
-			authRouter.With(appmiddleware.Authenticate(tokens)).Post("/logout", authHandler.Logout)
-			authRouter.With(appmiddleware.Authenticate(tokens)).Get("/mfa/status", authHandler.MFAStatus)
-			authRouter.With(appmiddleware.Authenticate(tokens)).Post("/mfa/enroll", authHandler.EnrollMFA)
-			authRouter.With(appmiddleware.Authenticate(tokens)).Post("/mfa/cancel-enrollment", authHandler.CancelMFAEnrollment)
-			authRouter.With(appmiddleware.Authenticate(tokens)).Post("/mfa/verify-enrollment", authHandler.VerifyMFAEnrollment)
-			authRouter.With(appmiddleware.Authenticate(tokens)).Post("/mfa/disable", authHandler.DisableMFA)
-			authRouter.With(appmiddleware.Authenticate(tokens)).Post("/mfa/recovery-codes/regenerate", authHandler.RegenerateMFARecoveryCodes)
+			authRouter.With(appmiddleware.Authenticate(tokens, users)).Post("/logout", authHandler.Logout)
+			authRouter.With(appmiddleware.Authenticate(tokens, users)).Get("/mfa/status", authHandler.MFAStatus)
+			authRouter.With(appmiddleware.Authenticate(tokens, users)).Post("/mfa/enroll", authHandler.EnrollMFA)
+			authRouter.With(appmiddleware.Authenticate(tokens, users)).Post("/mfa/cancel-enrollment", authHandler.CancelMFAEnrollment)
+			authRouter.With(appmiddleware.Authenticate(tokens, users)).Post("/mfa/verify-enrollment", authHandler.VerifyMFAEnrollment)
+			authRouter.With(appmiddleware.Authenticate(tokens, users)).Post("/mfa/disable", authHandler.DisableMFA)
+			authRouter.With(appmiddleware.Authenticate(tokens, users)).Post("/mfa/recovery-codes/regenerate", authHandler.RegenerateMFARecoveryCodes)
 		})
 
 		api.Get("/skills", skillHandler.ListPublic)
 		api.Get("/skills/{skillID}", skillHandler.FindByID)
 
 		api.Group(func(private chi.Router) {
-			private.Use(appmiddleware.Authenticate(tokens))
+			private.Use(appmiddleware.Authenticate(tokens, users))
 			private.Get("/me", meHandler.Profile)
 			private.Get("/me/security", meHandler.Security)
 			private.Patch("/me/profile", meHandler.UpdateProfile)
@@ -112,12 +113,14 @@ func NewRouter(cfg config.Config, tokens auth.TokenManager, authService *service
 		})
 
 		api.Route("/admin", func(admin chi.Router) {
-			admin.Use(appmiddleware.Authenticate(tokens))
-			admin.Use(appmiddleware.RequireRole(domain.RoleAdmin))
+			admin.Use(appmiddleware.Authenticate(tokens, users))
+			admin.Use(appmiddleware.RequireAtLeastRole(domain.RoleAdmin))
 			admin.Get("/stats", adminHandler.GetAdminStats)
 			admin.Get("/users", adminHandler.ListUsers)
 			admin.Get("/users/{userID}", adminHandler.GetUser)
 			admin.Patch("/users/{userID}", adminHandler.UpdateUser)
+			admin.Patch("/users/{userID}/status", adminHandler.UpdateUserStatus)
+			admin.Patch("/users/{userID}/role", adminHandler.UpdateUserRole)
 			admin.Get("/users/{userID}/audit", adminHandler.GetUserAuditLog)
 			admin.Get("/enrollments", adminHandler.ListEnrollments)
 			admin.Post("/enrollments", adminHandler.AssignSkill)

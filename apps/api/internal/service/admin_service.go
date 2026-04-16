@@ -27,6 +27,7 @@ type AdminService struct {
 	cleanupRuns  repository.MailCleanupRunStore
 	auditLog     repository.AdminAuditLogStore
 	skillAccess  repository.SkillAccessStore
+	sessions     SessionRevoker
 	retention    MailRetentionPolicy
 }
 
@@ -52,6 +53,10 @@ func WithAuditLog(store repository.AdminAuditLogStore) AdminServiceOption {
 
 func WithSkillAccess(store repository.SkillAccessStore) AdminServiceOption {
 	return func(s *AdminService) { s.skillAccess = store }
+}
+
+func WithSessionRevoker(revoker SessionRevoker) AdminServiceOption {
+	return func(s *AdminService) { s.sessions = revoker }
 }
 
 func NewAdminService(
@@ -82,6 +87,9 @@ func NewAdminService(
 	for _, o := range opts {
 		o(svc)
 	}
+	if svc.sessions == nil {
+		svc.sessions = NoopSessionRevoker{}
+	}
 	return svc
 }
 
@@ -93,9 +101,19 @@ type UserDetail struct {
 }
 
 type UpdateUserInput struct {
-	Role   domain.Role          `json:"role"   validate:"required,oneof=user admin"`
+	Role   domain.Role          `json:"role"   validate:"required,oneof=user admin root_owner"`
 	Status domain.AccountStatus `json:"status" validate:"required,oneof=active invited suspended blocked"`
 	Reason *string              `json:"reason,omitempty"`
+}
+
+type UpdateUserStatusInput struct {
+	Status domain.AccountStatus `json:"status" validate:"required,oneof=active invited suspended blocked"`
+	Reason *string              `json:"reason,omitempty"`
+}
+
+type UpdateUserRoleInput struct {
+	Role   domain.Role `json:"role" validate:"required,oneof=user admin root_owner"`
+	Reason *string     `json:"reason,omitempty"`
 }
 
 type CreateMailSuppressionInput struct {
@@ -119,6 +137,13 @@ type SkillPricingInput struct {
 
 var ErrAdminReasonRequired = errors.New("reason is required for this admin action")
 var ErrInvalidSkillPricing = errors.New("invalid skill pricing")
+var ErrOnlyRootOwnerCanManageRoles = errors.New("only root_owner can manage privileged roles")
+var ErrCannotChangeOwnRole = errors.New("cannot change your own role")
+var ErrRootOwnerRequiresMFA = errors.New("root_owner requires mfa")
+var ErrPrivilegedRoleRequiresActiveVerifiedAccount = errors.New("privileged role requires active verified account")
+var ErrLastRootOwnerDemotion = errors.New("cannot demote the last root_owner")
+var ErrPrivilegedUserModerationRequiresRootOwner = errors.New("only root_owner can moderate privileged users")
+var ErrLastRootOwnerStatusLockout = errors.New("cannot suspend or block the last root_owner")
 
 // ── User methods ──────────────────────────────────────────────────────────────
 
@@ -145,6 +170,11 @@ func (s *AdminService) GetUser(ctx context.Context, id string) (UserDetail, erro
 // UpdateUser changes role/status with full audit trail.
 // actorID is the admin performing the action (from JWT claims).
 func (s *AdminService) UpdateUser(ctx context.Context, actorID, targetID string, input UpdateUserInput) (domain.User, error) {
+	actor, err := s.users.FindByID(ctx, actorID)
+	if err != nil {
+		return domain.User{}, fmt.Errorf("load actor: %w", err)
+	}
+
 	if requiresUserModerationReason(input.Status) && isBlankPtr(input.Reason) {
 		return domain.User{}, ErrAdminReasonRequired
 	}
@@ -152,6 +182,18 @@ func (s *AdminService) UpdateUser(ctx context.Context, actorID, targetID string,
 	before, err := s.users.FindByID(ctx, targetID)
 	if err != nil {
 		return domain.User{}, fmt.Errorf("load user before update: %w", err)
+	}
+
+	if before.Role != input.Role {
+		if err := s.ensureRoleChangeAllowed(ctx, actor, before, input.Role); err != nil {
+			return domain.User{}, err
+		}
+	}
+	if err := s.ensureStatusChangeAllowed(ctx, actor, before, input.Status); err != nil {
+		return domain.User{}, err
+	}
+	if isBlankPtr(input.Reason) && before.Role != input.Role {
+		return domain.User{}, ErrAdminReasonRequired
 	}
 
 	user, err := s.users.UpdateRoleStatusModeration(ctx, targetID, actorID, input.Role, input.Status, input.Reason)
@@ -170,6 +212,101 @@ func (s *AdminService) UpdateUser(ctx context.Context, actorID, targetID string,
 		ActorID:      actorID,
 	})
 
+	if before.Role != input.Role || before.Status != input.Status {
+		if err := s.sessions.RevokeAllSessionsForUser(ctx, targetID, "admin_user_update"); err != nil {
+			return domain.User{}, fmt.Errorf("revoke sessions after user update: %w", err)
+		}
+	}
+
+	return user, nil
+}
+
+func (s *AdminService) UpdateUserStatus(ctx context.Context, actorID, targetID string, input UpdateUserStatusInput) (domain.User, error) {
+	if requiresUserModerationReason(input.Status) && isBlankPtr(input.Reason) {
+		return domain.User{}, ErrAdminReasonRequired
+	}
+
+	actor, err := s.users.FindByID(ctx, actorID)
+	if err != nil {
+		return domain.User{}, fmt.Errorf("load actor: %w", err)
+	}
+
+	before, err := s.users.FindByID(ctx, targetID)
+	if err != nil {
+		return domain.User{}, fmt.Errorf("load user before status update: %w", err)
+	}
+	if err := s.ensureStatusChangeAllowed(ctx, actor, before, input.Status); err != nil {
+		return domain.User{}, err
+	}
+
+	user, err := s.users.UpdateRoleStatusModeration(ctx, targetID, actorID, before.Role, input.Status, input.Reason)
+	if err != nil {
+		return domain.User{}, fmt.Errorf("update user status: %w", err)
+	}
+
+	s.writeAuditLog(ctx, domain.AdminAuditLog{
+		ID:           uuid.NewString(),
+		EntityType:   "user",
+		EntityID:     targetID,
+		Action:       auditActionForStatus(input.Status),
+		OldValueJSON: marshalJSON(userAuditSnapshot(before)),
+		NewValueJSON: marshalJSON(userAuditSnapshot(user)),
+		Reason:       input.Reason,
+		ActorID:      actorID,
+	})
+
+	if before.Status != input.Status {
+		if err := s.sessions.RevokeAllSessionsForUser(ctx, targetID, "admin_user_status_update"); err != nil {
+			return domain.User{}, fmt.Errorf("revoke sessions after status update: %w", err)
+		}
+	}
+
+	return user, nil
+}
+
+func (s *AdminService) UpdateUserRole(ctx context.Context, actorID, targetID string, input UpdateUserRoleInput) (domain.User, error) {
+	if isBlankPtr(input.Reason) {
+		return domain.User{}, ErrAdminReasonRequired
+	}
+
+	actor, err := s.users.FindByID(ctx, actorID)
+	if err != nil {
+		return domain.User{}, fmt.Errorf("load actor: %w", err)
+	}
+
+	before, err := s.users.FindByID(ctx, targetID)
+	if err != nil {
+		return domain.User{}, fmt.Errorf("load user before role update: %w", err)
+	}
+
+	if before.Role == input.Role {
+		return before, nil
+	}
+
+	if err := s.ensureRoleChangeAllowed(ctx, actor, before, input.Role); err != nil {
+		return domain.User{}, err
+	}
+
+	user, err := s.users.UpdateRoleAndStatus(ctx, targetID, input.Role, before.Status)
+	if err != nil {
+		return domain.User{}, fmt.Errorf("update user role: %w", err)
+	}
+
+	s.writeAuditLog(ctx, domain.AdminAuditLog{
+		ID:           uuid.NewString(),
+		EntityType:   "user",
+		EntityID:     targetID,
+		Action:       roleAuditAction(before.Role, input.Role),
+		OldValueJSON: marshalJSON(userAuditSnapshot(before)),
+		NewValueJSON: marshalJSON(userAuditSnapshot(user)),
+		Reason:       input.Reason,
+		ActorID:      actorID,
+	})
+
+	if err := s.sessions.RevokeAllSessionsForUser(ctx, targetID, "admin_user_role_update"); err != nil {
+		return domain.User{}, fmt.Errorf("revoke sessions after role update: %w", err)
+	}
+
 	return user, nil
 }
 
@@ -184,6 +321,10 @@ func auditActionForStatus(status domain.AccountStatus) string {
 	default:
 		return "user_updated"
 	}
+}
+
+func roleAuditAction(before, after domain.Role) string {
+	return fmt.Sprintf("user_role_changed:%s->%s", before, after)
 }
 
 // GetUserAuditLog returns the governance history for a user.
@@ -704,6 +845,64 @@ func requiresSkillModerationReason(status domain.SkillStatus) bool {
 
 func isBlankPtr(value *string) bool {
 	return value == nil || strings.TrimSpace(*value) == ""
+}
+
+func (s *AdminService) ensureRoleChangeAllowed(ctx context.Context, actor, target domain.User, nextRole domain.Role) error {
+	if actor.Role != domain.RoleRootOwner {
+		return ErrOnlyRootOwnerCanManageRoles
+	}
+	if actor.ID == target.ID {
+		return ErrCannotChangeOwnRole
+	}
+	if domain.CanAccessAdmin(nextRole) {
+		if target.Status != domain.AccountStatusActive || target.EmailVerifiedAt == nil {
+			return ErrPrivilegedRoleRequiresActiveVerifiedAccount
+		}
+	}
+	if nextRole == domain.RoleRootOwner && !target.MFAEnabled {
+		return ErrRootOwnerRequiresMFA
+	}
+	if target.Role == domain.RoleRootOwner && nextRole != domain.RoleRootOwner {
+		users, err := s.users.List(ctx)
+		if err != nil {
+			return fmt.Errorf("list users for root_owner check: %w", err)
+		}
+		rootOwners := 0
+		for _, user := range users {
+			if user.Role == domain.RoleRootOwner && user.Status == domain.AccountStatusActive {
+				rootOwners++
+			}
+		}
+		if rootOwners <= 1 {
+			return ErrLastRootOwnerDemotion
+		}
+	}
+	return nil
+}
+
+func (s *AdminService) ensureStatusChangeAllowed(ctx context.Context, actor, target domain.User, nextStatus domain.AccountStatus) error {
+	if nextStatus == target.Status {
+		return nil
+	}
+	if domain.CanAccessAdmin(target.Role) && actor.Role != domain.RoleRootOwner {
+		return ErrPrivilegedUserModerationRequiresRootOwner
+	}
+	if target.Role == domain.RoleRootOwner && nextStatus != domain.AccountStatusActive {
+		users, err := s.users.List(ctx)
+		if err != nil {
+			return fmt.Errorf("list users for root_owner status check: %w", err)
+		}
+		rootOwners := 0
+		for _, user := range users {
+			if user.Role == domain.RoleRootOwner && user.Status == domain.AccountStatusActive {
+				rootOwners++
+			}
+		}
+		if rootOwners <= 1 {
+			return ErrLastRootOwnerStatusLockout
+		}
+	}
+	return nil
 }
 
 func normalizeSkillPricingInput(input SkillPricingInput) (SkillPricingInput, error) {

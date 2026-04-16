@@ -71,9 +71,114 @@ func (h *AdminHandler) UpdateUser(w http.ResponseWriter, r *http.Request) {
 			httpx.Error(w, http.StatusBadRequest, "reason_required", "A reason is required for this status change")
 			return
 		}
+		if errors.Is(err, service.ErrOnlyRootOwnerCanManageRoles) {
+			httpx.Error(w, http.StatusForbidden, "role_change_forbidden", "Only root_owner can change elevated roles")
+			return
+		}
+		if errors.Is(err, service.ErrCannotChangeOwnRole) {
+			httpx.Error(w, http.StatusBadRequest, "self_role_change_forbidden", "You cannot change your own role")
+			return
+		}
+		if errors.Is(err, service.ErrRootOwnerRequiresMFA) {
+			httpx.Error(w, http.StatusBadRequest, "root_owner_requires_mfa", "root_owner requires MFA to be enabled")
+			return
+		}
+		if errors.Is(err, service.ErrPrivilegedRoleRequiresActiveVerifiedAccount) {
+			httpx.Error(w, http.StatusBadRequest, "privileged_role_requires_active_verified_account", "Privileged roles require an active, verified account")
+			return
+		}
+		if errors.Is(err, service.ErrLastRootOwnerDemotion) {
+			httpx.Error(w, http.StatusBadRequest, "last_root_owner_demotion_forbidden", "Cannot demote the last root_owner")
+			return
+		}
+		if errors.Is(err, service.ErrPrivilegedUserModerationRequiresRootOwner) {
+			httpx.Error(w, http.StatusForbidden, "privileged_user_moderation_forbidden", "Only root_owner can moderate admin or root_owner accounts")
+			return
+		}
+		if errors.Is(err, service.ErrLastRootOwnerStatusLockout) {
+			httpx.Error(w, http.StatusBadRequest, "last_root_owner_status_lockout_forbidden", "Cannot suspend or block the last root_owner")
+			return
+		}
 		httpx.Error(w, http.StatusInternalServerError, "user_update_failed", "Could not update user")
 		return
 	}
+	httpx.JSON(w, http.StatusOK, user)
+}
+
+func (h *AdminHandler) UpdateUserStatus(w http.ResponseWriter, r *http.Request) {
+	actorID := ""
+	if claims, ok := appmiddleware.ClaimsFromContext(r.Context()); ok && claims != nil {
+		actorID = claims.UserID
+	}
+
+	var input service.UpdateUserStatusInput
+	if err := httpx.Decode(r, &input); err != nil {
+		httpx.Error(w, http.StatusBadRequest, "invalid_request", err.Error())
+		return
+	}
+	if err := h.validate.Struct(input); err != nil {
+		httpx.Error(w, http.StatusBadRequest, "validation_error", err.Error())
+		return
+	}
+
+	user, err := h.adminService.UpdateUserStatus(r.Context(), actorID, chi.URLParam(r, "userID"), input)
+	if err != nil {
+		if errors.Is(err, service.ErrAdminReasonRequired) {
+			httpx.Error(w, http.StatusBadRequest, "reason_required", "A reason is required for this status change")
+			return
+		}
+		if errors.Is(err, service.ErrPrivilegedUserModerationRequiresRootOwner) {
+			httpx.Error(w, http.StatusForbidden, "privileged_user_moderation_forbidden", "Only root_owner can moderate admin or root_owner accounts")
+			return
+		}
+		if errors.Is(err, service.ErrLastRootOwnerStatusLockout) {
+			httpx.Error(w, http.StatusBadRequest, "last_root_owner_status_lockout_forbidden", "Cannot suspend or block the last root_owner")
+			return
+		}
+		httpx.Error(w, http.StatusInternalServerError, "user_status_update_failed", "Could not update user status")
+		return
+	}
+
+	httpx.JSON(w, http.StatusOK, user)
+}
+
+func (h *AdminHandler) UpdateUserRole(w http.ResponseWriter, r *http.Request) {
+	actorID := ""
+	if claims, ok := appmiddleware.ClaimsFromContext(r.Context()); ok && claims != nil {
+		actorID = claims.UserID
+	}
+
+	var input service.UpdateUserRoleInput
+	if err := httpx.Decode(r, &input); err != nil {
+		httpx.Error(w, http.StatusBadRequest, "invalid_request", err.Error())
+		return
+	}
+	if err := h.validate.Struct(input); err != nil {
+		httpx.Error(w, http.StatusBadRequest, "validation_error", err.Error())
+		return
+	}
+
+	user, err := h.adminService.UpdateUserRole(r.Context(), actorID, chi.URLParam(r, "userID"), input)
+	if err != nil {
+		switch {
+		case errors.Is(err, service.ErrAdminReasonRequired):
+			httpx.Error(w, http.StatusBadRequest, "reason_required", "A reason is required for this role change")
+		case errors.Is(err, service.ErrOnlyRootOwnerCanManageRoles):
+			httpx.Error(w, http.StatusForbidden, "role_change_forbidden", "Only root_owner can change elevated roles")
+		case errors.Is(err, service.ErrCannotChangeOwnRole):
+			httpx.Error(w, http.StatusBadRequest, "self_role_change_forbidden", "You cannot change your own role")
+		case errors.Is(err, service.ErrRootOwnerRequiresMFA):
+			httpx.Error(w, http.StatusBadRequest, "root_owner_requires_mfa", "root_owner requires MFA to be enabled")
+		case errors.Is(err, service.ErrPrivilegedRoleRequiresActiveVerifiedAccount):
+			httpx.Error(w, http.StatusBadRequest, "privileged_role_requires_active_verified_account", "Privileged roles require an active, verified account")
+		case errors.Is(err, service.ErrLastRootOwnerDemotion):
+			httpx.Error(w, http.StatusBadRequest, "last_root_owner_demotion_forbidden", "Cannot demote the last root_owner")
+		default:
+			httpx.Error(w, http.StatusInternalServerError, "user_role_update_failed", "Could not update user role")
+		}
+		return
+	}
+
 	httpx.JSON(w, http.StatusOK, user)
 }
 

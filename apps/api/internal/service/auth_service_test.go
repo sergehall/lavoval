@@ -124,6 +124,11 @@ func (s authUserRepoStub) UpdateRoleStatusModeration(_ context.Context, _, _ str
 	u.Status = status
 	return u, nil
 }
+func (s authUserRepoStub) BumpSessionVersion(_ context.Context, _ string) (domain.User, error) {
+	u := s.user
+	u.SessionVersion++
+	return u, nil
+}
 func (authUserRepoStub) GetStats(_ context.Context) (domain.AdminUserStats, error) {
 	return domain.AdminUserStats{}, nil
 }

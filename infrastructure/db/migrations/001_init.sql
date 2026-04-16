@@ -5,8 +5,9 @@ CREATE TABLE IF NOT EXISTS users (
   id UUID PRIMARY KEY,
   email CITEXT NOT NULL UNIQUE,
   password_hash TEXT NOT NULL,
-  role TEXT NOT NULL CHECK (role IN ('user', 'admin')),
+  role TEXT NOT NULL CHECK (role IN ('user', 'admin', 'root_owner')),
   status TEXT NOT NULL CHECK (status IN ('active', 'invited', 'suspended')),
+  session_version INTEGER NOT NULL DEFAULT 1,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   deleted_at TIMESTAMPTZ

@@ -13,6 +13,7 @@ import (
 // All query helpers must scan exactly these columns in this order.
 const userCols = `id, email, password_hash, role, status, email_verified_at,
 	mfa_enabled, mfa_totp_secret_encrypted, mfa_pending_totp_secret_encrypted, mfa_enrolled_at,
+	session_version,
 	suspension_reason, suspended_at, suspended_by, block_reason, blocked_at, blocked_by,
 	created_at, updated_at`
 
@@ -25,6 +26,7 @@ func scanUser(row scanner) (domain.User, error) {
 	err := row.Scan(
 		&u.ID, &u.Email, &u.PasswordHash, &u.Role, &u.Status, &u.EmailVerifiedAt,
 		&u.MFAEnabled, &u.MFATOTPSecretEncrypted, &u.MFAPendingTOTPSecretEncrypted, &u.MFAEnrolledAt,
+		&u.SessionVersion,
 		&u.SuspensionReason, &u.SuspendedAt, &u.SuspendedBy,
 		&u.BlockReason, &u.BlockedAt, &u.BlockedBy,
 		&u.CreatedAt, &u.UpdatedAt,
@@ -58,6 +60,19 @@ func (r *UserRepository) FindByEmail(ctx context.Context, email string) (domain.
 	user, err := scanUser(r.pool.QueryRow(ctx, query, email))
 	if err != nil {
 		return domain.User{}, fmt.Errorf("find user by email: %w", err)
+	}
+	return user, nil
+}
+
+func (r *UserRepository) BumpSessionVersion(ctx context.Context, id string) (domain.User, error) {
+	query := `
+		UPDATE users
+		SET session_version = session_version + 1, updated_at = NOW()
+		WHERE id = $1 AND deleted_at IS NULL
+		RETURNING ` + userCols
+	user, err := scanUser(r.pool.QueryRow(ctx, query, id))
+	if err != nil {
+		return domain.User{}, fmt.Errorf("bump session version: %w", err)
 	}
 	return user, nil
 }

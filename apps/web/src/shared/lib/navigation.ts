@@ -1,5 +1,6 @@
 import type { Route } from 'next';
 import type { SessionUser } from '@lavoval/contracts';
+import { canAccessAdmin } from '@/shared/lib/rbac';
 
 export type NavigationItem = {
   href: Route;
@@ -21,7 +22,7 @@ export function cabinetNavigation(user: SessionUser): NavigationItem[] {
     { href: '/account/security', label: 'Security' },
   ];
 
-  if (user.role === 'admin') {
+  if (canAccessAdmin(user.role)) {
     items.push({ href: '/admin', label: 'Governance' });
   }
 

@@ -81,6 +81,11 @@ func (s skillUserRepoStub) UpdateRoleAndStatus(_ context.Context, _ string, _ do
 func (s skillUserRepoStub) UpdateRoleStatusModeration(_ context.Context, _, _ string, _ domain.Role, _ domain.AccountStatus, _ *string) (domain.User, error) {
 	return s.user, s.err
 }
+func (s skillUserRepoStub) BumpSessionVersion(_ context.Context, _ string) (domain.User, error) {
+	u := s.user
+	u.SessionVersion++
+	return u, s.err
+}
 func (s skillUserRepoStub) GetStats(_ context.Context) (domain.AdminUserStats, error) {
 	return domain.AdminUserStats{}, s.err
 }

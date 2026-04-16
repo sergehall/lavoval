@@ -11,10 +11,11 @@ import (
 )
 
 type Claims struct {
-	UserID string      `json:"uid"`
-	Email  string      `json:"email"`
-	Role   domain.Role `json:"role"`
-	Type   string      `json:"type"`
+	UserID         string      `json:"uid"`
+	Email          string      `json:"email"`
+	Role           domain.Role `json:"role"`
+	SessionVersion int         `json:"sv"`
+	Type           string      `json:"type"`
 	jwt.RegisteredClaims
 }
 
@@ -48,10 +49,11 @@ func (m TokenManager) IssueTokens(user domain.User) (TokenPair, error) {
 func (m TokenManager) issue(user domain.User, tokenType string, ttl time.Duration) (string, error) {
 	now := time.Now().UTC()
 	claims := Claims{
-		UserID: user.ID,
-		Email:  user.Email,
-		Role:   user.Role,
-		Type:   tokenType,
+		UserID:         user.ID,
+		Email:          user.Email,
+		Role:           user.Role,
+		SessionVersion: normalizedSessionVersion(user.SessionVersion),
+		Type:           tokenType,
 		RegisteredClaims: jwt.RegisteredClaims{
 			Issuer:    m.cfg.JWTIssuer,
 			Audience:  []string{m.cfg.JWTAudience},
@@ -68,6 +70,13 @@ func (m TokenManager) issue(user domain.User, tokenType string, ttl time.Duratio
 		return "", fmt.Errorf("sign token: %w", err)
 	}
 	return signedToken, nil
+}
+
+func normalizedSessionVersion(version int) int {
+	if version <= 0 {
+		return 1
+	}
+	return version
 }
 
 func (m TokenManager) Parse(token string) (*Claims, error) {

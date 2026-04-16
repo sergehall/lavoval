@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { completeGitHubOAuth, persistSession } from '@/shared/api/server-client';
 import { env } from '@/shared/config/env';
+import { canAccessAdmin } from '@/shared/lib/rbac';
 
 function redirectToSignIn(message: string) {
   const target = new URL('/?auth=sign-in', env.appUrl);
@@ -28,7 +29,7 @@ export async function GET(request: Request) {
     await persistSession(response.data);
 
     return NextResponse.redirect(
-      new URL(response.data.user.role === 'admin' ? '/admin' : '/account', env.appUrl),
+      new URL(canAccessAdmin(response.data.user.role) ? '/admin' : '/account', env.appUrl),
     );
   } catch (oauthError) {
     if (oauthError instanceof Error) {

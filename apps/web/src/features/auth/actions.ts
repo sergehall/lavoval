@@ -33,6 +33,7 @@ import {
   verifyMFAEnrollment,
   verifyEmail,
 } from '@/shared/api/server-client';
+import { canAccessAdmin } from '@/shared/lib/rbac';
 
 export type AuthFormState = {
   error: string | null;
@@ -107,7 +108,7 @@ export async function loginAction(_previousState: AuthFormState, formData: FormD
     try {
       const response = await completeMFASignIn(parsed.data);
       await persistSession(response.data);
-      redirect(response.data.user.role === 'admin' ? '/admin' : '/account');
+      redirect(canAccessAdmin(response.data.user.role) ? '/admin' : '/account');
     } catch (error) {
       if (error instanceof ApiError) {
         return {
@@ -153,7 +154,7 @@ export async function loginAction(_previousState: AuthFormState, formData: FormD
   try {
     const response = await login(parsed.data);
     await persistSession(response.data);
-    redirect(response.data.user.role === 'admin' ? '/admin' : '/account');
+    redirect(canAccessAdmin(response.data.user.role) ? '/admin' : '/account');
   } catch (error) {
     if (error instanceof ApiError) {
       return {

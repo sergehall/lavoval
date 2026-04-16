@@ -17,6 +17,7 @@ type UserStore interface {
 	UpdateRoleAndStatus(context.Context, string, domain.Role, domain.AccountStatus) (domain.User, error)
 	// UpdateRoleStatusModeration updates role, status and the moderation audit fields atomically.
 	UpdateRoleStatusModeration(ctx context.Context, id, actorID string, role domain.Role, status domain.AccountStatus, reason *string) (domain.User, error)
+	BumpSessionVersion(context.Context, string) (domain.User, error)
 	// GetStats returns aggregate user counts for the admin dashboard.
 	GetStats(context.Context) (domain.AdminUserStats, error)
 	StartTOTPEnrollment(context.Context, string, string) (domain.User, error)

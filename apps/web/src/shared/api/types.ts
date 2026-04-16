@@ -33,6 +33,7 @@ export type UsersListItem = SessionUser & {
   status: AccountStatus;
   createdAt: string;
   emailVerifiedAt?: string | null;
+  mfaEnabled?: boolean;
   suspensionReason?: string | null;
   suspendedAt?: string | null;
   suspendedBy?: string | null;

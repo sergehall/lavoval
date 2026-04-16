@@ -1,6 +1,8 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
+import type { Role } from '@lavoval/contracts';
 import { signInHref } from '@/shared/lib/auth-navigation';
+import { canAccessAdmin } from '@/shared/lib/rbac';
 
 const sessionCookieName = 'csl_session';
 
@@ -26,7 +28,7 @@ export function proxy(request: NextRequest) {
     return NextResponse.redirect(new URL(signInHref, request.url));
   }
 
-  if (pathname.startsWith('/admin') && role !== 'admin') {
+  if (pathname.startsWith('/admin') && !canAccessAdmin(role as Role | null)) {
     return NextResponse.redirect(new URL(role ? '/account' : signInHref, request.url));
   }
 

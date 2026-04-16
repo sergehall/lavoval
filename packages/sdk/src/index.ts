@@ -3,6 +3,8 @@ import type {
   EnrollmentDetail,
   EnrollmentUpdateRequest,
   ModuleMutationRequest,
+  AdminUserRoleUpdateRequest,
+  AdminUserStatusUpdateRequest,
   AuthResponse,
   AccountSecuritySummary,
   GitHubOAuthCompleteRequest,
@@ -117,6 +119,8 @@ export const apiPaths = {
   admin: {
     users: () => '/api/v1/admin/users',
     user: (id: string) => `/api/v1/admin/users/${id}`,
+    userStatus: (id: string) => `/api/v1/admin/users/${id}/status`,
+    userRole: (id: string) => `/api/v1/admin/users/${id}/role`,
     enrollments: () => '/api/v1/admin/enrollments',
     enrollment: (id: string) => `/api/v1/admin/enrollments/${id}`,
     skills: () => '/api/v1/admin/skills',
@@ -150,7 +154,7 @@ type UsersListItem = SessionUser & {
 };
 
 type AdminUserUpdateRequest = {
-  role: 'user' | 'admin';
+  role: 'user' | 'admin' | 'root_owner';
   status: 'active' | 'invited' | 'suspended' | 'blocked';
   reason?: string;
 };
@@ -349,6 +353,28 @@ export function createApiClient(config: ApiClientConfig) {
       updateUser(id: string, payload: AdminUserUpdateRequest, options: ApiClientRequestOptions) {
         return request<UsersListItem>(
           apiPaths.admin.user(id),
+          { method: 'PATCH', body: JSON.stringify(payload) },
+          options,
+        );
+      },
+      updateUserStatus(
+        id: string,
+        payload: AdminUserStatusUpdateRequest,
+        options: ApiClientRequestOptions,
+      ) {
+        return request<UsersListItem>(
+          apiPaths.admin.userStatus(id),
+          { method: 'PATCH', body: JSON.stringify(payload) },
+          options,
+        );
+      },
+      updateUserRole(
+        id: string,
+        payload: AdminUserRoleUpdateRequest,
+        options: ApiClientRequestOptions,
+      ) {
+        return request<UsersListItem>(
+          apiPaths.admin.userRole(id),
           { method: 'PATCH', body: JSON.stringify(payload) },
           options,
         );

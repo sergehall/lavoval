@@ -20,9 +20,10 @@ func testConfig() config.Config {
 
 func testUser() domain.User {
 	return domain.User{
-		ID:    "user-1",
-		Email: "user@example.com",
-		Role:  domain.RoleUser,
+		ID:             "user-1",
+		Email:          "user@example.com",
+		Role:           domain.RoleUser,
+		SessionVersion: 1,
 	}
 }
 
@@ -55,6 +56,9 @@ func TestTokenManagerIssueAndParseRoundtrip(t *testing.T) {
 	}
 	if claims.Role != domain.RoleUser {
 		t.Fatalf("expected role user, got %s", claims.Role)
+	}
+	if claims.SessionVersion != 1 {
+		t.Fatalf("expected session version 1, got %d", claims.SessionVersion)
 	}
 }
 

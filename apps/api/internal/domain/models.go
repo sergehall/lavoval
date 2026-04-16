@@ -23,8 +23,9 @@ type MailJobStatus string
 type MailSuppressionKind string
 
 const (
-	RoleUser  Role = "user"
-	RoleAdmin Role = "admin"
+	RoleUser      Role = "user"
+	RoleAdmin     Role = "admin"
+	RoleRootOwner Role = "root_owner"
 
 	AccountStatusActive    AccountStatus = "active"
 	AccountStatusInvited   AccountStatus = "invited"
@@ -71,6 +72,27 @@ const (
 	MailSuppressionKindDomain MailSuppressionKind = "domain"
 )
 
+func RoleRank(role Role) int {
+	switch role {
+	case RoleRootOwner:
+		return 3
+	case RoleAdmin:
+		return 2
+	case RoleUser:
+		return 1
+	default:
+		return 0
+	}
+}
+
+func RoleAtLeast(role Role, required Role) bool {
+	return RoleRank(role) >= RoleRank(required)
+}
+
+func CanAccessAdmin(role Role) bool {
+	return RoleAtLeast(role, RoleAdmin)
+}
+
 type User struct {
 	ID                            string        `json:"id"`
 	Email                         string        `json:"email"`
@@ -82,6 +104,7 @@ type User struct {
 	MFATOTPSecretEncrypted        *string       `json:"-"`
 	MFAPendingTOTPSecretEncrypted *string       `json:"-"`
 	MFAEnrolledAt                 *time.Time    `json:"mfaEnrolledAt,omitempty"`
+	SessionVersion                int           `json:"sessionVersion"`
 	SuspensionReason              *string       `json:"suspensionReason,omitempty"`
 	SuspendedAt                   *time.Time    `json:"suspendedAt,omitempty"`
 	SuspendedBy                   *string       `json:"suspendedBy,omitempty"`

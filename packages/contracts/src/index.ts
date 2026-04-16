@@ -30,7 +30,7 @@ export type {
   SkillRunStatus,
 } from './runtime';
 
-export const roleSchema = z.enum(['user', 'admin']);
+export const roleSchema = z.enum(['user', 'admin', 'root_owner']);
 export type Role = z.infer<typeof roleSchema>;
 
 export const accountStatusSchema = z.enum(['active', 'invited', 'suspended', 'blocked']);
@@ -377,6 +377,26 @@ export const adminUserUpdateSchema = z.object({
   }
 });
 export type AdminUserUpdateRequest = z.infer<typeof adminUserUpdateSchema>;
+
+export const adminUserStatusUpdateSchema = z.object({
+  status: accountStatusSchema,
+  reason: z.string().min(3).max(500).optional(),
+}).superRefine((value, ctx) => {
+  if ((value.status === 'suspended' || value.status === 'blocked') && !value.reason) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['reason'],
+      message: 'Reason is required when suspending or blocking a user.',
+    });
+  }
+});
+export type AdminUserStatusUpdateRequest = z.infer<typeof adminUserStatusUpdateSchema>;
+
+export const adminUserRoleUpdateSchema = z.object({
+  role: roleSchema,
+  reason: z.string().min(3).max(500),
+});
+export type AdminUserRoleUpdateRequest = z.infer<typeof adminUserRoleUpdateSchema>;
 
 export const adminSkillGovernanceSchema = z.object({
   status: skillStatusSchema,

@@ -1,19 +1,39 @@
 'use server';
 
 import { redirect } from 'next/navigation';
-import { adminUserUpdateSchema } from '@lavoval/contracts';
-import { requireAdminSession, updateAdminUser } from '@/shared/api/server-client';
+import { adminUserRoleUpdateSchema, adminUserStatusUpdateSchema } from '@lavoval/contracts';
+import {
+  requireAdminSession,
+  updateAdminUserRole,
+  updateAdminUserStatus,
+} from '@/shared/api/server-client';
+import { isRootOwner } from '@/shared/lib/rbac';
 
-export async function updateUserAction(userID: string, formData: FormData) {
+export async function updateUserStatusAction(userID: string, formData: FormData) {
   const session = await requireAdminSession();
 
   const rawReason = formData.get('reason');
-  const payload = adminUserUpdateSchema.parse({
-    role: formData.get('role'),
+  const payload = adminUserStatusUpdateSchema.parse({
     status: formData.get('status'),
     reason: rawReason && String(rawReason).trim() ? String(rawReason).trim() : undefined,
   });
 
-  await updateAdminUser(session.accessToken, userID, payload);
+  await updateAdminUserStatus(session.accessToken, userID, payload);
+  redirect(`/admin/users/${userID}`);
+}
+
+export async function updateUserRoleAction(userID: string, formData: FormData) {
+  const session = await requireAdminSession();
+  if (!isRootOwner(session.user.role)) {
+    throw new Error('Only root_owner can change elevated roles.');
+  }
+
+  const rawReason = formData.get('reason');
+  const payload = adminUserRoleUpdateSchema.parse({
+    role: formData.get('role'),
+    reason: rawReason && String(rawReason).trim() ? String(rawReason).trim() : '',
+  });
+
+  await updateAdminUserRole(session.accessToken, userID, payload);
   redirect(`/admin/users/${userID}`);
 }

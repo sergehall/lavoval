@@ -6,24 +6,32 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-playground/validator/v10"
 
+	"github.com/sergehall/lavoval/apps/api/internal/auth"
 	"github.com/sergehall/lavoval/apps/api/internal/domain"
+	appmiddleware "github.com/sergehall/lavoval/apps/api/internal/middleware"
 	"github.com/sergehall/lavoval/apps/api/internal/repository"
 	"github.com/sergehall/lavoval/apps/api/internal/service"
 )
 
 // ── store stubs ───────────────────────────────────────────────────────────────
 
-type hAdminUserStub struct{}
+type hAdminUserStub struct {
+	users map[string]domain.User
+}
 
 func (hAdminUserStub) Create(_ context.Context, u domain.User) (domain.User, error) { return u, nil }
 func (hAdminUserStub) FindByEmail(_ context.Context, _ string) (domain.User, error) {
 	return domain.User{}, nil
 }
-func (hAdminUserStub) FindByID(_ context.Context, _ string) (domain.User, error) {
+func (s hAdminUserStub) FindByID(_ context.Context, id string) (domain.User, error) {
+	if s.users != nil {
+		return s.users[id], nil
+	}
 	return domain.User{}, nil
 }
 func (hAdminUserStub) MarkEmailVerified(_ context.Context, _ string) (domain.User, error) {
@@ -36,6 +44,14 @@ func (hAdminUserStub) UpdateRoleAndStatus(_ context.Context, _ string, _ domain.
 	return domain.User{}, nil
 }
 func (hAdminUserStub) UpdateRoleStatusModeration(_ context.Context, _, _ string, _ domain.Role, _ domain.AccountStatus, _ *string) (domain.User, error) {
+	return domain.User{}, nil
+}
+func (s hAdminUserStub) BumpSessionVersion(_ context.Context, id string) (domain.User, error) {
+	if s.users != nil {
+		user := s.users[id]
+		user.SessionVersion++
+		return user, nil
+	}
 	return domain.User{}, nil
 }
 func (hAdminUserStub) GetStats(_ context.Context) (domain.AdminUserStats, error) {
@@ -53,8 +69,17 @@ func (hAdminUserStub) EnableTOTP(_ context.Context, _ string, _ string) (domain.
 func (hAdminUserStub) DisableTOTP(_ context.Context, _ string) (domain.User, error) {
 	return domain.User{}, nil
 }
-func (hAdminUserStub) SoftDelete(_ context.Context, _ string) error  { return nil }
-func (hAdminUserStub) List(_ context.Context) ([]domain.User, error) { return nil, nil }
+func (hAdminUserStub) SoftDelete(_ context.Context, _ string) error { return nil }
+func (s hAdminUserStub) List(_ context.Context) ([]domain.User, error) {
+	if s.users == nil {
+		return nil, nil
+	}
+	items := make([]domain.User, 0, len(s.users))
+	for _, user := range s.users {
+		items = append(items, user)
+	}
+	return items, nil
+}
 
 type hAdminProfileStub struct{}
 
@@ -130,8 +155,23 @@ func (hAdminModuleStub) SoftDelete(_ context.Context, _ string) error { return n
 // ── constructor helpers ───────────────────────────────────────────────────────
 
 func newTestAdminHandler() *AdminHandler {
+	now := time.Now().UTC()
 	adminSvc := service.NewAdminService(
-		hAdminUserStub{},
+		hAdminUserStub{users: map[string]domain.User{
+			"actor-1": {
+				ID:              "actor-1",
+				Role:            domain.RoleRootOwner,
+				Status:          domain.AccountStatusActive,
+				EmailVerifiedAt: &now,
+				MFAEnabled:      true,
+			},
+			"u1": {
+				ID:              "u1",
+				Role:            domain.RoleUser,
+				Status:          domain.AccountStatusActive,
+				EmailVerifiedAt: &now,
+			},
+		}},
 		hAdminProfileStub{},
 		hAdminSkillStub{},
 		hAdminEnrollmentStub{},
@@ -157,6 +197,11 @@ func withChiParam(r *http.Request, key, value string) *http.Request {
 	return r.WithContext(context.WithValue(r.Context(), chi.RouteCtxKey, rctx))
 }
 
+func withClaims(r *http.Request, userID string, role domain.Role) *http.Request {
+	claims := &auth.Claims{UserID: userID, Role: role}
+	return r.WithContext(appmiddleware.WithClaims(r.Context(), claims))
+}
+
 // Satisfy repository interfaces so we can pass the stubs (compile check).
 var _ repository.UserStore = hAdminUserStub{}
 var _ repository.ProfileStore = hAdminProfileStub{}
@@ -172,6 +217,7 @@ func TestAdminHandlerUpdateUserRejectsInvalidRole(t *testing.T) {
 	body := bytes.NewBufferString(`{"role":"superuser","status":"active"}`)
 	r := httptest.NewRequest(http.MethodPatch, "/admin/users/u1", body)
 	r = withChiParam(r, "userID", "u1")
+	r = withClaims(r, "actor-1", domain.RoleRootOwner)
 	w := httptest.NewRecorder()
 
 	h.UpdateUser(w, r)
@@ -187,6 +233,7 @@ func TestAdminHandlerUpdateUserRejectsInvalidStatus(t *testing.T) {
 	body := bytes.NewBufferString(`{"role":"user","status":"banned"}`)
 	r := httptest.NewRequest(http.MethodPatch, "/admin/users/u1", body)
 	r = withChiParam(r, "userID", "u1")
+	r = withClaims(r, "actor-1", domain.RoleRootOwner)
 	w := httptest.NewRecorder()
 
 	h.UpdateUser(w, r)
@@ -202,6 +249,7 @@ func TestAdminHandlerUpdateUserRejectsMalformedJSON(t *testing.T) {
 	body := bytes.NewBufferString(`not-json`)
 	r := httptest.NewRequest(http.MethodPatch, "/admin/users/u1", body)
 	r = withChiParam(r, "userID", "u1")
+	r = withClaims(r, "actor-1", domain.RoleRootOwner)
 	w := httptest.NewRecorder()
 
 	h.UpdateUser(w, r)
@@ -214,9 +262,10 @@ func TestAdminHandlerUpdateUserRejectsMalformedJSON(t *testing.T) {
 func TestAdminHandlerUpdateUserAcceptsValidPayload(t *testing.T) {
 	h := newTestAdminHandler()
 
-	body := bytes.NewBufferString(`{"role":"admin","status":"active"}`)
+	body := bytes.NewBufferString(`{"role":"admin","status":"active","reason":"Promoting trusted operator"}`)
 	r := httptest.NewRequest(http.MethodPatch, "/admin/users/u1", body)
 	r = withChiParam(r, "userID", "u1")
+	r = withClaims(r, "actor-1", domain.RoleRootOwner)
 	w := httptest.NewRecorder()
 
 	h.UpdateUser(w, r)

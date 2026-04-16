@@ -82,6 +82,7 @@ func New() (*Application, error) {
 	verificationMailer := mailer.NewPostgresVerificationMailer(cfg, mailJobRepo, mailEventRepo, mailSuppressionRepo, mailMetrics)
 	mailDispatcher := mailer.NewMailDispatcher(cfg, mailJobRepo, mailEventRepo, mailMetrics)
 	mailRetentionWorker := mailer.NewMailRetentionWorker(cfg, mailJobRepo, mailEventRepo, mailCleanupRunRepo, mailMetrics)
+	sessionRevoker := service.NewUserSessionRevoker(userRepo)
 
 	authService := service.NewAuthService(
 		userRepo,
@@ -94,7 +95,7 @@ func New() (*Application, error) {
 		oauthIdentityRepo,
 		tokenManager,
 		verificationMailer,
-		service.NoopSessionRevoker{},
+		sessionRevoker,
 		cfg,
 	)
 	profileService := service.NewProfileService(profileRepo)
@@ -125,9 +126,10 @@ func New() (*Application, error) {
 		},
 		service.WithAuditLog(auditLogRepo),
 		service.WithSkillAccess(skillAccessRepo),
+		service.WithSessionRevoker(sessionRevoker),
 	)
 
-	router := handler.NewRouter(cfg, tokenManager, authService, profileService, accountSecurityService, skillService, runtimeService, adminService, mailMetrics)
+	router := handler.NewRouter(cfg, tokenManager, userRepo, authService, profileService, accountSecurityService, skillService, runtimeService, adminService, mailMetrics)
 
 	server := &http.Server{
 		Addr:              cfg.HTTPAddr,

@@ -2,9 +2,15 @@ import Link from 'next/link';
 import { Badge } from '@/shared/ui/badge';
 import { Button } from '@/shared/ui/button';
 import { Card } from '@/shared/ui/card';
-import { fetchAdminUser, fetchUserAuditLog, withValidSession } from '@/shared/api/server-client';
+import {
+  fetchAdminUser,
+  fetchUserAuditLog,
+  requireAdminSession,
+  withValidSession,
+} from '@/shared/api/server-client';
 import { formatDate } from '@/shared/lib/utils';
-import { updateUserAction } from '@/features/admin/users/actions';
+import { updateUserRoleAction, updateUserStatusAction } from '@/features/admin/users/actions';
+import { isRootOwner } from '@/shared/lib/rbac';
 
 function getStatusTone(status: string) {
   switch (status) {
@@ -21,15 +27,18 @@ function getStatusTone(status: string) {
 
 export default async function AdminUserPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const [{ data: detail }, auditLog] = await withValidSession((session) =>
+  const session = await requireAdminSession();
+  const canManageRoles = isRootOwner(session.user.role);
+  const [{ data: detail }, auditLog] = await withValidSession((activeSession) =>
     Promise.all([
-      fetchAdminUser(session.accessToken, id),
-      fetchUserAuditLog(session.accessToken, id).catch(() => []),
+      fetchAdminUser(activeSession.accessToken, id),
+      fetchUserAuditLog(activeSession.accessToken, id).catch(() => []),
     ]),
   );
   const { user, profile } = detail;
 
-  const boundUpdateUser = updateUserAction.bind(null, id);
+  const boundUpdateUserStatus = updateUserStatusAction.bind(null, id);
+  const boundUpdateUserRole = updateUserRoleAction.bind(null, id);
 
   return (
     <div className="stack stack--lg">
@@ -50,7 +59,11 @@ export default async function AdminUserPage({ params }: { params: Promise<{ id: 
           <dd>{user.email}</dd>
           <dt>Role</dt>
           <dd>
-            <Badge tone={user.role === 'admin' ? 'warning' : 'neutral'}>{user.role}</Badge>
+            <Badge
+              tone={user.role === 'root_owner' || user.role === 'admin' ? 'warning' : 'neutral'}
+            >
+              {user.role}
+            </Badge>
           </dd>
           <dt>Status</dt>
           <dd>
@@ -58,6 +71,8 @@ export default async function AdminUserPage({ params }: { params: Promise<{ id: 
           </dd>
           <dt>Email verified</dt>
           <dd>{user.emailVerifiedAt ? formatDate(user.emailVerifiedAt) : '—'}</dd>
+          <dt>MFA</dt>
+          <dd>{user.mfaEnabled ? 'Enabled' : 'Disabled'}</dd>
           <dt>Joined</dt>
           <dd>{formatDate(user.createdAt)}</dd>
           <dt>Suspended</dt>
@@ -142,15 +157,8 @@ export default async function AdminUserPage({ params }: { params: Promise<{ id: 
 
       {/* ── Governance ──────────────────────────────── */}
       <Card>
-        <h2 className="card__title">Governance</h2>
-        <form action={boundUpdateUser} className="stack stack--md">
-          <label>
-            <span>Role</span>
-            <select name="role" defaultValue={user.role}>
-              <option value="user">user</option>
-              <option value="admin">admin</option>
-            </select>
-          </label>
+        <h2 className="card__title">Moderation</h2>
+        <form action={boundUpdateUserStatus} className="stack stack--md">
           <label>
             <span>Status</span>
             <select name="status" defaultValue={user.status}>
@@ -171,9 +179,45 @@ export default async function AdminUserPage({ params }: { params: Promise<{ id: 
             />
           </label>
           <div>
-            <Button type="submit">Save changes</Button>
+            <Button type="submit">Save status</Button>
           </div>
         </form>
+      </Card>
+
+      <Card>
+        <h2 className="card__title">Privileged access</h2>
+        {canManageRoles ? (
+          <form action={boundUpdateUserRole} className="stack stack--md">
+            <p className="muted" style={{ margin: 0 }}>
+              Only `root_owner` can change elevated roles. `root_owner` requires an active, verified
+              account with MFA enabled.
+            </p>
+            <label>
+              <span>Role</span>
+              <select name="role" defaultValue={user.role}>
+                <option value="user">user</option>
+                <option value="admin">admin</option>
+                <option value="root_owner">root_owner</option>
+              </select>
+            </label>
+            <label>
+              <span>Reason (required)</span>
+              <textarea
+                name="reason"
+                rows={3}
+                maxLength={500}
+                placeholder="Explain why this user needs elevated access or why it should be removed…"
+              />
+            </label>
+            <div>
+              <Button type="submit">Save role</Button>
+            </div>
+          </form>
+        ) : (
+          <p className="muted" style={{ margin: 0 }}>
+            Role assignment and removal are restricted to `root_owner`.
+          </p>
+        )}
       </Card>
 
       {/* ── Audit log ───────────────────────────────── */}

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import type { SessionUser } from '@lavoval/contracts';
 import { logoutAction } from '@/features/auth/actions';
+import { canAccessAdmin, roleBadgeLabel } from '@/shared/lib/rbac';
 
 function getDisplayName(user: SessionUser) {
   const fullName = [user.firstName, user.lastName].filter(Boolean).join(' ').trim();
@@ -24,7 +25,7 @@ export function AuthenticatedEntryBar({ user }: { user: SessionUser }) {
 
   const displayName = useMemo(() => getDisplayName(user), [user]);
   const initial = useMemo(() => getInitial(user), [user]);
-  const roleLabel = user.role === 'admin' ? 'ADMIN' : 'USER';
+  const roleLabel = roleBadgeLabel(user.role);
 
   useEffect(() => {
     if (!isOpen) {
@@ -87,7 +88,7 @@ export function AuthenticatedEntryBar({ user }: { user: SessionUser }) {
           >
             Cabinet
           </Link>
-          {user.role === 'admin' ? (
+          {canAccessAdmin(user.role) ? (
             <Link
               href="/admin"
               className="account-menu__item"

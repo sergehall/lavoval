@@ -5,6 +5,8 @@ import { redirect } from 'next/navigation';
 import { ApiClientError, createApiClient } from '@lavoval/sdk';
 import type {
   AdminAuditLog,
+  AdminUserRoleUpdateRequest,
+  AdminUserStatusUpdateRequest,
   AdminSkillGovernanceRequest,
   AdminSkillPricingRequest,
   AdminStats,
@@ -39,6 +41,7 @@ import type {
 import type { RuntimeRunRequest, SkillRun } from '@lavoval/contracts/runtime';
 import { env } from '@/shared/config/env';
 import { signInHref } from '@/shared/lib/auth-navigation';
+import { canAccessAdmin } from '@/shared/lib/rbac';
 import type {
   ApiEnvelope,
   AdminMailEventFilter,
@@ -451,6 +454,34 @@ export async function updateAdminUser(token: string, id: string, payload: AdminU
   }
 }
 
+export async function updateAdminUserStatus(
+  token: string,
+  id: string,
+  payload: AdminUserStatusUpdateRequest,
+) {
+  try {
+    return (await apiClient.admin.updateUserStatus(id, payload, {
+      token,
+    })) as ApiEnvelope<UsersListItem>;
+  } catch (error) {
+    mapApiError(error);
+  }
+}
+
+export async function updateAdminUserRole(
+  token: string,
+  id: string,
+  payload: AdminUserRoleUpdateRequest,
+) {
+  try {
+    return (await apiClient.admin.updateUserRole(id, payload, {
+      token,
+    })) as ApiEnvelope<UsersListItem>;
+  } catch (error) {
+    mapApiError(error);
+  }
+}
+
 export async function fetchAdminEnrollments(token: string) {
   try {
     return (await apiClient.admin.enrollments({ token })) as ApiEnvelope<EnrollmentDetail[]>;
@@ -761,7 +792,7 @@ export async function requireSession() {
 
 export async function requireAdminSession() {
   const session = await requireSession();
-  if (session.user.role !== 'admin') {
+  if (!canAccessAdmin(session.user.role)) {
     redirect('/account');
   }
   return session;
