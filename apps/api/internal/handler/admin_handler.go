@@ -2,6 +2,7 @@ package handler
 
 import (
 	"net/http"
+	"strconv"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-playground/validator/v10"
@@ -220,4 +221,64 @@ func (h *AdminHandler) DeleteSkill(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	httpx.JSON(w, http.StatusOK, map[string]bool{"success": true})
+}
+
+func (h *AdminHandler) MailOperations(w http.ResponseWriter, r *http.Request) {
+	snapshot, err := h.adminService.MailOperations(r.Context())
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "mail_ops_load_failed", "Could not load mail operations snapshot")
+		return
+	}
+	httpx.JSON(w, http.StatusOK, snapshot)
+}
+
+func (h *AdminHandler) ListDeadLetters(w http.ResponseWriter, r *http.Request) {
+	items, err := h.adminService.ListDeadLetters(r.Context(), parseLimit(r, 100))
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "dead_letters_load_failed", "Could not load dead-letter jobs")
+		return
+	}
+	httpx.JSON(w, http.StatusOK, items)
+}
+
+func (h *AdminHandler) ListMailEvents(w http.ResponseWriter, r *http.Request) {
+	items, err := h.adminService.ListMailEvents(r.Context(), parseLimit(r, 100))
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "mail_events_load_failed", "Could not load mail events")
+		return
+	}
+	httpx.JSON(w, http.StatusOK, items)
+}
+
+func (h *AdminHandler) ListMailEventsByJob(w http.ResponseWriter, r *http.Request) {
+	items, err := h.adminService.ListMailEventsByJob(r.Context(), chi.URLParam(r, "jobID"), parseLimit(r, 100))
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "mail_job_events_load_failed", "Could not load mail job events")
+		return
+	}
+	httpx.JSON(w, http.StatusOK, items)
+}
+
+func (h *AdminHandler) RequeueDeadLetter(w http.ResponseWriter, r *http.Request) {
+	job, err := h.adminService.RequeueDeadLetter(r.Context(), chi.URLParam(r, "jobID"))
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "dead_letter_requeue_failed", "Could not requeue dead-letter job")
+		return
+	}
+	httpx.JSON(w, http.StatusOK, job)
+}
+
+func parseLimit(r *http.Request, fallback int) int {
+	raw := r.URL.Query().Get("limit")
+	if raw == "" {
+		return fallback
+	}
+	limit, err := strconv.Atoi(raw)
+	if err != nil || limit <= 0 {
+		return fallback
+	}
+	if limit > 500 {
+		return 500
+	}
+	return limit
 }

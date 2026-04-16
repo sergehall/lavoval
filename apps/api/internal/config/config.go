@@ -8,45 +8,56 @@ import (
 )
 
 type Config struct {
-	AppEnv                string
-	AppName               string
-	AppURL                string
-	HTTPAddr              string
-	DatabaseURL           string
-	JWTIssuer             string
-	JWTAudience           string
-	JWTSecret             string
-	JWTAccessTTL          time.Duration
-	JWTRefreshTTL         time.Duration
-	CookieSecure          bool
-	AdminSeedEmail        string
-	AdminSeedSecret       string
-	EmailVerificationTTL  time.Duration
-	PasswordResetTTL      time.Duration
-	MFATOTPPeriod         time.Duration
-	MFATOTPIssuer         string
-	MFASecretKey          string
-	MFASignInChallengeTTL time.Duration
-	OAuthStateTTL         time.Duration
-	GoogleOAuthClientID   string
-	GoogleOAuthSecret     string
-	GitHubOAuthClientID   string
-	GitHubOAuthSecret     string
-	SMTPHost              string
-	SMTPPort              int
-	SMTPUsername          string
-	SMTPPassword          string
-	SMTPFromEmail         string
-	SMTPFromName          string
-	SMTPRequireTLS        bool
-	SMTPAllowInsecureAuth bool
-	SMTPUseSSL            bool
-	SMTPDialTimeout       time.Duration
-	MailWorkerCount       int
-	MailMaxAttempts       int
-	MailRetryBaseDelay    time.Duration
-	MailPollInterval      time.Duration
-	MailLeaseTTL          time.Duration
+	AppEnv                 string
+	AppName                string
+	AppURL                 string
+	HTTPAddr               string
+	DatabaseURL            string
+	JWTIssuer              string
+	JWTAudience            string
+	JWTSecret              string
+	JWTAccessTTL           time.Duration
+	JWTRefreshTTL          time.Duration
+	CookieSecure           bool
+	AdminSeedEmail         string
+	AdminSeedSecret        string
+	EmailVerificationTTL   time.Duration
+	PasswordResetTTL       time.Duration
+	MFATOTPPeriod          time.Duration
+	MFATOTPIssuer          string
+	MFASecretKey           string
+	MFASignInChallengeTTL  time.Duration
+	OAuthStateTTL          time.Duration
+	GoogleOAuthClientID    string
+	GoogleOAuthSecret      string
+	GitHubOAuthClientID    string
+	GitHubOAuthSecret      string
+	SMTPHost               string
+	SMTPPort               int
+	SMTPUsername           string
+	SMTPPassword           string
+	SMTPFromEmail          string
+	SMTPFromName           string
+	SMTPRequireTLS         bool
+	SMTPAllowInsecureAuth  bool
+	SMTPUseSSL             bool
+	SMTPDialTimeout        time.Duration
+	MailProvider           string
+	MailSendTimeout        time.Duration
+	MailWorkerCount        int
+	MailMaxAttempts        int
+	MailRetryBaseDelay     time.Duration
+	MailPollInterval       time.Duration
+	MailLeaseTTL           time.Duration
+	MailRateLimitPerSecond int
+	MailRateLimitBurst     int
+	GmailAPIBaseURL        string
+	GmailAPIUser           string
+	GmailAPIAccessToken    string
+	GmailAPIRefreshToken   string
+	GmailAPIClientID       string
+	GmailAPIClientSecret   string
+	GmailAPITokenURL       string
 }
 
 func Load() (Config, error) {
@@ -115,6 +126,11 @@ func Load() (Config, error) {
 		return Config{}, fmt.Errorf("parse SMTP_DIAL_TIMEOUT: %w", err)
 	}
 
+	mailSendTimeout, err := time.ParseDuration(getEnv("MAIL_SEND_TIMEOUT", "15s"))
+	if err != nil {
+		return Config{}, fmt.Errorf("parse MAIL_SEND_TIMEOUT: %w", err)
+	}
+
 	mailWorkerCount, err := strconv.Atoi(getEnv("MAIL_WORKER_COUNT", "4"))
 	if err != nil {
 		return Config{}, fmt.Errorf("parse MAIL_WORKER_COUNT: %w", err)
@@ -140,46 +156,67 @@ func Load() (Config, error) {
 		return Config{}, fmt.Errorf("parse MAIL_LEASE_TTL: %w", err)
 	}
 
+	mailRateLimitPerSecond, err := strconv.Atoi(getEnv("MAIL_RATE_LIMIT_PER_SECOND", "0"))
+	if err != nil {
+		return Config{}, fmt.Errorf("parse MAIL_RATE_LIMIT_PER_SECOND: %w", err)
+	}
+
+	mailRateLimitBurst, err := strconv.Atoi(getEnv("MAIL_RATE_LIMIT_BURST", "1"))
+	if err != nil {
+		return Config{}, fmt.Errorf("parse MAIL_RATE_LIMIT_BURST: %w", err)
+	}
+
 	cfg := Config{
-		AppEnv:                getEnv("APP_ENV", "development"),
-		AppName:               getEnv("APP_NAME", "Lavoval"),
-		AppURL:                getEnv("APP_URL", "http://localhost:3000"),
-		HTTPAddr:              getEnv("BACKEND_HTTP_ADDR", ":8080"),
-		DatabaseURL:           getEnv("DATABASE_URL", "postgres://codex:codex@localhost:5432/lavoval?sslmode=disable"),
-		JWTIssuer:             getEnv("JWT_ISSUER", "lavoval"),
-		JWTAudience:           getEnv("JWT_AUDIENCE", "lavoval-web"),
-		JWTSecret:             getEnv("JWT_SECRET", "change-me"),
-		JWTAccessTTL:          accessTTL,
-		JWTRefreshTTL:         refreshTTL,
-		CookieSecure:          cookieSecure,
-		AdminSeedEmail:        getEnv("ADMIN_SEED_EMAIL", "admin@lavoval.local"),
-		AdminSeedSecret:       getEnv("ADMIN_SEED_PASSWORD", "ChangeMe123!"),
-		EmailVerificationTTL:  emailVerificationTTL,
-		PasswordResetTTL:      passwordResetTTL,
-		MFATOTPPeriod:         mfaTOTPPeriod,
-		MFATOTPIssuer:         getEnv("MFA_TOTP_ISSUER", getEnv("APP_NAME", "Lavoval")),
-		MFASecretKey:          getEnv("MFA_SECRET_KEY", ""),
-		MFASignInChallengeTTL: mfaSignInChallengeTTL,
-		OAuthStateTTL:         oauthStateTTL,
-		GoogleOAuthClientID:   getEnv("GOOGLE_OAUTH_CLIENT_ID", ""),
-		GoogleOAuthSecret:     getEnv("GOOGLE_OAUTH_CLIENT_SECRET", ""),
-		GitHubOAuthClientID:   getEnv("GITHUB_OAUTH_CLIENT_ID", ""),
-		GitHubOAuthSecret:     getEnv("GITHUB_OAUTH_CLIENT_SECRET", ""),
-		SMTPHost:              getEnv("SMTP_HOST", ""),
-		SMTPPort:              smtpPort,
-		SMTPUsername:          getEnv("SMTP_USERNAME", ""),
-		SMTPPassword:          getEnv("SMTP_PASSWORD", ""),
-		SMTPFromEmail:         getEnv("SMTP_FROM_EMAIL", ""),
-		SMTPFromName:          getEnv("SMTP_FROM_NAME", "Lavoval"),
-		SMTPRequireTLS:        smtpRequireTLS,
-		SMTPAllowInsecureAuth: smtpAllowInsecureAuth,
-		SMTPUseSSL:            smtpUseSSL,
-		SMTPDialTimeout:       smtpDialTimeout,
-		MailWorkerCount:       mailWorkerCount,
-		MailMaxAttempts:       mailMaxAttempts,
-		MailRetryBaseDelay:    mailRetryBaseDelay,
-		MailPollInterval:      mailPollInterval,
-		MailLeaseTTL:          mailLeaseTTL,
+		AppEnv:                 getEnv("APP_ENV", "development"),
+		AppName:                getEnv("APP_NAME", "Lavoval"),
+		AppURL:                 getEnv("APP_URL", "http://localhost:3000"),
+		HTTPAddr:               getEnv("BACKEND_HTTP_ADDR", ":8080"),
+		DatabaseURL:            getEnv("DATABASE_URL", "postgres://codex:codex@localhost:5432/lavoval?sslmode=disable"),
+		JWTIssuer:              getEnv("JWT_ISSUER", "lavoval"),
+		JWTAudience:            getEnv("JWT_AUDIENCE", "lavoval-web"),
+		JWTSecret:              getEnv("JWT_SECRET", "change-me"),
+		JWTAccessTTL:           accessTTL,
+		JWTRefreshTTL:          refreshTTL,
+		CookieSecure:           cookieSecure,
+		AdminSeedEmail:         getEnv("ADMIN_SEED_EMAIL", "admin@lavoval.local"),
+		AdminSeedSecret:        getEnv("ADMIN_SEED_PASSWORD", "ChangeMe123!"),
+		EmailVerificationTTL:   emailVerificationTTL,
+		PasswordResetTTL:       passwordResetTTL,
+		MFATOTPPeriod:          mfaTOTPPeriod,
+		MFATOTPIssuer:          getEnv("MFA_TOTP_ISSUER", getEnv("APP_NAME", "Lavoval")),
+		MFASecretKey:           getEnv("MFA_SECRET_KEY", ""),
+		MFASignInChallengeTTL:  mfaSignInChallengeTTL,
+		OAuthStateTTL:          oauthStateTTL,
+		GoogleOAuthClientID:    getEnv("GOOGLE_OAUTH_CLIENT_ID", ""),
+		GoogleOAuthSecret:      getEnv("GOOGLE_OAUTH_CLIENT_SECRET", ""),
+		GitHubOAuthClientID:    getEnv("GITHUB_OAUTH_CLIENT_ID", ""),
+		GitHubOAuthSecret:      getEnv("GITHUB_OAUTH_CLIENT_SECRET", ""),
+		SMTPHost:               getEnv("SMTP_HOST", ""),
+		SMTPPort:               smtpPort,
+		SMTPUsername:           getEnv("SMTP_USERNAME", ""),
+		SMTPPassword:           getEnv("SMTP_PASSWORD", ""),
+		SMTPFromEmail:          getEnv("SMTP_FROM_EMAIL", ""),
+		SMTPFromName:           getEnv("SMTP_FROM_NAME", "Lavoval"),
+		SMTPRequireTLS:         smtpRequireTLS,
+		SMTPAllowInsecureAuth:  smtpAllowInsecureAuth,
+		SMTPUseSSL:             smtpUseSSL,
+		SMTPDialTimeout:        smtpDialTimeout,
+		MailProvider:           getEnv("MAIL_PROVIDER", "smtp"),
+		MailSendTimeout:        mailSendTimeout,
+		MailWorkerCount:        mailWorkerCount,
+		MailMaxAttempts:        mailMaxAttempts,
+		MailRetryBaseDelay:     mailRetryBaseDelay,
+		MailPollInterval:       mailPollInterval,
+		MailLeaseTTL:           mailLeaseTTL,
+		MailRateLimitPerSecond: mailRateLimitPerSecond,
+		MailRateLimitBurst:     mailRateLimitBurst,
+		GmailAPIBaseURL:        getEnv("GMAIL_API_BASE_URL", "https://gmail.googleapis.com/gmail/v1"),
+		GmailAPIUser:           getEnv("GMAIL_API_USER", "me"),
+		GmailAPIAccessToken:    getEnv("GMAIL_API_ACCESS_TOKEN", ""),
+		GmailAPIRefreshToken:   getEnv("GMAIL_API_REFRESH_TOKEN", ""),
+		GmailAPIClientID:       getEnv("GMAIL_API_CLIENT_ID", ""),
+		GmailAPIClientSecret:   getEnv("GMAIL_API_CLIENT_SECRET", ""),
+		GmailAPITokenURL:       getEnv("GMAIL_API_TOKEN_URL", "https://oauth2.googleapis.com/token"),
 	}
 
 	return cfg, nil

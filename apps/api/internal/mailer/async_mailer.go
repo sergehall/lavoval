@@ -2,6 +2,8 @@ package mailer
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -28,30 +30,41 @@ const (
 
 type PrometheusHandler struct {
 	mu         sync.RWMutex
-	counters   map[string]map[string]int64
+	counters   map[string]map[counterKey]int64
 	jobCounter repository.MailJobStore
+}
+
+type counterKey struct {
+	Provider    string
+	MessageType string
+	ErrorCode   string
 }
 
 func NewPrometheusHandler(jobCounter repository.MailJobStore) *PrometheusHandler {
 	return &PrometheusHandler{
-		counters: map[string]map[string]int64{
-			"sent":        {},
-			"failed":      {},
-			"retry":       {},
-			"dead_letter": {},
+		counters: map[string]map[counterKey]int64{
+			"sent":         {},
+			"failed":       {},
+			"retry":        {},
+			"dead_letter":  {},
+			"deduplicated": {},
 		},
 		jobCounter: jobCounter,
 	}
 }
 
-func (h *PrometheusHandler) Inc(result string, messageType string) {
+func (h *PrometheusHandler) Inc(result string, provider string, messageType string, errorCode string) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
 	if _, ok := h.counters[result]; !ok {
-		h.counters[result] = map[string]int64{}
+		h.counters[result] = map[counterKey]int64{}
 	}
-	h.counters[result][messageType]++
+	h.counters[result][counterKey{
+		Provider:    provider,
+		MessageType: messageType,
+		ErrorCode:   errorCode,
+	}]++
 }
 
 func (h *PrometheusHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -62,13 +75,29 @@ func (h *PrometheusHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		h.mu.RLock()
 		defer h.mu.RUnlock()
 
-		keys := make([]string, 0, len(h.counters[result]))
+		keys := make([]counterKey, 0, len(h.counters[result]))
 		for k := range h.counters[result] {
 			keys = append(keys, k)
 		}
-		sort.Strings(keys)
-		for _, messageType := range keys {
-			fmt.Fprintf(w, "%s{message_type=%q} %d\n", metric, messageType, h.counters[result][messageType])
+		sort.Slice(keys, func(i, j int) bool {
+			if keys[i].Provider != keys[j].Provider {
+				return keys[i].Provider < keys[j].Provider
+			}
+			if keys[i].MessageType != keys[j].MessageType {
+				return keys[i].MessageType < keys[j].MessageType
+			}
+			return keys[i].ErrorCode < keys[j].ErrorCode
+		})
+		for _, key := range keys {
+			fmt.Fprintf(
+				w,
+				"%s{provider=%q,message_type=%q,error_code=%q} %d\n",
+				metric,
+				key.Provider,
+				key.MessageType,
+				key.ErrorCode,
+				h.counters[result][key],
+			)
 		}
 	}
 
@@ -76,12 +105,13 @@ func (h *PrometheusHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	writeCounterFamily("lavoval_mail_failed_total", "failed")
 	writeCounterFamily("lavoval_mail_retry_total", "retry")
 	writeCounterFamily("lavoval_mail_dead_letter_total", "dead_letter")
+	writeCounterFamily("lavoval_mail_deduplicated_total", "deduplicated")
 
 	if h.jobCounter == nil {
 		return
 	}
 
-	counts, err := h.jobCounter.CountByStatus(r.Context())
+	snapshot, err := h.jobCounter.OperationalSnapshot(r.Context())
 	if err != nil {
 		fmt.Fprintf(w, "# lavoval_mail_jobs_count unavailable: %v\n", err)
 		return
@@ -96,17 +126,32 @@ func (h *PrometheusHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		domain.MailJobStatusDeadLetter,
 	}
 	for _, status := range statuses {
-		fmt.Fprintf(w, "lavoval_mail_jobs{status=%q} %d\n", string(status), counts[status])
+		fmt.Fprintf(w, "lavoval_mail_jobs{status=%q} %d\n", string(status), snapshot.CountsByStatus[status])
+	}
+
+	fmt.Fprintln(w, "# TYPE lavoval_mail_oldest_ready_age_seconds gauge")
+	fmt.Fprintf(w, "lavoval_mail_oldest_ready_age_seconds %f\n", snapshot.OldestReadyAgeSeconds)
+
+	fmt.Fprintln(w, "# TYPE lavoval_mail_dead_letters gauge")
+	keys := make([]string, 0, len(snapshot.DeadLettersByErrorCode))
+	for errorCode := range snapshot.DeadLettersByErrorCode {
+		keys = append(keys, errorCode)
+	}
+	sort.Strings(keys)
+	for _, errorCode := range keys {
+		fmt.Fprintf(w, "lavoval_mail_dead_letters{error_code=%q} %d\n", errorCode, snapshot.DeadLettersByErrorCode[errorCode])
 	}
 }
 
 type PostgresVerificationMailer struct {
 	cfg         config.Config
 	jobs        repository.MailJobStore
+	events      repository.MailEventStore
+	metrics     *PrometheusHandler
 	maxAttempts int
 }
 
-func NewPostgresVerificationMailer(cfg config.Config, jobs repository.MailJobStore) *PostgresVerificationMailer {
+func NewPostgresVerificationMailer(cfg config.Config, jobs repository.MailJobStore, events repository.MailEventStore, metrics *PrometheusHandler) *PostgresVerificationMailer {
 	maxAttempts := cfg.MailMaxAttempts
 	if maxAttempts <= 0 {
 		maxAttempts = 4
@@ -115,6 +160,8 @@ func NewPostgresVerificationMailer(cfg config.Config, jobs repository.MailJobSto
 	return &PostgresVerificationMailer{
 		cfg:         cfg,
 		jobs:        jobs,
+		events:      events,
+		metrics:     metrics,
 		maxAttempts: maxAttempts,
 	}
 }
@@ -137,10 +184,13 @@ func (m *PostgresVerificationMailer) enqueue(ctx context.Context, messageType st
 		return fmt.Errorf("marshal mail job payload: %w", err)
 	}
 
-	_, err = m.jobs.Enqueue(ctx, domain.MailJob{
+	idempotencyKey := mailIdempotencyKey(messageType, recipient, encoded)
+
+	job, deduplicated, err := m.jobs.Enqueue(ctx, domain.MailJob{
 		ID:             uuid.NewString(),
 		MessageType:    messageType,
 		RecipientEmail: recipient,
+		IdempotencyKey: &idempotencyKey,
 		Payload:        encoded,
 		Status:         domain.MailJobStatusQueued,
 		Attempts:       0,
@@ -150,6 +200,19 @@ func (m *PostgresVerificationMailer) enqueue(ctx context.Context, messageType st
 	if err != nil {
 		return fmt.Errorf("enqueue mail job: %w", err)
 	}
+	if deduplicated {
+		if m.metrics != nil {
+			m.metrics.Inc("deduplicated", "queue", messageType, "")
+		}
+		m.recordEvent(ctx, queuedJobEvent(job, "deduplicated", "queue", "", nil, map[string]any{
+			"idempotencyKey": idempotencyKey,
+		}))
+		log.Printf("mailer: status=deduplicated message_type=%s recipient_domain=%s idempotency_key=%s", messageType, recipientDomain(recipient), idempotencyKey)
+		return nil
+	}
+	m.recordEvent(ctx, queuedJobEvent(job, "queued", "queue", "", nil, map[string]any{
+		"idempotencyKey": idempotencyKey,
+	}))
 
 	return nil
 }
@@ -157,7 +220,8 @@ func (m *PostgresVerificationMailer) enqueue(ctx context.Context, messageType st
 type MailDispatcher struct {
 	cfg          config.Config
 	jobs         repository.MailJobStore
-	transport    *SMTPVerificationMailer
+	events       repository.MailEventStore
+	provider     Provider
 	metrics      *PrometheusHandler
 	rootCtx      context.Context
 	cancel       context.CancelFunc
@@ -165,9 +229,10 @@ type MailDispatcher struct {
 	workerCount  int
 	pollInterval time.Duration
 	leaseTTL     time.Duration
+	rateLimiter  *sendRateLimiter
 }
 
-func NewMailDispatcher(cfg config.Config, jobs repository.MailJobStore, metrics *PrometheusHandler) *MailDispatcher {
+func NewMailDispatcher(cfg config.Config, jobs repository.MailJobStore, events repository.MailEventStore, metrics *PrometheusHandler) *MailDispatcher {
 	workerCount := cfg.MailWorkerCount
 	if workerCount <= 0 {
 		workerCount = 4
@@ -187,13 +252,15 @@ func NewMailDispatcher(cfg config.Config, jobs repository.MailJobStore, metrics 
 	dispatcher := &MailDispatcher{
 		cfg:          cfg,
 		jobs:         jobs,
-		transport:    NewSMTPVerificationMailer(cfg),
+		events:       events,
+		provider:     newConfiguredProvider(cfg),
 		metrics:      metrics,
 		rootCtx:      rootCtx,
 		cancel:       cancel,
 		workerCount:  workerCount,
 		pollInterval: pollInterval,
 		leaseTTL:     leaseTTL,
+		rateLimiter:  newSendRateLimiter(rootCtx, cfg.MailRateLimitPerSecond, cfg.MailRateLimitBurst),
 	}
 
 	for workerID := 1; workerID <= workerCount; workerID++ {
@@ -252,71 +319,119 @@ func (d *MailDispatcher) workerLoop(workerID int) {
 
 func (d *MailDispatcher) processJob(workerID int, job domain.MailJob) {
 	start := time.Now()
-	err := d.dispatch(job)
+	sendCtx, cancel := context.WithTimeout(context.Background(), jobSendTimeout(d.cfg))
+	defer cancel()
+
+	result, err := d.dispatch(sendCtx, job)
 	durationMs := time.Since(start).Milliseconds()
 	recipientDomain := recipientDomain(job.RecipientEmail)
+	provider := "unknown"
+	if result.Provider != "" {
+		provider = result.Provider
+	}
+	providerMessageID := result.ProviderMessageID
 
 	if err == nil {
-		if err := d.jobs.MarkSent(d.rootCtx, job.ID, "smtp"); err != nil {
+		stateCtx, stateCancel := newMailJobStateContext()
+		defer stateCancel()
+
+		if err := d.jobs.MarkSent(stateCtx, job.ID, provider, providerMessageID); err != nil {
 			log.Printf("mailer: worker_id=%d status=mark_sent_failed job_id=%s err=%v", workerID, job.ID, err)
 			return
 		}
 		if d.metrics != nil {
-			d.metrics.Inc("sent", job.MessageType)
+			d.metrics.Inc("sent", provider, job.MessageType, "")
 		}
-		log.Printf("mailer: status=sent provider=smtp message_type=%s recipient_domain=%s attempt=%d duration_ms=%d worker_id=%d", job.MessageType, recipientDomain, job.Attempts, durationMs, workerID)
+		d.recordEvent(queuedJobEvent(job, "sent", provider, "", &job.Attempts, map[string]any{
+			"durationMs":        durationMs,
+			"providerMessageId": providerMessageID,
+		}))
+		log.Printf("mailer: status=sent provider=%s provider_message_id=%s message_type=%s recipient_domain=%s attempt=%d duration_ms=%d worker_id=%d job_id=%s idempotency_key=%s", provider, providerMessageID, job.MessageType, recipientDomain, job.Attempts, durationMs, workerID, job.ID, derefString(job.IdempotencyKey))
 		return
 	}
 
 	retryable, errorCode := classifyDeliveryError(err)
 	if d.metrics != nil {
-		d.metrics.Inc("failed", job.MessageType)
+		d.metrics.Inc("failed", provider, job.MessageType, errorCode)
 	}
-	log.Printf("mailer: status=failed provider=smtp message_type=%s recipient_domain=%s attempt=%d duration_ms=%d worker_id=%d retryable=%t error_code=%s err=%v", job.MessageType, recipientDomain, job.Attempts, durationMs, workerID, retryable, errorCode, err)
+	d.recordEvent(queuedJobEvent(job, "failed", provider, errorCode, &job.Attempts, map[string]any{
+		"durationMs": durationMs,
+		"error":      err.Error(),
+		"retryable":  retryable,
+	}))
+	log.Printf("mailer: status=failed provider=%s message_type=%s recipient_domain=%s attempt=%d duration_ms=%d worker_id=%d retryable=%t error_code=%s job_id=%s idempotency_key=%s err=%v", provider, job.MessageType, recipientDomain, job.Attempts, durationMs, workerID, retryable, errorCode, job.ID, derefString(job.IdempotencyKey), err)
 
 	if retryable && job.Attempts < job.MaxAttempts {
 		nextAttemptAt := time.Now().Add(retryBackoff(d.cfg.MailRetryBaseDelay, job.Attempts))
-		if err := d.jobs.MarkRetry(d.rootCtx, job.ID, err.Error(), errorCode, nextAttemptAt); err != nil {
+		stateCtx, stateCancel := newMailJobStateContext()
+		defer stateCancel()
+
+		if err := d.jobs.MarkRetry(stateCtx, job.ID, err.Error(), errorCode, nextAttemptAt); err != nil {
 			log.Printf("mailer: worker_id=%d status=mark_retry_failed job_id=%s err=%v", workerID, job.ID, err)
 			return
 		}
 		if d.metrics != nil {
-			d.metrics.Inc("retry", job.MessageType)
+			d.metrics.Inc("retry", provider, job.MessageType, errorCode)
 		}
+		d.recordEvent(queuedJobEvent(job, "retry_scheduled", provider, errorCode, &job.Attempts, map[string]any{
+			"nextAttemptAt": nextAttemptAt.UTC().Format(time.RFC3339Nano),
+		}))
 		return
 	}
 
-	if err := d.jobs.MarkDeadLetter(d.rootCtx, job.ID, err.Error(), errorCode); err != nil {
+	stateCtx, stateCancel := newMailJobStateContext()
+	defer stateCancel()
+
+	if err := d.jobs.MarkDeadLetter(stateCtx, job.ID, err.Error(), errorCode); err != nil {
 		log.Printf("mailer: worker_id=%d status=mark_dead_letter_failed job_id=%s err=%v", workerID, job.ID, err)
 		return
 	}
 	if d.metrics != nil {
-		d.metrics.Inc("dead_letter", job.MessageType)
+		d.metrics.Inc("dead_letter", provider, job.MessageType, errorCode)
 	}
+	d.recordEvent(queuedJobEvent(job, "dead_letter", provider, errorCode, &job.Attempts, nil))
 }
 
-func (d *MailDispatcher) dispatch(job domain.MailJob) error {
+func (d *MailDispatcher) dispatch(ctx context.Context, job domain.MailJob) (SendResult, error) {
+	if d.rateLimiter != nil {
+		if err := d.rateLimiter.Wait(ctx); err != nil {
+			return SendResult{}, temporaryDeliveryError("rate_limiter_wait_failed", err)
+		}
+	}
+
 	switch job.MessageType {
 	case mailJobTypeVerification:
 		var payload VerificationEmail
 		if err := json.Unmarshal(job.Payload, &payload); err != nil {
-			return fmt.Errorf("decode verification payload: %w", err)
+			return SendResult{}, permanentDeliveryError("payload_decode_failed", fmt.Errorf("decode verification payload: %w", err))
 		}
-		return d.transport.SendVerificationEmail(d.rootCtx, payload)
+		msg, err := buildVerificationMessage(job.ID, payload, d.cfg.AppURL)
+		if err != nil {
+			return SendResult{}, err
+		}
+		return d.provider.Send(ctx, msg)
 	case mailJobTypePasswordReset:
 		var payload PasswordResetEmail
 		if err := json.Unmarshal(job.Payload, &payload); err != nil {
-			return fmt.Errorf("decode password reset payload: %w", err)
+			return SendResult{}, permanentDeliveryError("payload_decode_failed", fmt.Errorf("decode password reset payload: %w", err))
 		}
-		return d.transport.SendPasswordResetEmail(d.rootCtx, payload)
+		msg, err := buildPasswordResetMessage(job.ID, payload, d.cfg.AppURL)
+		if err != nil {
+			return SendResult{}, err
+		}
+		return d.provider.Send(ctx, msg)
 	case mailJobTypePasswordChange:
 		var payload PasswordChangedEmail
 		if err := json.Unmarshal(job.Payload, &payload); err != nil {
-			return fmt.Errorf("decode password changed payload: %w", err)
+			return SendResult{}, permanentDeliveryError("payload_decode_failed", fmt.Errorf("decode password changed payload: %w", err))
 		}
-		return d.transport.SendPasswordChangedEmail(d.rootCtx, payload)
+		msg, err := buildPasswordChangedMessage(job.ID, payload, d.cfg.AppURL)
+		if err != nil {
+			return SendResult{}, err
+		}
+		return d.provider.Send(ctx, msg)
 	default:
-		return fmt.Errorf("unknown mail job type: %s", job.MessageType)
+		return SendResult{}, permanentDeliveryError("message_type_unknown", fmt.Errorf("unknown mail job type: %s", job.MessageType))
 	}
 }
 
@@ -352,6 +467,11 @@ func classifyDeliveryError(err error) (retryable bool, code string) {
 		}
 	}
 
+	var deliveryErr *DeliveryError
+	if errors.As(err, &deliveryErr) {
+		return deliveryErr.Retryable(), deliveryErr.Code
+	}
+
 	msg := strings.ToLower(err.Error())
 	switch {
 	case strings.Contains(msg, "render "):
@@ -371,6 +491,40 @@ func classifyDeliveryError(err error) (retryable bool, code string) {
 	}
 
 	return false, "delivery_failed"
+}
+
+func jobSendTimeout(cfg config.Config) time.Duration {
+	if cfg.MailSendTimeout > 0 {
+		return cfg.MailSendTimeout
+	}
+	if cfg.SMTPDialTimeout > 0 {
+		return cfg.SMTPDialTimeout + 5*time.Second
+	}
+	return 15 * time.Second
+}
+
+func newMailJobStateContext() (context.Context, context.CancelFunc) {
+	return context.WithTimeout(context.Background(), 5*time.Second)
+}
+
+func (m *PostgresVerificationMailer) recordEvent(ctx context.Context, event domain.MailEvent) {
+	if m.events == nil {
+		return
+	}
+	if _, err := m.events.Append(ctx, event); err != nil {
+		log.Printf("mailer: status=record_event_failed event_type=%s job_id=%s err=%v", event.EventType, event.JobID, err)
+	}
+}
+
+func (d *MailDispatcher) recordEvent(event domain.MailEvent) {
+	if d.events == nil {
+		return
+	}
+	ctx, cancel := newMailJobStateContext()
+	defer cancel()
+	if _, err := d.events.Append(ctx, event); err != nil {
+		log.Printf("mailer: status=record_event_failed event_type=%s job_id=%s err=%v", event.EventType, event.JobID, err)
+	}
 }
 
 func retryBackoff(base time.Duration, attempt int) time.Duration {
@@ -397,4 +551,46 @@ func recipientDomain(email string) string {
 		return "unknown"
 	}
 	return strings.ToLower(parts[1])
+}
+
+func mailIdempotencyKey(messageType string, recipient string, payload []byte) string {
+	sum := sha256.Sum256([]byte(messageType + "|" + strings.ToLower(strings.TrimSpace(recipient)) + "|" + string(payload)))
+	return base64.RawURLEncoding.EncodeToString(sum[:])
+}
+
+func derefString(value *string) string {
+	if value == nil {
+		return ""
+	}
+	return *value
+}
+
+func queuedJobEvent(job domain.MailJob, eventType string, provider string, errorCode string, attempt *int, metadata map[string]any) domain.MailEvent {
+	var metadataJSON []byte
+	if metadata != nil {
+		if encoded, err := json.Marshal(metadata); err == nil {
+			metadataJSON = encoded
+		}
+	}
+
+	var providerValue *string
+	if provider != "" {
+		providerValue = &provider
+	}
+	var errorCodeValue *string
+	if errorCode != "" {
+		errorCodeValue = &errorCode
+	}
+
+	return domain.MailEvent{
+		ID:             uuid.NewString(),
+		JobID:          job.ID,
+		EventType:      eventType,
+		MessageType:    job.MessageType,
+		Provider:       providerValue,
+		RecipientEmail: job.RecipientEmail,
+		ErrorCode:      errorCodeValue,
+		Attempt:        attempt,
+		Metadata:       metadataJSON,
+	}
 }

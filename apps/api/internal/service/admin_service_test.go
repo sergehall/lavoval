@@ -148,7 +148,7 @@ func newAdminSvc(
 	enrollments adminEnrollmentStub,
 	modules adminModuleStub,
 ) *AdminService {
-	return NewAdminService(users, profiles, adminSkillStub{}, enrollments, modules)
+	return NewAdminService(users, profiles, adminSkillStub{}, enrollments, modules, nil, nil)
 }
 
 // ── user tests ────────────────────────────────────────────────────────────────

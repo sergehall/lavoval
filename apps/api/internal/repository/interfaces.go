@@ -37,12 +37,22 @@ type PasswordResetStore interface {
 }
 
 type MailJobStore interface {
-	Enqueue(context.Context, domain.MailJob) (domain.MailJob, error)
+	Enqueue(context.Context, domain.MailJob) (domain.MailJob, bool, error)
 	ClaimNext(context.Context, time.Duration) (domain.MailJob, bool, error)
-	MarkSent(context.Context, string, string) error
+	MarkSent(context.Context, string, string, string) error
 	MarkRetry(context.Context, string, string, string, time.Time) error
 	MarkDeadLetter(context.Context, string, string, string) error
 	CountByStatus(context.Context) (map[domain.MailJobStatus]int64, error)
+	OperationalSnapshot(context.Context) (domain.MailOperationalSnapshot, error)
+	ListDeadLetters(context.Context, int) ([]domain.MailJob, error)
+	RequeueDeadLetter(context.Context, string) (domain.MailJob, error)
+	FindByID(context.Context, string) (domain.MailJob, error)
+}
+
+type MailEventStore interface {
+	Append(context.Context, domain.MailEvent) (domain.MailEvent, error)
+	ListRecent(context.Context, int) ([]domain.MailEvent, error)
+	ListByJobID(context.Context, string, int) ([]domain.MailEvent, error)
 }
 
 type MFARecoveryCodeStore interface {

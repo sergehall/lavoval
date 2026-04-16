@@ -118,21 +118,38 @@ Important values:
 - `ADMIN_SEED_EMAIL`, `ADMIN_SEED_PASSWORD`: seed account defaults
 - `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET`: Google sign-in web application credentials
 - `GITHUB_OAUTH_CLIENT_ID`, `GITHUB_OAUTH_CLIENT_SECRET`: GitHub OAuth app credentials
-- `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `SMTP_FROM_EMAIL`: Google SMTP delivery settings for transactional emails
-- `MAIL_WORKER_COUNT`, `MAIL_MAX_ATTEMPTS`, `MAIL_RETRY_BASE_DELAY`, `MAIL_POLL_INTERVAL`, `MAIL_LEASE_TTL`: persisted mail job worker and retry tuning
+- `MAIL_PROVIDER`: mail transport selection, one of `smtp`, `gmail_api`, or `noop`
+- `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `SMTP_FROM_EMAIL`: SMTP delivery settings for transactional emails
+- `GMAIL_API_ACCESS_TOKEN`, `GMAIL_API_USER`: direct Gmail API delivery settings when `MAIL_PROVIDER=gmail_api`
+- `GMAIL_API_REFRESH_TOKEN`, `GMAIL_API_CLIENT_ID`, `GMAIL_API_CLIENT_SECRET`, `GMAIL_API_TOKEN_URL`: optional safe refresh-token flow for Gmail API access token renewal
+- `MAIL_WORKER_COUNT`, `MAIL_MAX_ATTEMPTS`, `MAIL_RETRY_BASE_DELAY`, `MAIL_POLL_INTERVAL`, `MAIL_LEASE_TTL`, `MAIL_SEND_TIMEOUT`: persisted mail job worker and retry tuning
+- `MAIL_RATE_LIMIT_PER_SECOND`, `MAIL_RATE_LIMIT_BURST`: shared outbound delivery throttling for provider protection
 
 Mail delivery runtime notes:
 
 - Lavoval now stores outbound email work in the `mail_jobs` table and delivers it asynchronously from background workers in the Go API process
-- `/metrics` exposes Prometheus-compatible mail counters and queue gauges
+- `mail_jobs` now stores idempotency keys and provider delivery identifiers so duplicate queued sends can collapse safely
+- `mail_events` stores an append-only operational timeline for queue, retry, send, deduplication, and dead-letter transitions
+- `/metrics` exposes Prometheus-compatible mail counters, queue gauges, oldest-ready age, and dead-letter error-code breakdowns
 - failed delivery attempts are retried with backoff; exhausted jobs move to a dead-letter status in `mail_jobs`
+- dispatch workers can be throttled with rate limiting, which is useful for Gmail and other providers with burst constraints
+- admin mail operations are exposed at `/api/v1/admin/mail/ops`, `/api/v1/admin/mail/dead-letters`, `/api/v1/admin/mail/events`, and `/api/v1/admin/mail/jobs/{jobID}/events`
 
 Google email confirmation setup:
 
 - Enable 2-Step Verification on the Google account you want to send from
 - Create a Google App Password and place it in `SMTP_PASSWORD`
 - Keep `SMTP_HOST=smtp.gmail.com` and `SMTP_PORT=587`
+- Keep `MAIL_PROVIDER=smtp`
 - Make sure `APP_URL` points at the frontend domain users will open from their inbox
+
+Gmail API delivery setup:
+
+- Set `MAIL_PROVIDER=gmail_api`
+- Either provide a short-lived OAuth 2.0 access token in `GMAIL_API_ACCESS_TOKEN`
+- Or configure the safer long-lived refresh flow with `GMAIL_API_REFRESH_TOKEN`, `GMAIL_API_CLIENT_ID`, and `GMAIL_API_CLIENT_SECRET`
+- Keep `GMAIL_API_USER=me` unless you have a specific delegated Gmail user value
+- Keep `SMTP_FROM_EMAIL` set to the sender mailbox, because Lavoval still builds a full RFC 822 message envelope before submitting it to Gmail API
 
 Google OAuth web application setup:
 

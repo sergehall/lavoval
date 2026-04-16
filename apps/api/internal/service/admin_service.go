@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"log"
 
 	"github.com/google/uuid"
 
@@ -16,10 +17,20 @@ type AdminService struct {
 	skills      repository.SkillStore
 	enrollments repository.EnrollmentStore
 	modules     repository.ModuleStore
+	mailJobs    repository.MailJobStore
+	mailEvents  repository.MailEventStore
 }
 
-func NewAdminService(users repository.UserStore, profiles repository.ProfileStore, skills repository.SkillStore, enrollments repository.EnrollmentStore, modules repository.ModuleStore) *AdminService {
-	return &AdminService{users: users, profiles: profiles, skills: skills, enrollments: enrollments, modules: modules}
+func NewAdminService(users repository.UserStore, profiles repository.ProfileStore, skills repository.SkillStore, enrollments repository.EnrollmentStore, modules repository.ModuleStore, mailJobs repository.MailJobStore, mailEvents repository.MailEventStore) *AdminService {
+	return &AdminService{
+		users:       users,
+		profiles:    profiles,
+		skills:      skills,
+		enrollments: enrollments,
+		modules:     modules,
+		mailJobs:    mailJobs,
+		mailEvents:  mailEvents,
+	}
 }
 
 type UserDetail struct {
@@ -161,4 +172,77 @@ func (s *AdminService) ListSkills(ctx context.Context) ([]domain.Skill, error) {
 		return nil, fmt.Errorf("list admin skills: %w", err)
 	}
 	return skills, nil
+}
+
+func (s *AdminService) MailOperations(ctx context.Context) (domain.MailOperationalSnapshot, error) {
+	if s.mailJobs == nil {
+		return domain.MailOperationalSnapshot{}, fmt.Errorf("mail jobs store is not configured")
+	}
+
+	snapshot, err := s.mailJobs.OperationalSnapshot(ctx)
+	if err != nil {
+		return domain.MailOperationalSnapshot{}, fmt.Errorf("mail operations snapshot: %w", err)
+	}
+	return snapshot, nil
+}
+
+func (s *AdminService) ListDeadLetters(ctx context.Context, limit int) ([]domain.MailJob, error) {
+	if s.mailJobs == nil {
+		return nil, fmt.Errorf("mail jobs store is not configured")
+	}
+
+	items, err := s.mailJobs.ListDeadLetters(ctx, limit)
+	if err != nil {
+		return nil, fmt.Errorf("list dead letters: %w", err)
+	}
+	return items, nil
+}
+
+func (s *AdminService) ListMailEvents(ctx context.Context, limit int) ([]domain.MailEvent, error) {
+	if s.mailEvents == nil {
+		return nil, fmt.Errorf("mail events store is not configured")
+	}
+
+	events, err := s.mailEvents.ListRecent(ctx, limit)
+	if err != nil {
+		return nil, fmt.Errorf("list mail events: %w", err)
+	}
+	return events, nil
+}
+
+func (s *AdminService) ListMailEventsByJob(ctx context.Context, jobID string, limit int) ([]domain.MailEvent, error) {
+	if s.mailEvents == nil {
+		return nil, fmt.Errorf("mail events store is not configured")
+	}
+
+	events, err := s.mailEvents.ListByJobID(ctx, jobID, limit)
+	if err != nil {
+		return nil, fmt.Errorf("list mail events by job: %w", err)
+	}
+	return events, nil
+}
+
+func (s *AdminService) RequeueDeadLetter(ctx context.Context, jobID string) (domain.MailJob, error) {
+	if s.mailJobs == nil {
+		return domain.MailJob{}, fmt.Errorf("mail jobs store is not configured")
+	}
+
+	job, err := s.mailJobs.RequeueDeadLetter(ctx, jobID)
+	if err != nil {
+		return domain.MailJob{}, fmt.Errorf("requeue dead letter: %w", err)
+	}
+	if s.mailEvents != nil {
+		attempt := job.Attempts
+		if _, err := s.mailEvents.Append(ctx, domain.MailEvent{
+			ID:             uuid.NewString(),
+			JobID:          job.ID,
+			EventType:      "requeued",
+			MessageType:    job.MessageType,
+			RecipientEmail: job.RecipientEmail,
+			Attempt:        &attempt,
+		}); err != nil {
+			log.Printf("admin: append mail requeue event failed for job %s: %v", job.ID, err)
+		}
+	}
+	return job, nil
 }

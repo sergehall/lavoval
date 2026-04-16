@@ -1,6 +1,7 @@
 package mailer
 
 import (
+	"net/textproto"
 	"strings"
 	"testing"
 )
@@ -23,7 +24,7 @@ func TestRenderVerificationEmailUsesLavovalBranding(t *testing.T) {
 	for _, snippet := range []string{
 		"Confirm your email to activate Lavoval",
 		"https://lavoval.test/verify-email?token=abc123",
-		"https://lavoval.test/email-brand-120x40.png",
+		"https://lavoval.test/email-brand-340-180.png",
 		`width="216"`,
 		`height="72"`,
 		"#b44f23",
@@ -56,17 +57,20 @@ func TestRenderVerificationEmailUsesPublicBrandFallbackForLocalhost(t *testing.T
 		t.Fatalf("renderVerificationEmail returned error: %v", err)
 	}
 
-	if !strings.Contains(rendered.HTMLBody, "https://lavoval.com/email-brand-120x40.png") {
+	if !strings.Contains(rendered.HTMLBody, "https://lavoval.com/email-brand-340-180.png") {
 		t.Fatalf("expected localhost emails to use public brand fallback, got %s", rendered.HTMLBody)
 	}
 }
 
 func TestBuildMultipartMessageIncludesTextAndHTMLParts(t *testing.T) {
+	headers := textproto.MIMEHeader{}
+	headers.Set("X-Test-ID", "job-123")
+
 	message, err := buildMultipartMessage("Lavoval", "noreply@lavoval.test", "serge@example.com", RenderedEmail{
 		Subject:  "Lavoval: confirm your email",
 		TextBody: "plain text body",
 		HTMLBody: "<strong>html body</strong>",
-	})
+	}, headers)
 	if err != nil {
 		t.Fatalf("buildMultipartMessage returned error: %v", err)
 	}
@@ -76,6 +80,7 @@ func TestBuildMultipartMessageIncludesTextAndHTMLParts(t *testing.T) {
 		"Content-Type: multipart/alternative;",
 		`Content-Type: text/plain; charset="UTF-8"`,
 		`Content-Type: text/html; charset="UTF-8"`,
+		"X-Test-Id: job-123",
 		"plain text body",
 		"<strong>html body</strong>",
 	} {
@@ -99,7 +104,7 @@ func TestRenderPasswordResetEmailUsesLavovalBranding(t *testing.T) {
 	for _, snippet := range []string{
 		"Reset your Lavoval password",
 		"https://lavoval.test/reset-password?token=abc123",
-		"https://lavoval.test/email-brand-120x40.png",
+		"https://lavoval.test/email-brand-340-180.png",
 		"Password recovery",
 	} {
 		if !strings.Contains(rendered.HTMLBody, snippet) {

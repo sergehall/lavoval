@@ -46,6 +46,7 @@ func New() (*Application, error) {
 	verificationRepo := repository.NewEmailVerificationRepository(pool)
 	passwordResetRepo := repository.NewPasswordResetRepository(pool)
 	mailJobRepo := repository.NewMailJobRepository(pool)
+	mailEventRepo := repository.NewMailEventRepository(pool)
 	mfaRecoveryCodeRepo := repository.NewMFARecoveryCodeRepository(pool)
 	signInChallengeRepo := repository.NewSignInChallengeRepository(pool)
 	oauthStateRepo := repository.NewOAuthStateRepository(pool)
@@ -56,8 +57,8 @@ func New() (*Application, error) {
 	skillRunRepo := repository.NewSkillRunRepository(pool)
 	runtimeRegistry := appRuntime.DefaultRegistry()
 	mailMetrics := mailer.NewPrometheusHandler(mailJobRepo)
-	verificationMailer := mailer.NewPostgresVerificationMailer(cfg, mailJobRepo)
-	mailDispatcher := mailer.NewMailDispatcher(cfg, mailJobRepo, mailMetrics)
+	verificationMailer := mailer.NewPostgresVerificationMailer(cfg, mailJobRepo, mailEventRepo, mailMetrics)
+	mailDispatcher := mailer.NewMailDispatcher(cfg, mailJobRepo, mailEventRepo, mailMetrics)
 
 	authService := service.NewAuthService(
 		userRepo,
@@ -77,7 +78,7 @@ func New() (*Application, error) {
 	accountSecurityService := service.NewAccountSecurityService(userRepo, oauthIdentityRepo)
 	skillService := service.NewSkillService(skillRepo, enrollmentRepo)
 	runtimeService := service.NewRuntimeService(skillRepo, skillRunRepo, runtimeRegistry)
-	adminService := service.NewAdminService(userRepo, profileRepo, skillRepo, enrollmentRepo, moduleRepo)
+	adminService := service.NewAdminService(userRepo, profileRepo, skillRepo, enrollmentRepo, moduleRepo, mailJobRepo, mailEventRepo)
 
 	router := handler.NewRouter(cfg, tokenManager, authService, profileService, accountSecurityService, skillService, runtimeService, adminService, mailMetrics)
 

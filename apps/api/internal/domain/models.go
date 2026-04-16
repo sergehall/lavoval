@@ -91,22 +91,44 @@ type PasswordResetToken struct {
 }
 
 type MailJob struct {
-	ID             string        `json:"id"`
-	MessageType    string        `json:"messageType"`
-	RecipientEmail string        `json:"recipientEmail"`
-	Payload        []byte        `json:"-"`
-	Status         MailJobStatus `json:"status"`
-	Attempts       int           `json:"attempts"`
-	MaxAttempts    int           `json:"maxAttempts"`
-	NextAttemptAt  time.Time     `json:"nextAttemptAt"`
-	LeasedUntil    *time.Time    `json:"leasedUntil,omitempty"`
-	LastError      *string       `json:"lastError,omitempty"`
-	LastErrorCode  *string       `json:"lastErrorCode,omitempty"`
-	Provider       *string       `json:"provider,omitempty"`
-	SentAt         *time.Time    `json:"sentAt,omitempty"`
-	DeadLetteredAt *time.Time    `json:"deadLetteredAt,omitempty"`
-	CreatedAt      time.Time     `json:"createdAt"`
-	UpdatedAt      time.Time     `json:"updatedAt"`
+	ID                string        `json:"id"`
+	MessageType       string        `json:"messageType"`
+	RecipientEmail    string        `json:"recipientEmail"`
+	IdempotencyKey    *string       `json:"idempotencyKey,omitempty"`
+	Payload           []byte        `json:"-"`
+	Status            MailJobStatus `json:"status"`
+	Attempts          int           `json:"attempts"`
+	MaxAttempts       int           `json:"maxAttempts"`
+	NextAttemptAt     time.Time     `json:"nextAttemptAt"`
+	LeasedUntil       *time.Time    `json:"leasedUntil,omitempty"`
+	LastError         *string       `json:"lastError,omitempty"`
+	LastErrorCode     *string       `json:"lastErrorCode,omitempty"`
+	Provider          *string       `json:"provider,omitempty"`
+	ProviderMessageID *string       `json:"providerMessageId,omitempty"`
+	SentAt            *time.Time    `json:"sentAt,omitempty"`
+	DeadLetteredAt    *time.Time    `json:"deadLetteredAt,omitempty"`
+	CreatedAt         time.Time     `json:"createdAt"`
+	UpdatedAt         time.Time     `json:"updatedAt"`
+}
+
+type MailOperationalSnapshot struct {
+	CountsByStatus         map[MailJobStatus]int64 `json:"countsByStatus"`
+	DeadLettersByErrorCode map[string]int64        `json:"deadLettersByErrorCode"`
+	OldestReadyAgeSeconds  float64                 `json:"oldestReadyAgeSeconds"`
+}
+
+type MailEvent struct {
+	ID                string    `json:"id"`
+	JobID             string    `json:"jobId"`
+	EventType         string    `json:"eventType"`
+	MessageType       string    `json:"messageType"`
+	Provider          *string   `json:"provider,omitempty"`
+	ProviderMessageID *string   `json:"providerMessageId,omitempty"`
+	RecipientEmail    string    `json:"recipientEmail"`
+	ErrorCode         *string   `json:"errorCode,omitempty"`
+	Attempt           *int      `json:"attempt,omitempty"`
+	Metadata          []byte    `json:"-"`
+	CreatedAt         time.Time `json:"createdAt"`
 }
 
 type MFARecoveryCode struct {

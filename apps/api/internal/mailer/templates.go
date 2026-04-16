@@ -11,7 +11,7 @@ import (
 	texttmpl "text/template"
 )
 
-const publicBrandImageURL = "https://lavoval.com/email-brand-120x40.png"
+const publicBrandImageURL = "https://lavoval.com/email-brand-340-180.png"
 
 //go:embed templates/layouts/*.html templates/emails/*.html templates/emails/*.txt
 var emailTemplatesFS embed.FS
@@ -252,7 +252,7 @@ func buildBrandImageURL(appURL string) string {
 		return publicBrandImageURL
 	}
 
-	imageURL := parsed.ResolveReference(&url.URL{Path: "/email-brand-120x40.png"})
+	imageURL := parsed.ResolveReference(&url.URL{Path: "/email-brand-340-180.png"})
 	return imageURL.String()
 }
 

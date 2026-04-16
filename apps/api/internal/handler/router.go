@@ -32,10 +32,27 @@ func NewRouter(cfg config.Config, tokens auth.TokenManager, authService *service
 	adminHandler := NewAdminHandler(validate, adminService, skillService)
 
 	r.Get("/healthz", func(w http.ResponseWriter, r *http.Request) {
+		mailProvider := cfg.MailProvider
+		if mailProvider == "" {
+			mailProvider = "smtp"
+		}
+
+		mailConfigured := cfg.SMTPHost != "" && cfg.SMTPUsername != "" && cfg.SMTPPassword != ""
+		if mailProvider == "gmail_api" {
+			mailConfigured = cfg.GmailAPIAccessToken != "" ||
+				(cfg.GmailAPIRefreshToken != "" && cfg.GmailAPIClientID != "" && cfg.GmailAPIClientSecret != "")
+		}
+		if mailProvider == "noop" {
+			mailConfigured = true
+		}
+
 		httpx.JSON(w, http.StatusOK, map[string]any{
-			"status":          "ok",
-			"service":         cfg.AppName,
-			"smtp_configured": cfg.SMTPHost != "" && cfg.SMTPUsername != "" && cfg.SMTPPassword != "",
+			"status":            "ok",
+			"service":           cfg.AppName,
+			"mail_provider":     mailProvider,
+			"mail_configured":   mailConfigured,
+			"smtp_configured":   cfg.SMTPHost != "" && cfg.SMTPUsername != "" && cfg.SMTPPassword != "",
+			"gmail_api_enabled": cfg.GmailAPIAccessToken != "",
 		})
 	})
 	r.Get("/readyz", func(w http.ResponseWriter, r *http.Request) {
@@ -94,6 +111,11 @@ func NewRouter(cfg config.Config, tokens auth.TokenManager, authService *service
 			admin.Get("/enrollments", adminHandler.ListEnrollments)
 			admin.Post("/enrollments", adminHandler.AssignSkill)
 			admin.Patch("/enrollments/{enrollmentID}", adminHandler.UpdateEnrollment)
+			admin.Get("/mail/ops", adminHandler.MailOperations)
+			admin.Get("/mail/dead-letters", adminHandler.ListDeadLetters)
+			admin.Post("/mail/dead-letters/{jobID}/requeue", adminHandler.RequeueDeadLetter)
+			admin.Get("/mail/events", adminHandler.ListMailEvents)
+			admin.Get("/mail/jobs/{jobID}/events", adminHandler.ListMailEventsByJob)
 			admin.Get("/skills", adminHandler.ListSkills)
 			admin.Get("/skills/{skillID}", adminHandler.GetSkill)
 			admin.Get("/skills/{skillID}/modules", adminHandler.ListModules)

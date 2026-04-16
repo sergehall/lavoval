@@ -121,6 +121,8 @@ func newTestAdminHandler() *AdminHandler {
 		hAdminSkillStub{},
 		hAdminEnrollmentStub{},
 		hAdminModuleStub{},
+		nil,
+		nil,
 	)
 	skillSvc := service.NewSkillService(
 		hAdminSkillStub{},
