@@ -27,7 +27,6 @@ const socialProfiles = [
 ] as const;
 
 const collaborationTopics = [
-  'Shape the product and platform architecture before complexity starts compounding.',
   'Turn Next.js and Go delivery into a cleaner, faster, more reliable production system.',
   'Sharpen marketplace strategy, governance, and operational flow before scale creates drag.',
   'Design and package human skills for the AI era so expertise becomes clearer, more usable, and easier to exchange.',
