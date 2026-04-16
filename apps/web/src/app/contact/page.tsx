@@ -101,30 +101,30 @@ export default function ContactPage() {
             <div className="card__title">Email and profiles</div>
             <div className="data-list contact-page__list">
               {directChannels.map((channel) => (
-                <div
+                <a
                   key={channel.title}
+                  href={channel.href}
                   className="data-list__item contact-page__item contact-page__item--interactive"
                 >
                   <strong>{channel.title}</strong>
-                  <a href={channel.href} className="muted">
-                    {channel.value}
-                  </a>
+                  <span className="muted">{channel.value}</span>
                   <p className="muted">{channel.note}</p>
-                </div>
+                </a>
               ))}
               {socialProfiles.map((profile) => (
-                <div
+                <a
                   key={profile.label}
+                  href={profile.href}
+                  target="_blank"
+                  rel="noreferrer"
                   className="data-list__item contact-page__item contact-page__item--interactive"
                 >
                   <div className="stack stack--sm contact-page__item-stack">
                     <strong>{profile.label}</strong>
-                    <a href={profile.href} target="_blank" rel="noreferrer" className="muted">
-                      {profile.handle}
-                    </a>
+                    <span className="muted">{profile.handle}</span>
                     <p className="muted">{profile.description}</p>
                   </div>
-                </div>
+                </a>
               ))}
             </div>
           </div>
