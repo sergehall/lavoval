@@ -1,3 +1,12 @@
+import type {
+  ApiEnvelope,
+  MailCleanupRun,
+  MailEvent,
+  MailJob,
+  MailOperationalSnapshot,
+  MailRetentionSnapshot,
+  MailSuppression,
+} from '@/shared/api/types';
 import { Badge } from '@/shared/ui/badge';
 import { Button } from '@/shared/ui/button';
 import { Card } from '@/shared/ui/card';
@@ -39,6 +48,14 @@ function firstQueryValue(value: string | string[] | undefined) {
   return value ?? '';
 }
 
+function unwrapData<T>(payload: T | ApiEnvelope<T>): T {
+  if (typeof payload === 'object' && payload !== null && 'data' in payload) {
+    return payload.data;
+  }
+
+  return payload;
+}
+
 export default async function AdminMailPage({ searchParams }: AdminMailPageProps) {
   const params = (await searchParams) ?? {};
   const deadLetterQuery = firstQueryValue(params.deadLetterQuery);
@@ -53,30 +70,43 @@ export default async function AdminMailPage({ searchParams }: AdminMailPageProps
 
   const { mailOps, retention, cleanupRuns, deadLetters, events, suppressions } =
     await withValidSession(async (session) => {
-      const [mailOps, retention, cleanupRuns, deadLetters, events, suppressions] =
-        await Promise.all([
-          fetchAdminMailOperations(session.accessToken),
-          fetchAdminMailRetention(session.accessToken),
-          fetchAdminMailCleanupRuns(session.accessToken, 10),
-          fetchAdminDeadLetters(session.accessToken, {
-            query: deadLetterQuery,
-            messageType: deadLetterMessageType,
-            provider: deadLetterProvider,
-            errorCode: deadLetterErrorCode,
-            limit: 50,
-          }),
-          fetchAdminMailEvents(session.accessToken, {
-            query: eventQuery,
-            eventType,
-            messageType: eventMessageType,
-            provider: eventProvider,
-            errorCode: eventErrorCode,
-            limit: 50,
-          }),
-          fetchAdminMailSuppressions(session.accessToken),
-        ]);
+      const [
+        mailOpsPayload,
+        retentionPayload,
+        cleanupRunsPayload,
+        deadLettersPayload,
+        eventsPayload,
+        suppressionsPayload,
+      ] = await Promise.all([
+        fetchAdminMailOperations(session.accessToken),
+        fetchAdminMailRetention(session.accessToken),
+        fetchAdminMailCleanupRuns(session.accessToken, 10),
+        fetchAdminDeadLetters(session.accessToken, {
+          query: deadLetterQuery,
+          messageType: deadLetterMessageType,
+          provider: deadLetterProvider,
+          errorCode: deadLetterErrorCode,
+          limit: 50,
+        }),
+        fetchAdminMailEvents(session.accessToken, {
+          query: eventQuery,
+          eventType,
+          messageType: eventMessageType,
+          provider: eventProvider,
+          errorCode: eventErrorCode,
+          limit: 50,
+        }),
+        fetchAdminMailSuppressions(session.accessToken),
+      ]);
 
-      return { mailOps, retention, cleanupRuns, deadLetters, events, suppressions };
+      return {
+        mailOps: unwrapData<MailOperationalSnapshot>(mailOpsPayload),
+        retention: unwrapData<MailRetentionSnapshot>(retentionPayload),
+        cleanupRuns: unwrapData<MailCleanupRun[]>(cleanupRunsPayload),
+        deadLetters: unwrapData<MailJob[]>(deadLettersPayload),
+        events: unwrapData<MailEvent[]>(eventsPayload),
+        suppressions: unwrapData<MailSuppression[]>(suppressionsPayload),
+      };
     });
 
   return (

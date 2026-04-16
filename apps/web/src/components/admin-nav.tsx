@@ -19,20 +19,22 @@ export function AdminNav() {
   return (
     <nav className="admin-nav" aria-label="Admin navigation">
       <span className="admin-nav__badge">Governance</span>
-      {adminNavItems.map(({ href, label }) => {
-        // Exact match for dashboard, prefix match for sub-pages
-        const isActive = href === '/admin' ? pathname === '/admin' : pathname.startsWith(href);
+      <div className="admin-nav__items">
+        {adminNavItems.map(({ href, label }) => {
+          // Exact match for dashboard, prefix match for sub-pages
+          const isActive = href === '/admin' ? pathname === '/admin' : pathname.startsWith(href);
 
-        return (
-          <Link
-            key={href}
-            href={href}
-            className={`admin-nav__link${isActive ? ' admin-nav__link--active' : ''}`}
-          >
-            {label}
-          </Link>
-        );
-      })}
+          return (
+            <Link
+              key={href}
+              href={href}
+              className={`admin-nav__link${isActive ? ' admin-nav__link--active' : ''}`}
+            >
+              {label}
+            </Link>
+          );
+        })}
+      </div>
     </nav>
   );
 }
