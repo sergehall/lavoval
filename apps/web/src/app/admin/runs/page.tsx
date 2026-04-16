@@ -7,13 +7,6 @@ export default async function AdminRunsPage() {
 
   return (
     <div className="stack stack--lg">
-      <div className="stack stack--sm">
-        <h1>Runtime observability</h1>
-        <p className="muted">
-          Review every skill execution across the marketplace, inspect failures, and watch how
-          entrypoints are being used in the wild.
-        </p>
-      </div>
       <RunsHistory runs={runs} detailBasePath="/admin/runs" />
     </div>
   );

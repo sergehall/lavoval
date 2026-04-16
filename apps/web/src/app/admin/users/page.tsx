@@ -9,13 +9,6 @@ export default async function AdminUsersPage() {
 
   return (
     <div className="stack stack--lg">
-      <div className="stack stack--sm">
-        <h1>People in the exchange</h1>
-        <p className="muted">
-          A clean governance view prepared for filters, richer permissions, trust signals, and
-          audit-centric administration.
-        </p>
-      </div>
       <Card>
         <table className="table">
           <thead>

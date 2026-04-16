@@ -111,14 +111,6 @@ export default async function AdminMailPage({ searchParams }: AdminMailPageProps
 
   return (
     <div className="stack stack--lg">
-      <div className="stack stack--sm">
-        <h1>Mail operations</h1>
-        <p className="muted">
-          Monitor queue health, inspect dead letters, and follow the delivery event stream without
-          leaving the admin workspace.
-        </p>
-      </div>
-
       <section className="grid">
         <Card>
           <h2>{mailOps.countsByStatus.queued}</h2>

@@ -19,14 +19,6 @@ export default async function AdminEnrollmentsPage() {
 
   return (
     <div className="stack stack--lg">
-      {/* ── Header ───────────────────────────────────────── */}
-      <div className="stack stack--sm">
-        <h1>Enrollments</h1>
-        <p className="muted">
-          Assign skills to users and track their progress through the exchange.
-        </p>
-      </div>
-
       {/* ── Assign form ──────────────────────────────────── */}
       <Card>
         <h2 className="card__title">Assign skill to user</h2>

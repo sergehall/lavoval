@@ -12,15 +12,6 @@ export default async function AdminSkillsPage() {
 
   return (
     <div className="stack stack--lg">
-      <div className="section-heading">
-        <div className="stack stack--sm">
-          <h1>Skill offer governance</h1>
-          <p className="muted">
-            Create and steward public offers while preserving room for moderation, ranking,
-            pagination, and marketplace analytics.
-          </p>
-        </div>
-      </div>
       <Card>
         <div className="stack stack--md">
           <h2>Create a managed offer</h2>
