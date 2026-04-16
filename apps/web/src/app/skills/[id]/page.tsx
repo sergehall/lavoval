@@ -105,7 +105,7 @@ export default async function PublicSkillDetailPage({
           </p>
           <div className="toolbar">
             <Link href="/skills" className="site-nav__link site-nav__link--subtle">
-              Back to marketplace
+              Back to Home
             </Link>
             <Link href="/account/my-skills" className="site-nav__link site-nav__link--cta">
               Open My Offers

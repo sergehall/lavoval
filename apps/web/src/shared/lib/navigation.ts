@@ -8,7 +8,7 @@ export type NavigationItem = {
 };
 
 export const publicNavigation: NavigationItem[] = [
-  { href: '/', label: 'Marketplace' },
+  { href: '/', label: 'Home' },
   { href: '/skills', label: 'Explore Skills' },
   { href: '/contact' as Route, label: 'Contact' },
 ];

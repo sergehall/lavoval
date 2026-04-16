@@ -17,7 +17,7 @@ type SearchPageItem = {
   href: Route;
   label: string;
   description: string;
-  scope: 'Marketplace' | 'Workspace';
+  scope: 'Home' | 'Workspace';
 };
 
 function buildPageSearchText(item: SearchPageItem) {
@@ -31,18 +31,18 @@ export function GlobalSearch({ user, skills, workspaceNavigation }: GlobalSearch
   const panelRef = useRef<HTMLDivElement>(null);
 
   const pageItems = useMemo<SearchPageItem[]>(() => {
-    const marketplaceItems: SearchPageItem[] = [
+    const homeItems: SearchPageItem[] = [
       {
         href: '/',
-        label: 'Marketplace',
-        description: 'Go back to the public Lavoval marketplace overview.',
-        scope: 'Marketplace',
+        label: 'Home',
+        description: 'Go back to the Lavoval home page and public overview.',
+        scope: 'Home',
       },
       {
         href: '/skills',
         label: 'Explore Skills',
         description: 'Browse public skill offers, creators, and topics.',
-        scope: 'Marketplace',
+        scope: 'Home',
       },
     ];
 
@@ -64,7 +64,7 @@ export function GlobalSearch({ user, skills, workspaceNavigation }: GlobalSearch
         }))
       : [];
 
-    return [...marketplaceItems, ...workspaceItems];
+    return [...homeItems, ...workspaceItems];
   }, [user, workspaceNavigation]);
 
   const filteredPages = useMemo(() => {

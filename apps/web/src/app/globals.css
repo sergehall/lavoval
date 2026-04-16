@@ -98,18 +98,20 @@ h3 {
 
 .site-nav {
   display: flex;
-  gap: 16px;
+  gap: 8px;
   flex-wrap: wrap;
 }
 
 .site-nav--primary {
   flex: 1 1 auto;
+  flex-wrap: nowrap;
+  align-items: center;
   justify-content: flex-end;
   margin-left: auto;
 }
 
 .site-nav__link {
-  padding: 10px 14px;
+  padding: 8px 12px;
   border-radius: 999px;
   transition:
     background 0.2s ease,
@@ -138,6 +140,7 @@ h3 {
 .site-header__actions {
   display: flex;
   align-items: center;
+  gap: 10px;
   min-height: 64px;
 }
 
@@ -247,8 +250,8 @@ h3 {
   position: relative;
   display: flex;
   align-items: center;
-  gap: 14px;
-  min-height: 64px;
+  gap: 10px;
+  min-height: 56px;
 }
 
 .header-icon-button {
@@ -287,11 +290,11 @@ h3 {
 .account-trigger {
   display: inline-flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   min-width: 0;
-  padding: 8px 10px;
+  padding: 6px 8px;
   border: 1px solid rgba(23, 32, 42, 0.08);
-  border-radius: 22px;
+  border-radius: 20px;
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.82), rgba(246, 240, 233, 0.92));
   color: var(--text);
   box-shadow: 0 12px 28px rgba(41, 26, 14, 0.08);
@@ -314,12 +317,12 @@ h3 {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 48px;
-  height: 48px;
+  width: 40px;
+  height: 40px;
   border-radius: 999px;
   background: radial-gradient(circle at top, rgba(35, 91, 152, 0.22), rgba(10, 35, 70, 0.96));
   color: #5ea7ff;
-  font-size: 1.24rem;
+  font-size: 1.02rem;
   font-weight: 700;
   letter-spacing: -0.03em;
 }
@@ -327,13 +330,13 @@ h3 {
 .account-trigger__identity {
   display: grid;
   min-width: 0;
-  gap: 2px;
+  gap: 1px;
 }
 
 .account-trigger__headline {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   min-width: 0;
 }
 
@@ -342,7 +345,7 @@ h3 {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 0.98rem;
+  font-size: 0.9rem;
   font-weight: 700;
 }
 
@@ -350,14 +353,15 @@ h3 {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 24px;
-  padding: 0 10px;
+  min-height: 21px;
+  padding: 0 8px;
   border-radius: 999px;
   background: #2e3a49;
   color: #f5f7fb;
-  font-size: 0.68rem;
+  font-size: 0.6rem;
   font-weight: 800;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.08em;
+  line-height: 1;
 }
 
 .security-methods {
@@ -486,13 +490,13 @@ h3 {
   text-overflow: ellipsis;
   white-space: nowrap;
   color: rgba(83, 100, 113, 0.94);
-  font-size: 0.9rem;
+  font-size: 0.8rem;
 }
 
 .account-trigger__chevron {
   flex: none;
-  width: 18px;
-  height: 18px;
+  width: 16px;
+  height: 16px;
   color: rgba(23, 32, 42, 0.78);
 }
 
@@ -1628,6 +1632,48 @@ select.input {
   padding: 0;
   background: transparent;
   color: inherit;
+}
+
+@media (max-width: 1060px) {
+  .site-header {
+    gap: 18px;
+  }
+
+  .site-nav {
+    gap: 4px;
+  }
+
+  .site-nav__link {
+    padding: 7px 10px;
+  }
+
+  .account-trigger {
+    justify-content: center;
+    width: 54px;
+    min-width: 54px;
+    padding: 6px;
+    border-radius: 999px;
+  }
+
+  .account-trigger__identity,
+  .account-trigger__chevron {
+    display: none;
+  }
+}
+
+@media (max-width: 800px) {
+  .site-nav--primary,
+  .site-header__actions--desktop {
+    display: none;
+  }
+
+  .site-header__actions--mobile {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-left: auto;
+  }
 }
 
 @media (max-width: 960px) {
