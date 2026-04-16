@@ -1,25 +1,23 @@
+import type { Route } from 'next';
 import Link from 'next/link';
 import { Card } from '@/shared/ui/card';
 import {
   fetchAdminMailOperations,
-  fetchAdminSkills,
   fetchAdminRuns,
-  fetchAdminUsers,
+  fetchAdminStats,
   requireAdminSession,
   withValidSession,
 } from '@/shared/api/server-client';
 
 export default async function AdminDashboardPage() {
   const session = await requireAdminSession();
-  const { users, skills, runs, mailOps } = await withValidSession(async (activeSession) => {
-    const [{ data: users }, { data: skills }, { data: runs }, mailOps] = await Promise.all([
-      fetchAdminUsers(activeSession.accessToken),
-      fetchAdminSkills(activeSession.accessToken),
+  const { stats, runs, mailOps } = await withValidSession(async (activeSession) => {
+    const [stats, { data: runs }, mailOps] = await Promise.all([
+      fetchAdminStats(activeSession.accessToken),
       fetchAdminRuns(activeSession.accessToken),
       fetchAdminMailOperations(activeSession.accessToken),
     ]);
-
-    return { users, skills, runs, mailOps };
+    return { stats, runs, mailOps };
   });
 
   return (
@@ -31,35 +29,63 @@ export default async function AdminDashboardPage() {
           marketplace healthy as it grows.
         </p>
       </div>
+
+      {/* ── People ─────────────────────────────────── */}
       <section className="grid">
         <Card>
-          <h2>{users.length}</h2>
-          <p>
-            Registered people participating in the exchange and ready for richer trust controls.
-          </p>
+          <h2>{stats?.users.total ?? '—'}</h2>
+          <p>Total registered users</p>
         </Card>
         <Card>
-          <h2>{skills.length}</h2>
-          <p>
-            Skill offers under governance with lifecycle states, visibility controls, and archive
-            support.
-          </p>
+          <h2>{stats?.users.active ?? '—'}</h2>
+          <p>Active accounts</p>
+        </Card>
+        <Card>
+          <h2>{stats?.users.suspended ?? '—'}</h2>
+          <p>Suspended accounts</p>
+        </Card>
+        <Card>
+          <h2>{stats?.users.blocked ?? '—'}</h2>
+          <p>Blocked accounts</p>
+        </Card>
+        <Card>
+          <h2>{stats?.users.new7d ?? '—'}</h2>
+          <p>New users in the last 7 days</p>
+        </Card>
+        <Card>
+          <h2>{stats?.users.new30d ?? '—'}</h2>
+          <p>New users in the last 30 days</p>
+        </Card>
+      </section>
+
+      {/* ── Skill offers ───────────────────────────── */}
+      <section className="grid">
+        <Card>
+          <h2>{stats?.skills.published ?? '—'}</h2>
+          <p>Published skills live on the marketplace</p>
+        </Card>
+        <Card>
+          <h2>{stats?.skills.pendingReview ?? '—'}</h2>
+          <p>Skills awaiting moderation review</p>
+        </Card>
+        <Card>
+          <h2>{stats?.skills.paid ?? '—'}</h2>
+          <p>Paid skills with a price set</p>
+        </Card>
+        <Card>
+          <h2>{mailOps?.countsByStatus.dead_letter ?? '—'}</h2>
+          <p>Dead-letter mail jobs waiting for operator review</p>
         </Card>
         <Card>
           <h2>{runs.length}</h2>
-          <p>
-            Runtime executions recorded across the marketplace, ready for observability, failure
-            triage, and future audit trails.
-          </p>
+          <p>Runtime executions recorded across the marketplace</p>
         </Card>
         <Card>
-          <h2>{mailOps.countsByStatus.dead_letter}</h2>
-          <p>
-            Dead-letter email jobs currently waiting for operator review, requeue decisions, and
-            delivery debugging.
-          </p>
+          <h2>{stats?.skills.new7d ?? '—'}</h2>
+          <p>New skills created in the last 7 days</p>
         </Card>
       </section>
+
       <div className="inline-actions">
         <Link href="/admin/users" className="muted">
           Review people
@@ -70,7 +96,7 @@ export default async function AdminDashboardPage() {
         <Link href="/admin/runs" className="muted">
           Observe runtime
         </Link>
-        <Link href="/admin/mail" className="muted">
+        <Link href={'/admin/mail' as Route} className="muted">
           Operate mail
         </Link>
       </div>

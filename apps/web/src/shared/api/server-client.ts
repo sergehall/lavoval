@@ -4,6 +4,10 @@ import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { ApiClientError, createApiClient } from '@lavoval/sdk';
 import type {
+  AdminAuditLog,
+  AdminSkillGovernanceRequest,
+  AdminSkillPricingRequest,
+  AdminStats,
   AdminUserUpdateRequest,
   AccountSecuritySummary,
   AuthResponse,
@@ -50,6 +54,7 @@ import type {
   UsersListItem,
   UserWithProfile,
 } from './types';
+export type { AdminAuditLog, AdminStats };
 
 const ACCESS_COOKIE = 'csl_access_token';
 const REFRESH_COOKIE = 'csl_refresh_token';
@@ -530,9 +535,13 @@ export async function fetchAdminMailJobEvents(
 
 export async function requeueAdminDeadLetter(token: string, jobID: string) {
   try {
-    return await fetchAdminJson<MailJob>(token, `/api/v1/admin/mail/dead-letters/${jobID}/requeue`, {
-      method: 'POST',
-    });
+    return await fetchAdminJson<MailJob>(
+      token,
+      `/api/v1/admin/mail/dead-letters/${jobID}/requeue`,
+      {
+        method: 'POST',
+      },
+    );
   } catch (error) {
     mapApiError(error);
   }
@@ -578,6 +587,62 @@ export async function deleteAdminMailSuppression(token: string, suppressionID: s
       `/api/v1/admin/mail/suppressions/${suppressionID}`,
       { method: 'DELETE' },
     );
+  } catch (error) {
+    mapApiError(error);
+  }
+}
+
+export async function fetchAdminStats(token: string) {
+  try {
+    return await fetchAdminJson<AdminStats>(token, '/api/v1/admin/stats');
+  } catch (error) {
+    mapApiError(error);
+  }
+}
+
+export async function fetchUserAuditLog(token: string, userID: string) {
+  try {
+    return await fetchAdminJson<AdminAuditLog[]>(token, `/api/v1/admin/users/${userID}/audit`);
+  } catch (error) {
+    mapApiError(error);
+  }
+}
+
+export async function governAdminSkill(
+  token: string,
+  skillID: string,
+  payload: AdminSkillGovernanceRequest,
+) {
+  try {
+    return await fetchAdminJson<SkillDetail>(token, `/api/v1/admin/skills/${skillID}/governance`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+  } catch (error) {
+    mapApiError(error);
+  }
+}
+
+export async function updateAdminSkillPricing(
+  token: string,
+  skillID: string,
+  payload: AdminSkillPricingRequest,
+) {
+  try {
+    return await fetchAdminJson<SkillDetail>(token, `/api/v1/admin/skills/${skillID}/pricing`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+  } catch (error) {
+    mapApiError(error);
+  }
+}
+
+export async function fetchSkillAuditLog(token: string, skillID: string) {
+  try {
+    return await fetchAdminJson<AdminAuditLog[]>(token, `/api/v1/admin/skills/${skillID}/audit`);
   } catch (error) {
     mapApiError(error);
   }

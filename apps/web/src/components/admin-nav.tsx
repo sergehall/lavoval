@@ -1,5 +1,6 @@
 'use client';
 
+import type { Route } from 'next';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
@@ -9,8 +10,8 @@ const adminNavItems = [
   { href: '/admin/skills', label: 'Skills' },
   { href: '/admin/runs', label: 'Runs' },
   { href: '/admin/enrollments', label: 'Enrollments' },
-  { href: '/admin/mail', label: 'Mail' },
-] as const;
+  { href: '/admin/mail' as Route, label: 'Mail' },
+] as const satisfies ReadonlyArray<{ href: Route; label: string }>;
 
 export function AdminNav() {
   const pathname = usePathname();

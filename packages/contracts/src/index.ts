@@ -33,11 +33,26 @@ export type {
 export const roleSchema = z.enum(['user', 'admin']);
 export type Role = z.infer<typeof roleSchema>;
 
-export const accountStatusSchema = z.enum(['active', 'invited', 'suspended']);
+export const accountStatusSchema = z.enum(['active', 'invited', 'suspended', 'blocked']);
 export type AccountStatus = z.infer<typeof accountStatusSchema>;
 
-export const skillStatusSchema = z.enum(['draft', 'published', 'archived']);
+// Full status enum — used for display / admin governance responses.
+export const skillStatusSchema = z.enum([
+  'draft',
+  'pending_review',
+  'published',
+  'hidden',
+  'archived',
+  'rejected',
+]);
 export type SkillStatus = z.infer<typeof skillStatusSchema>;
+
+// Author-writable statuses — used in skill create/edit mutation forms.
+export const authorSkillStatusSchema = z.enum(['draft', 'published', 'archived']);
+export type AuthorSkillStatus = z.infer<typeof authorSkillStatusSchema>;
+
+export const skillAccessTypeSchema = z.enum(['free', 'paid', 'invite_only']);
+export type SkillAccessType = z.infer<typeof skillAccessTypeSchema>;
 
 export const enrollmentStatusSchema = z.enum(['assigned', 'in_progress', 'completed']);
 export type EnrollmentStatus = z.infer<typeof enrollmentStatusSchema>;
@@ -148,7 +163,7 @@ export const skillMutationSchema = z.object({
   provider: z.string().min(2),
   entrypoint: z.string().min(2),
   config: z.record(z.string(), z.unknown()),
-  status: skillStatusSchema,
+  status: authorSkillStatusSchema,
   visibility: z.enum(['public', 'private'])
 });
 
@@ -351,8 +366,88 @@ export type ProfileUpdateRequest = z.infer<typeof profileUpdateSchema>;
 export const adminUserUpdateSchema = z.object({
   role: roleSchema,
   status: accountStatusSchema,
+  reason: z.string().min(3).max(500).optional(),
+}).superRefine((value, ctx) => {
+  if ((value.status === 'suspended' || value.status === 'blocked') && !value.reason) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['reason'],
+      message: 'Reason is required when suspending or blocking a user.',
+    });
+  }
 });
 export type AdminUserUpdateRequest = z.infer<typeof adminUserUpdateSchema>;
+
+export const adminSkillGovernanceSchema = z.object({
+  status: skillStatusSchema,
+  reason: z.string().min(3).max(500).optional(),
+  featured: z.boolean().optional(),
+  verified: z.boolean().optional(),
+}).superRefine((value, ctx) => {
+  if ((value.status === 'hidden' || value.status === 'rejected') && !value.reason) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['reason'],
+      message: 'Reason is required when hiding or rejecting a skill.',
+    });
+  }
+});
+export type AdminSkillGovernanceRequest = z.infer<typeof adminSkillGovernanceSchema>;
+
+export const adminSkillPricingSchema = z.object({
+  priceCents: z.number().int().min(0),
+  currency: z.string().trim().length(3).transform((value) => value.toUpperCase()).default('USD'),
+  accessType: skillAccessTypeSchema,
+}).superRefine((value, ctx) => {
+  if (value.accessType === 'paid' && value.priceCents <= 0) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['priceCents'],
+      message: 'Paid skills must have a price greater than zero.',
+    });
+  }
+});
+export type AdminSkillPricingRequest = z.infer<typeof adminSkillPricingSchema>;
+
+export const adminAuditLogSchema = z.object({
+  id: z.string().uuid(),
+  entityType: z.string(),
+  entityId: z.string(),
+  action: z.string(),
+  oldValueJson: z.record(z.string(), z.unknown()).nullable().optional(),
+  newValueJson: z.record(z.string(), z.unknown()).nullable().optional(),
+  reason: z.string().nullable().optional(),
+  actorId: z.string().uuid().nullable().optional(),
+  createdAt: z.string(),
+});
+export type AdminAuditLog = z.infer<typeof adminAuditLogSchema>;
+
+export const adminUserStatsSchema = z.object({
+  total: z.number().int(),
+  active: z.number().int(),
+  suspended: z.number().int(),
+  blocked: z.number().int(),
+  new7d: z.number().int(),
+  new30d: z.number().int(),
+});
+export type AdminUserStats = z.infer<typeof adminUserStatsSchema>;
+
+export const adminSkillStatsSchema = z.object({
+  total: z.number().int(),
+  published: z.number().int(),
+  pendingReview: z.number().int(),
+  hidden: z.number().int(),
+  free: z.number().int(),
+  paid: z.number().int(),
+  new7d: z.number().int(),
+});
+export type AdminSkillStats = z.infer<typeof adminSkillStatsSchema>;
+
+export const adminStatsSchema = z.object({
+  users: adminUserStatsSchema,
+  skills: adminSkillStatsSchema,
+});
+export type AdminStats = z.infer<typeof adminStatsSchema>;
 
 export const apiEnvelopeSchema = <T extends z.ZodTypeAny>(schema: T) => z.object({
   data: schema,

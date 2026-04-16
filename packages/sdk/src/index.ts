@@ -151,7 +151,8 @@ type UsersListItem = SessionUser & {
 
 type AdminUserUpdateRequest = {
   role: 'user' | 'admin';
-  status: 'active' | 'invited' | 'suspended';
+  status: 'active' | 'invited' | 'suspended' | 'blocked';
+  reason?: string;
 };
 
 export function createApiClient(config: ApiClientConfig) {

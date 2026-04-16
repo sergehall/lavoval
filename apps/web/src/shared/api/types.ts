@@ -1,4 +1,9 @@
 import type {
+  AdminAuditLog,
+  AdminSkillStats,
+  AdminStats,
+  AdminUserStats,
+  AccountStatus,
   AuthResponse,
   Profile,
   SkillDetail,
@@ -25,8 +30,15 @@ export type DashboardSummary = {
 };
 
 export type UsersListItem = SessionUser & {
-  status: string;
+  status: AccountStatus;
   createdAt: string;
+  emailVerifiedAt?: string | null;
+  suspensionReason?: string | null;
+  suspendedAt?: string | null;
+  suspendedBy?: string | null;
+  blockReason?: string | null;
+  blockedAt?: string | null;
+  blockedBy?: string | null;
 };
 
 export type UserWithProfile = {
@@ -141,6 +153,8 @@ export type MailEvent = {
   attempt?: number | null;
   createdAt: string;
 };
+
+export type { AdminAuditLog, AdminUserStats, AdminSkillStats, AdminStats };
 
 export type MailSuppressionKind = 'email' | 'domain';
 

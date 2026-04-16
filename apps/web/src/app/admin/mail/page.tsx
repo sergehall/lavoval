@@ -51,31 +51,33 @@ export default async function AdminMailPage({ searchParams }: AdminMailPageProps
   const eventProvider = firstQueryValue(params.eventProvider);
   const eventErrorCode = firstQueryValue(params.eventErrorCode);
 
-  const { mailOps, retention, cleanupRuns, deadLetters, events, suppressions } = await withValidSession(async (session) => {
-    const [mailOps, retention, cleanupRuns, deadLetters, events, suppressions] = await Promise.all([
-      fetchAdminMailOperations(session.accessToken),
-      fetchAdminMailRetention(session.accessToken),
-      fetchAdminMailCleanupRuns(session.accessToken, 10),
-      fetchAdminDeadLetters(session.accessToken, {
-        query: deadLetterQuery,
-        messageType: deadLetterMessageType,
-        provider: deadLetterProvider,
-        errorCode: deadLetterErrorCode,
-        limit: 50,
-      }),
-      fetchAdminMailEvents(session.accessToken, {
-        query: eventQuery,
-        eventType,
-        messageType: eventMessageType,
-        provider: eventProvider,
-        errorCode: eventErrorCode,
-        limit: 50,
-      }),
-      fetchAdminMailSuppressions(session.accessToken),
-    ]);
+  const { mailOps, retention, cleanupRuns, deadLetters, events, suppressions } =
+    await withValidSession(async (session) => {
+      const [mailOps, retention, cleanupRuns, deadLetters, events, suppressions] =
+        await Promise.all([
+          fetchAdminMailOperations(session.accessToken),
+          fetchAdminMailRetention(session.accessToken),
+          fetchAdminMailCleanupRuns(session.accessToken, 10),
+          fetchAdminDeadLetters(session.accessToken, {
+            query: deadLetterQuery,
+            messageType: deadLetterMessageType,
+            provider: deadLetterProvider,
+            errorCode: deadLetterErrorCode,
+            limit: 50,
+          }),
+          fetchAdminMailEvents(session.accessToken, {
+            query: eventQuery,
+            eventType,
+            messageType: eventMessageType,
+            provider: eventProvider,
+            errorCode: eventErrorCode,
+            limit: 50,
+          }),
+          fetchAdminMailSuppressions(session.accessToken),
+        ]);
 
-    return { mailOps, retention, cleanupRuns, deadLetters, events, suppressions };
-  });
+      return { mailOps, retention, cleanupRuns, deadLetters, events, suppressions };
+    });
 
   return (
     <div className="stack stack--lg">
@@ -102,7 +104,9 @@ export default async function AdminMailPage({ searchParams }: AdminMailPageProps
         </Card>
         <Card>
           <h2>{Math.round(mailOps.oldestReadyAgeSeconds)}s</h2>
-          <p>Age of the oldest ready job in the queue, useful as a quick dispatch latency signal.</p>
+          <p>
+            Age of the oldest ready job in the queue, useful as a quick dispatch latency signal.
+          </p>
         </Card>
       </section>
 
@@ -136,15 +140,21 @@ export default async function AdminMailPage({ searchParams }: AdminMailPageProps
           }}
         >
           <div>
-            <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 4 }}>Jobs retention</div>
+            <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 4 }}>
+              Jobs retention
+            </div>
             <strong>{retention.jobsRetentionActive ? retention.jobsRetention : 'disabled'}</strong>
             <div className="muted" style={{ fontSize: 12 }}>
               Eligible: {retention.eligibleJobs}
             </div>
           </div>
           <div>
-            <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 4 }}>Events retention</div>
-            <strong>{retention.eventsRetentionActive ? retention.eventsRetention : 'disabled'}</strong>
+            <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 4 }}>
+              Events retention
+            </div>
+            <strong>
+              {retention.eventsRetentionActive ? retention.eventsRetention : 'disabled'}
+            </strong>
             <div className="muted" style={{ fontSize: 12 }}>
               Eligible: {retention.eligibleEvents}
             </div>
@@ -167,7 +177,9 @@ export default async function AdminMailPage({ searchParams }: AdminMailPageProps
             </div>
           </div>
           <div>
-            <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 4 }}>Webhook alerts</div>
+            <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 4 }}>
+              Webhook alerts
+            </div>
             <strong>{retention.webhookAlertingEnabled ? 'enabled' : 'disabled'}</strong>
             <div className="muted" style={{ fontSize: 12 }}>
               Sends notifications on cleanup failures and backlog threshold breaches.
@@ -178,7 +190,10 @@ export default async function AdminMailPage({ searchParams }: AdminMailPageProps
           {retention.alerts.length > 0 ? (
             <div className="inline-actions" style={{ rowGap: 10, flexWrap: 'wrap' }}>
               {retention.alerts.map((alert) => (
-                <Badge key={alert.code} tone={alert.severity === 'critical' ? 'warning' : 'neutral'}>
+                <Badge
+                  key={alert.code}
+                  tone={alert.severity === 'critical' ? 'warning' : 'neutral'}
+                >
                   {alert.message}
                 </Badge>
               ))}
@@ -192,7 +207,8 @@ export default async function AdminMailPage({ searchParams }: AdminMailPageProps
             Jobs cutoff: {retention.jobsCutoff ? formatDate(retention.jobsCutoff) : 'disabled'}
           </p>
           <p className="muted" style={{ fontSize: 12 }}>
-            Events cutoff: {retention.eventsCutoff ? formatDate(retention.eventsCutoff) : 'disabled'}
+            Events cutoff:{' '}
+            {retention.eventsCutoff ? formatDate(retention.eventsCutoff) : 'disabled'}
           </p>
         </div>
         <form action={cleanupMailRetentionAction}>
@@ -234,7 +250,9 @@ export default async function AdminMailPage({ searchParams }: AdminMailPageProps
                     </Badge>
                   </td>
                   <td>
-                    <Badge tone={run.status === 'failed' ? 'warning' : 'success'}>{run.status}</Badge>
+                    <Badge tone={run.status === 'failed' ? 'warning' : 'success'}>
+                      {run.status}
+                    </Badge>
                   </td>
                   <td>
                     jobs {run.candidateJobs}
@@ -257,7 +275,11 @@ export default async function AdminMailPage({ searchParams }: AdminMailPageProps
 
       <Card>
         <h2 className="card__title">Suppression list</h2>
-        <form action={createMailSuppressionAction} className="stack stack--md" style={{ marginBottom: 16 }}>
+        <form
+          action={createMailSuppressionAction}
+          className="stack stack--md"
+          style={{ marginBottom: 16 }}
+        >
           <div
             style={{
               display: 'grid',
@@ -409,7 +431,9 @@ export default async function AdminMailPage({ searchParams }: AdminMailPageProps
                       {job.lastError ? (
                         <>
                           <br />
-                          <span style={{ fontSize: 12, color: 'var(--muted)' }}>{job.lastError}</span>
+                          <span style={{ fontSize: 12, color: 'var(--muted)' }}>
+                            {job.lastError}
+                          </span>
                         </>
                       ) : null}
                     </td>
