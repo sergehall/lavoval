@@ -46,6 +46,7 @@ import {
   REFRESH_COOKIE,
   SESSION_COOKIE,
 } from '@/shared/lib/auth-session';
+import type { SessionState } from '@/shared/lib/auth-session';
 import { signInHref } from '@/shared/lib/auth-navigation';
 import { canAccessAdmin } from '@/shared/lib/rbac';
 import type {

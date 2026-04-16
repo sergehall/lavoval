@@ -31,6 +31,8 @@
 
     "build": "pnpm run build:web",
     "build:web": "pnpm --dir apps/web build",
+    "typecheck:web": "pnpm --dir apps/web typecheck",
+    "check:web": "pnpm run lint:web && pnpm run test:web && pnpm run typecheck:web",
 
     "test": "pnpm run test:web && pnpm run test:api",
     "test:web": "pnpm --dir apps/web test",

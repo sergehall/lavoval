@@ -60,7 +60,7 @@ describe('proxy auth gating', () => {
   it('redirects expired account access to sign-in and clears auth cookies', () => {
     const expiredToken = createAccessToken({ exp: Math.floor(Date.now() / 1000) - 60 });
 
-    const response = proxy(createRequest('/account', expiredToken) as never) as {
+    const response = proxy(createRequest('/account', expiredToken) as never) as unknown as {
       url: string;
       deleted: string[];
     };
@@ -74,7 +74,7 @@ describe('proxy auth gating', () => {
   it('redirects non-admin users away from admin routes without clearing live auth', () => {
     const userToken = createAccessToken({ role: 'user' });
 
-    const response = proxy(createRequest('/admin', userToken) as never) as {
+    const response = proxy(createRequest('/admin', userToken) as never) as unknown as {
       url: string;
       deleted: string[];
     };
