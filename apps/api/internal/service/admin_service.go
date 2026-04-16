@@ -2,8 +2,11 @@ package service
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -22,6 +25,8 @@ type AdminService struct {
 	mailEvents   repository.MailEventStore
 	suppressions repository.MailSuppressionStore
 	cleanupRuns  repository.MailCleanupRunStore
+	auditLog     repository.AdminAuditLogStore
+	skillAccess  repository.SkillAccessStore
 	retention    MailRetentionPolicy
 }
 
@@ -38,8 +43,31 @@ type MailRetentionPolicy struct {
 	WebhookAlertingEnabled bool
 }
 
-func NewAdminService(users repository.UserStore, profiles repository.ProfileStore, skills repository.SkillStore, enrollments repository.EnrollmentStore, modules repository.ModuleStore, mailJobs repository.MailJobStore, mailEvents repository.MailEventStore, suppressions repository.MailSuppressionStore, cleanupRuns repository.MailCleanupRunStore, retention MailRetentionPolicy) *AdminService {
-	return &AdminService{
+// AdminServiceOption allows optional stores to be injected without changing the base signature.
+type AdminServiceOption func(*AdminService)
+
+func WithAuditLog(store repository.AdminAuditLogStore) AdminServiceOption {
+	return func(s *AdminService) { s.auditLog = store }
+}
+
+func WithSkillAccess(store repository.SkillAccessStore) AdminServiceOption {
+	return func(s *AdminService) { s.skillAccess = store }
+}
+
+func NewAdminService(
+	users repository.UserStore,
+	profiles repository.ProfileStore,
+	skills repository.SkillStore,
+	enrollments repository.EnrollmentStore,
+	modules repository.ModuleStore,
+	mailJobs repository.MailJobStore,
+	mailEvents repository.MailEventStore,
+	suppressions repository.MailSuppressionStore,
+	cleanupRuns repository.MailCleanupRunStore,
+	retention MailRetentionPolicy,
+	opts ...AdminServiceOption,
+) *AdminService {
+	svc := &AdminService{
 		users:        users,
 		profiles:     profiles,
 		skills:       skills,
@@ -51,7 +79,13 @@ func NewAdminService(users repository.UserStore, profiles repository.ProfileStor
 		cleanupRuns:  cleanupRuns,
 		retention:    retention,
 	}
+	for _, o := range opts {
+		o(svc)
+	}
+	return svc
 }
+
+// ── Types ─────────────────────────────────────────────────────────────────────
 
 type UserDetail struct {
 	User    domain.User    `json:"user"`
@@ -60,7 +94,8 @@ type UserDetail struct {
 
 type UpdateUserInput struct {
 	Role   domain.Role          `json:"role"   validate:"required,oneof=user admin"`
-	Status domain.AccountStatus `json:"status" validate:"required,oneof=active invited suspended"`
+	Status domain.AccountStatus `json:"status" validate:"required,oneof=active invited suspended blocked"`
+	Reason *string              `json:"reason,omitempty"`
 }
 
 type CreateMailSuppressionInput struct {
@@ -68,6 +103,24 @@ type CreateMailSuppressionInput struct {
 	Value  string                     `json:"value" validate:"required,min=3,max=255"`
 	Reason string                     `json:"reason" validate:"required,min=3,max=255"`
 }
+
+type SkillGovernanceInput struct {
+	Status   domain.SkillStatus `json:"status"   validate:"required,oneof=draft pending_review published hidden archived rejected"`
+	Reason   *string            `json:"reason,omitempty"`
+	Featured bool               `json:"featured"`
+	Verified bool               `json:"verified"`
+}
+
+type SkillPricingInput struct {
+	PriceCents int                    `json:"priceCents" validate:"min=0"`
+	Currency   string                 `json:"currency"   validate:"required,len=3"`
+	AccessType domain.SkillAccessType `json:"accessType" validate:"required,oneof=free paid invite_only"`
+}
+
+var ErrAdminReasonRequired = errors.New("reason is required for this admin action")
+var ErrInvalidSkillPricing = errors.New("invalid skill pricing")
+
+// ── User methods ──────────────────────────────────────────────────────────────
 
 func (s *AdminService) ListUsers(ctx context.Context) ([]domain.User, error) {
 	users, err := s.users.List(ctx)
@@ -89,13 +142,158 @@ func (s *AdminService) GetUser(ctx context.Context, id string) (UserDetail, erro
 	return UserDetail{User: user, Profile: profile}, nil
 }
 
-func (s *AdminService) UpdateUser(ctx context.Context, id string, input UpdateUserInput) (domain.User, error) {
-	user, err := s.users.UpdateRoleAndStatus(ctx, id, input.Role, input.Status)
+// UpdateUser changes role/status with full audit trail.
+// actorID is the admin performing the action (from JWT claims).
+func (s *AdminService) UpdateUser(ctx context.Context, actorID, targetID string, input UpdateUserInput) (domain.User, error) {
+	if requiresUserModerationReason(input.Status) && isBlankPtr(input.Reason) {
+		return domain.User{}, ErrAdminReasonRequired
+	}
+
+	before, err := s.users.FindByID(ctx, targetID)
+	if err != nil {
+		return domain.User{}, fmt.Errorf("load user before update: %w", err)
+	}
+
+	user, err := s.users.UpdateRoleStatusModeration(ctx, targetID, actorID, input.Role, input.Status, input.Reason)
 	if err != nil {
 		return domain.User{}, fmt.Errorf("update user: %w", err)
 	}
+
+	s.writeAuditLog(ctx, domain.AdminAuditLog{
+		ID:           uuid.NewString(),
+		EntityType:   "user",
+		EntityID:     targetID,
+		Action:       auditActionForStatus(input.Status),
+		OldValueJSON: marshalJSON(userAuditSnapshot(before)),
+		NewValueJSON: marshalJSON(userAuditSnapshot(user)),
+		Reason:       input.Reason,
+		ActorID:      actorID,
+	})
+
 	return user, nil
 }
+
+func auditActionForStatus(status domain.AccountStatus) string {
+	switch status {
+	case domain.AccountStatusSuspended:
+		return "user_suspended"
+	case domain.AccountStatusBlocked:
+		return "user_blocked"
+	case domain.AccountStatusActive:
+		return "user_restored"
+	default:
+		return "user_updated"
+	}
+}
+
+// GetUserAuditLog returns the governance history for a user.
+func (s *AdminService) GetUserAuditLog(ctx context.Context, userID string, limit int) ([]domain.AdminAuditLog, error) {
+	if s.auditLog == nil {
+		return []domain.AdminAuditLog{}, nil
+	}
+	entries, err := s.auditLog.ListByEntity(ctx, "user", userID, limit)
+	if err != nil {
+		return nil, fmt.Errorf("user audit log: %w", err)
+	}
+	return entries, nil
+}
+
+// GetAdminStats returns the top-level admin dashboard snapshot.
+func (s *AdminService) GetAdminStats(ctx context.Context) (domain.AdminStats, error) {
+	userStats, err := s.users.GetStats(ctx)
+	if err != nil {
+		return domain.AdminStats{}, fmt.Errorf("user stats: %w", err)
+	}
+	skillStats, err := s.skills.GetStats(ctx)
+	if err != nil {
+		return domain.AdminStats{}, fmt.Errorf("skill stats: %w", err)
+	}
+	return domain.AdminStats{Users: userStats, Skills: skillStats}, nil
+}
+
+// ── Skill governance methods ──────────────────────────────────────────────────
+
+func (s *AdminService) ListSkills(ctx context.Context) ([]domain.Skill, error) {
+	skills, err := s.skills.ListAll(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("list admin skills: %w", err)
+	}
+	return skills, nil
+}
+
+// GovernSkill updates skill moderation status and writes an audit log entry.
+func (s *AdminService) GovernSkill(ctx context.Context, actorID, skillID string, input SkillGovernanceInput) (domain.Skill, error) {
+	if requiresSkillModerationReason(input.Status) && isBlankPtr(input.Reason) {
+		return domain.Skill{}, ErrAdminReasonRequired
+	}
+
+	before, err := s.skills.FindByID(ctx, skillID)
+	if err != nil {
+		return domain.Skill{}, fmt.Errorf("load skill before governance update: %w", err)
+	}
+
+	skill, err := s.skills.UpdateGovernance(ctx, skillID, actorID, input.Status, input.Reason, input.Featured, input.Verified)
+	if err != nil {
+		return domain.Skill{}, fmt.Errorf("govern skill: %w", err)
+	}
+
+	s.writeAuditLog(ctx, domain.AdminAuditLog{
+		ID:           uuid.NewString(),
+		EntityType:   "skill",
+		EntityID:     skillID,
+		Action:       "skill_" + string(input.Status),
+		OldValueJSON: marshalJSON(skillGovernanceAuditSnapshot(before)),
+		NewValueJSON: marshalJSON(skillGovernanceAuditSnapshot(skill)),
+		Reason:       input.Reason,
+		ActorID:      actorID,
+	})
+
+	return skill, nil
+}
+
+// UpdateSkillPricing sets the price and access model for a skill.
+func (s *AdminService) UpdateSkillPricing(ctx context.Context, actorID, skillID string, input SkillPricingInput) (domain.Skill, error) {
+	before, err := s.skills.FindByID(ctx, skillID)
+	if err != nil {
+		return domain.Skill{}, fmt.Errorf("load skill before pricing update: %w", err)
+	}
+
+	normalized, err := normalizeSkillPricingInput(input)
+	if err != nil {
+		return domain.Skill{}, err
+	}
+
+	skill, err := s.skills.UpdatePricing(ctx, skillID, normalized.PriceCents, normalized.Currency, normalized.AccessType)
+	if err != nil {
+		return domain.Skill{}, fmt.Errorf("update skill pricing: %w", err)
+	}
+
+	s.writeAuditLog(ctx, domain.AdminAuditLog{
+		ID:           uuid.NewString(),
+		EntityType:   "skill",
+		EntityID:     skillID,
+		Action:       "skill_pricing_updated",
+		OldValueJSON: marshalJSON(skillPricingAuditSnapshot(before)),
+		NewValueJSON: marshalJSON(skillPricingAuditSnapshot(skill)),
+		ActorID:      actorID,
+	})
+
+	return skill, nil
+}
+
+// GetSkillAuditLog returns the governance history for a skill.
+func (s *AdminService) GetSkillAuditLog(ctx context.Context, skillID string, limit int) ([]domain.AdminAuditLog, error) {
+	if s.auditLog == nil {
+		return []domain.AdminAuditLog{}, nil
+	}
+	entries, err := s.auditLog.ListByEntity(ctx, "skill", skillID, limit)
+	if err != nil {
+		return nil, fmt.Errorf("skill audit log: %w", err)
+	}
+	return entries, nil
+}
+
+// ── Enrollment methods ────────────────────────────────────────────────────────
 
 type AssignSkillInput struct {
 	UserID  string `json:"userId"  validate:"required,uuid4"`
@@ -131,7 +329,7 @@ func (s *AdminService) UpdateEnrollment(ctx context.Context, id string, input Up
 	return enrollment, nil
 }
 
-// ── Module methods ────────────────────────────────────────────────────────
+// ── Module methods ────────────────────────────────────────────────────────────
 
 type ModuleMutationInput struct {
 	Slug     string             `json:"slug"     validate:"required,min=2,max=100"`
@@ -192,19 +390,12 @@ func (s *AdminService) DeleteModule(ctx context.Context, moduleID string) error 
 	return nil
 }
 
-func (s *AdminService) ListSkills(ctx context.Context) ([]domain.Skill, error) {
-	skills, err := s.skills.ListAll(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("list admin skills: %w", err)
-	}
-	return skills, nil
-}
+// ── Mail methods ──────────────────────────────────────────────────────────────
 
 func (s *AdminService) MailOperations(ctx context.Context) (domain.MailOperationalSnapshot, error) {
 	if s.mailJobs == nil {
 		return domain.MailOperationalSnapshot{}, fmt.Errorf("mail jobs store is not configured")
 	}
-
 	snapshot, err := s.mailJobs.OperationalSnapshot(ctx)
 	if err != nil {
 		return domain.MailOperationalSnapshot{}, fmt.Errorf("mail operations snapshot: %w", err)
@@ -216,7 +407,6 @@ func (s *AdminService) ListDeadLetters(ctx context.Context, filter domain.MailJo
 	if s.mailJobs == nil {
 		return nil, fmt.Errorf("mail jobs store is not configured")
 	}
-
 	items, err := s.mailJobs.ListDeadLetters(ctx, filter)
 	if err != nil {
 		return nil, fmt.Errorf("list dead letters: %w", err)
@@ -228,7 +418,6 @@ func (s *AdminService) ListMailEvents(ctx context.Context, filter domain.MailEve
 	if s.mailEvents == nil {
 		return nil, fmt.Errorf("mail events store is not configured")
 	}
-
 	events, err := s.mailEvents.ListRecent(ctx, filter)
 	if err != nil {
 		return nil, fmt.Errorf("list mail events: %w", err)
@@ -240,7 +429,6 @@ func (s *AdminService) ListMailEventsByJob(ctx context.Context, jobID string, fi
 	if s.mailEvents == nil {
 		return nil, fmt.Errorf("mail events store is not configured")
 	}
-
 	events, err := s.mailEvents.ListByJobID(ctx, jobID, filter)
 	if err != nil {
 		return nil, fmt.Errorf("list mail events by job: %w", err)
@@ -252,7 +440,6 @@ func (s *AdminService) RequeueDeadLetter(ctx context.Context, jobID string) (dom
 	if s.mailJobs == nil {
 		return domain.MailJob{}, fmt.Errorf("mail jobs store is not configured")
 	}
-
 	job, err := s.mailJobs.RequeueDeadLetter(ctx, jobID)
 	if err != nil {
 		return domain.MailJob{}, fmt.Errorf("requeue dead letter: %w", err)
@@ -277,7 +464,6 @@ func (s *AdminService) ReplayMailJob(ctx context.Context, jobID string) (domain.
 	if s.mailJobs == nil {
 		return domain.MailJob{}, fmt.Errorf("mail jobs store is not configured")
 	}
-
 	source, err := s.mailJobs.FindByID(ctx, jobID)
 	if err != nil {
 		return domain.MailJob{}, fmt.Errorf("find mail job for replay: %w", err)
@@ -317,7 +503,6 @@ func (s *AdminService) ReplayMailJob(ctx context.Context, jobID string) (domain.
 			log.Printf("admin: append mail replay event failed for job %s: %v", job.ID, err)
 		}
 	}
-
 	return job, nil
 }
 
@@ -338,22 +523,20 @@ func (s *AdminService) MailRetentionSnapshot(ctx context.Context) (domain.MailRe
 	}
 
 	snapshot := domain.MailRetentionSnapshot{
-		JobsRetention:          s.retention.JobsRetention.String(),
-		EventsRetention:        s.retention.EventsRetention.String(),
-		CleanupBatchSize:       normalizedCleanupBatchSize(s.retention.CleanupBatchSize),
-		CleanupInterval:        s.retention.CleanupInterval.String(),
-		CleanupDryRun:          s.retention.CleanupDryRun,
-		AutoCleanupEnabled:     s.retention.CleanupInterval > 0,
-		JobsRetentionActive:    s.retention.JobsRetention > 0,
-		EventsRetentionActive:  s.retention.EventsRetention > 0,
-		Alerts:                 make([]domain.MailRetentionAlert, 0),
-		WebhookAlertingEnabled: s.retention.WebhookAlertingEnabled,
+		JobsRetention:         s.retention.JobsRetention.String(),
+		EventsRetention:       s.retention.EventsRetention.String(),
+		CleanupBatchSize:      normalizedCleanupBatchSize(s.retention.CleanupBatchSize),
+		CleanupInterval:       s.retention.CleanupInterval.String(),
+		CleanupDryRun:         s.retention.CleanupDryRun,
+		AutoCleanupEnabled:    s.retention.CleanupInterval > 0,
+		JobsRetentionActive:   s.retention.JobsRetention > 0,
+		EventsRetentionActive: s.retention.EventsRetention > 0,
+		Alerts:                make([]domain.MailRetentionAlert, 0),
 	}
 
 	if s.retention.JobsRetention > 0 {
 		cutoff := time.Now().UTC().Add(-s.retention.JobsRetention)
 		snapshot.JobsCutoff = &cutoff
-
 		count, err := s.mailJobs.CountTerminalBefore(ctx, cutoff)
 		if err != nil {
 			return domain.MailRetentionSnapshot{}, fmt.Errorf("count purgeable mail jobs: %w", err)
@@ -364,7 +547,6 @@ func (s *AdminService) MailRetentionSnapshot(ctx context.Context) (domain.MailRe
 	if s.retention.EventsRetention > 0 {
 		cutoff := time.Now().UTC().Add(-s.retention.EventsRetention)
 		snapshot.EventsCutoff = &cutoff
-
 		count, err := s.mailEvents.CountBefore(ctx, cutoff)
 		if err != nil {
 			return domain.MailRetentionSnapshot{}, fmt.Errorf("count purgeable mail events: %w", err)
@@ -403,9 +585,7 @@ func (s *AdminService) CleanupMailRetention(ctx context.Context) (domain.MailCle
 	}
 
 	batchSize := normalizedCleanupBatchSize(s.retention.CleanupBatchSize)
-	result := domain.MailCleanupResult{
-		CompletedAt: time.Now().UTC(),
-	}
+	result := domain.MailCleanupResult{CompletedAt: time.Now().UTC()}
 
 	if s.retention.JobsRetention > 0 {
 		cutoff := result.CompletedAt.Add(-s.retention.JobsRetention)
@@ -414,7 +594,6 @@ func (s *AdminService) CleanupMailRetention(ctx context.Context) (domain.MailCle
 			return domain.MailCleanupResult{}, fmt.Errorf("cleanup mail jobs: %w", err)
 		}
 		result.JobsDeleted = deleted
-
 		remaining, err := s.mailJobs.CountTerminalBefore(ctx, cutoff)
 		if err != nil {
 			return domain.MailCleanupResult{}, fmt.Errorf("count remaining purgeable mail jobs: %w", err)
@@ -429,7 +608,6 @@ func (s *AdminService) CleanupMailRetention(ctx context.Context) (domain.MailCle
 			return domain.MailCleanupResult{}, fmt.Errorf("cleanup mail events: %w", err)
 		}
 		result.EventsDeleted = deleted
-
 		remaining, err := s.mailEvents.CountBefore(ctx, cutoff)
 		if err != nil {
 			return domain.MailCleanupResult{}, fmt.Errorf("count remaining purgeable mail events: %w", err)
@@ -461,11 +639,124 @@ func (s *AdminService) recordCleanupRun(ctx context.Context, run domain.MailClea
 	}
 }
 
+func (s *AdminService) CreateMailSuppression(ctx context.Context, input CreateMailSuppressionInput) (domain.MailSuppression, error) {
+	if s.suppressions == nil {
+		return domain.MailSuppression{}, fmt.Errorf("mail suppressions store is not configured")
+	}
+	item, err := s.suppressions.Create(ctx, domain.MailSuppression{
+		ID:     uuid.NewString(),
+		Kind:   input.Kind,
+		Value:  input.Value,
+		Reason: input.Reason,
+	})
+	if err != nil {
+		return domain.MailSuppression{}, fmt.Errorf("create mail suppression: %w", err)
+	}
+	return item, nil
+}
+
+func (s *AdminService) DeleteMailSuppression(ctx context.Context, id string) error {
+	if s.suppressions == nil {
+		return fmt.Errorf("mail suppressions store is not configured")
+	}
+	if err := s.suppressions.Delete(ctx, id); err != nil {
+		return fmt.Errorf("delete mail suppression: %w", err)
+	}
+	return nil
+}
+
+// ── Internal helpers ──────────────────────────────────────────────────────────
+
+func (s *AdminService) writeAuditLog(ctx context.Context, entry domain.AdminAuditLog) {
+	if s.auditLog == nil {
+		return
+	}
+	if _, err := s.auditLog.Create(ctx, entry); err != nil {
+		log.Printf("admin: write audit log failed (entity=%s id=%s action=%s): %v",
+			entry.EntityType, entry.EntityID, entry.Action, err)
+	}
+}
+
+// marshalJSON is a helper for building audit log old/new values.
+func marshalJSON(v any) *string {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return nil
+	}
+	s := string(b)
+	return &s
+}
+
 func normalizedCleanupBatchSize(size int) int {
 	if size <= 0 {
 		return 500
 	}
 	return size
+}
+
+func requiresUserModerationReason(status domain.AccountStatus) bool {
+	return status == domain.AccountStatusSuspended || status == domain.AccountStatusBlocked
+}
+
+func requiresSkillModerationReason(status domain.SkillStatus) bool {
+	return status == domain.SkillStatusHidden || status == domain.SkillStatusRejected
+}
+
+func isBlankPtr(value *string) bool {
+	return value == nil || strings.TrimSpace(*value) == ""
+}
+
+func normalizeSkillPricingInput(input SkillPricingInput) (SkillPricingInput, error) {
+	normalized := input
+	normalized.Currency = strings.ToUpper(strings.TrimSpace(normalized.Currency))
+	if normalized.Currency == "" {
+		normalized.Currency = "USD"
+	}
+
+	switch normalized.AccessType {
+	case domain.AccessTypeFree:
+		normalized.PriceCents = 0
+	case domain.AccessTypePaid:
+		if normalized.PriceCents <= 0 {
+			return SkillPricingInput{}, ErrInvalidSkillPricing
+		}
+	case domain.AccessTypeInviteOnly:
+		normalized.PriceCents = 0
+	default:
+		return SkillPricingInput{}, ErrInvalidSkillPricing
+	}
+
+	return normalized, nil
+}
+
+func userAuditSnapshot(user domain.User) map[string]any {
+	return map[string]any{
+		"role":             user.Role,
+		"status":           user.Status,
+		"suspensionReason": user.SuspensionReason,
+		"blockReason":      user.BlockReason,
+		"suspendedAt":      user.SuspendedAt,
+		"blockedAt":        user.BlockedAt,
+	}
+}
+
+func skillGovernanceAuditSnapshot(skill domain.Skill) map[string]any {
+	return map[string]any{
+		"status":           skill.Status,
+		"isFeatured":       skill.IsFeatured,
+		"isVerified":       skill.IsVerified,
+		"moderationReason": skill.ModerationReason,
+		"moderatedBy":      skill.ModeratedBy,
+		"moderatedAt":      skill.ModeratedAt,
+	}
+}
+
+func skillPricingAuditSnapshot(skill domain.Skill) map[string]any {
+	return map[string]any{
+		"priceCents": skill.PriceCents,
+		"currency":   skill.Currency,
+		"accessType": skill.AccessType,
+	}
 }
 
 func buildMailRetentionAlerts(snapshot domain.MailRetentionSnapshot, runs []domain.MailCleanupRun, policy MailRetentionPolicy) []domain.MailRetentionAlert {
@@ -523,30 +814,4 @@ func buildMailRetentionAlerts(snapshot domain.MailRetentionSnapshot, runs []doma
 	}
 
 	return alerts
-}
-
-func (s *AdminService) CreateMailSuppression(ctx context.Context, input CreateMailSuppressionInput) (domain.MailSuppression, error) {
-	if s.suppressions == nil {
-		return domain.MailSuppression{}, fmt.Errorf("mail suppressions store is not configured")
-	}
-	item, err := s.suppressions.Create(ctx, domain.MailSuppression{
-		ID:     uuid.NewString(),
-		Kind:   input.Kind,
-		Value:  input.Value,
-		Reason: input.Reason,
-	})
-	if err != nil {
-		return domain.MailSuppression{}, fmt.Errorf("create mail suppression: %w", err)
-	}
-	return item, nil
-}
-
-func (s *AdminService) DeleteMailSuppression(ctx context.Context, id string) error {
-	if s.suppressions == nil {
-		return fmt.Errorf("mail suppressions store is not configured")
-	}
-	if err := s.suppressions.Delete(ctx, id); err != nil {
-		return fmt.Errorf("delete mail suppression: %w", err)
-	}
-	return nil
 }

@@ -26,6 +26,8 @@ import (
 var ErrInvalidCredentials = errors.New("invalid credentials")
 var ErrEmailAlreadyExists = errors.New("email already exists")
 var ErrEmailNotVerified = errors.New("email not verified")
+var ErrAccountBlocked = errors.New("account is blocked")
+var ErrAccountSuspended = errors.New("account is suspended")
 var ErrVerificationTokenInvalid = errors.New("verification token is invalid")
 var ErrVerificationTokenExpired = errors.New("verification token expired")
 var ErrEmailAlreadyVerified = errors.New("email already verified")
@@ -587,6 +589,9 @@ func (s *AuthService) Login(ctx context.Context, input LoginInput) (AuthPayload,
 	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(input.Password)); err != nil {
 		return AuthPayload{}, ErrInvalidCredentials
 	}
+	if err := ensureAccountCanAuthenticate(user); err != nil {
+		return AuthPayload{}, err
+	}
 	if user.EmailVerifiedAt == nil {
 		return AuthPayload{}, ErrEmailNotVerified
 	}
@@ -604,6 +609,13 @@ func (s *AuthService) Login(ctx context.Context, input LoginInput) (AuthPayload,
 	}
 
 	return s.buildAuthPayload(user, profile)
+}
+
+func ensureAccountCanAuthenticate(user domain.User) error {
+	if user.Status == domain.AccountStatusBlocked {
+		return ErrAccountBlocked
+	}
+	return nil
 }
 
 func (s *AuthService) CompleteMFASignIn(ctx context.Context, input CompleteMFASignInInput) (AuthPayload, error) {

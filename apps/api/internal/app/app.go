@@ -75,6 +75,8 @@ func New() (*Application, error) {
 	enrollmentRepo := repository.NewEnrollmentRepository(pool)
 	moduleRepo := repository.NewModuleRepository(pool)
 	skillRunRepo := repository.NewSkillRunRepository(pool)
+	auditLogRepo := repository.NewAdminAuditLogRepository(pool)
+	skillAccessRepo := repository.NewSkillAccessRepository(pool)
 	runtimeRegistry := appRuntime.DefaultRegistry()
 	mailMetrics := mailer.NewPrometheusHandler(mailJobRepo)
 	verificationMailer := mailer.NewPostgresVerificationMailer(cfg, mailJobRepo, mailEventRepo, mailSuppressionRepo, mailMetrics)
@@ -97,7 +99,7 @@ func New() (*Application, error) {
 	)
 	profileService := service.NewProfileService(profileRepo)
 	accountSecurityService := service.NewAccountSecurityService(userRepo, oauthIdentityRepo)
-	skillService := service.NewSkillService(skillRepo, enrollmentRepo)
+	skillService := service.NewSkillService(skillRepo, enrollmentRepo, userRepo)
 	runtimeService := service.NewRuntimeService(skillRepo, skillRunRepo, runtimeRegistry)
 	adminService := service.NewAdminService(
 		userRepo,
@@ -121,6 +123,8 @@ func New() (*Application, error) {
 			AlertStaleAfter:        cfg.MailCleanupAlertStaleAfter,
 			WebhookAlertingEnabled: cfg.MailAlertWebhookURL != "",
 		},
+		service.WithAuditLog(auditLogRepo),
+		service.WithSkillAccess(skillAccessRepo),
 	)
 
 	router := handler.NewRouter(cfg, tokenManager, authService, profileService, accountSecurityService, skillService, runtimeService, adminService, mailMetrics)

@@ -35,6 +35,12 @@ func (hAdminUserStub) UpdatePasswordHash(_ context.Context, _, _ string) (domain
 func (hAdminUserStub) UpdateRoleAndStatus(_ context.Context, _ string, _ domain.Role, _ domain.AccountStatus) (domain.User, error) {
 	return domain.User{}, nil
 }
+func (hAdminUserStub) UpdateRoleStatusModeration(_ context.Context, _, _ string, _ domain.Role, _ domain.AccountStatus, _ *string) (domain.User, error) {
+	return domain.User{}, nil
+}
+func (hAdminUserStub) GetStats(_ context.Context) (domain.AdminUserStats, error) {
+	return domain.AdminUserStats{}, nil
+}
 func (hAdminUserStub) StartTOTPEnrollment(_ context.Context, _ string, _ string) (domain.User, error) {
 	return domain.User{}, nil
 }
@@ -80,6 +86,15 @@ func (hAdminSkillStub) Update(_ context.Context, s domain.Skill) (domain.Skill, 
 	return s, nil
 }
 func (hAdminSkillStub) SoftDelete(_ context.Context, _ string) error { return nil }
+func (hAdminSkillStub) UpdateGovernance(_ context.Context, _, _ string, _ domain.SkillStatus, _ *string, _, _ bool) (domain.Skill, error) {
+	return domain.Skill{}, nil
+}
+func (hAdminSkillStub) UpdatePricing(_ context.Context, _ string, _ int, _ string, _ domain.SkillAccessType) (domain.Skill, error) {
+	return domain.Skill{}, nil
+}
+func (hAdminSkillStub) GetStats(_ context.Context) (domain.AdminSkillStats, error) {
+	return domain.AdminSkillStats{}, nil
+}
 
 type hAdminEnrollmentStub struct{}
 
@@ -130,6 +145,7 @@ func newTestAdminHandler() *AdminHandler {
 	skillSvc := service.NewSkillService(
 		hAdminSkillStub{},
 		hAdminEnrollmentStub{},
+		nil,
 	)
 	v := validator.New(validator.WithRequiredStructEnabled())
 	return NewAdminHandler(v, adminSvc, skillSvc)

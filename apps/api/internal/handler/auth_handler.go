@@ -72,6 +72,10 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 			httpx.Error(w, http.StatusForbidden, "email_not_verified", "Please confirm your email before signing in")
 			return
 		}
+		if errors.Is(err, service.ErrAccountBlocked) {
+			httpx.Error(w, http.StatusForbidden, "account_blocked", "This account has been blocked")
+			return
+		}
 		httpx.Error(w, http.StatusInternalServerError, "login_failed", "Could not sign in")
 		return
 	}
@@ -162,6 +166,8 @@ func (h *AuthHandler) CompleteGoogleOAuth(w http.ResponseWriter, r *http.Request
 			httpx.Error(w, http.StatusServiceUnavailable, "oauth_not_configured", "Google OAuth is not configured yet.")
 		case errors.Is(err, service.ErrOAuthMFASignInNotSupported):
 			httpx.Error(w, http.StatusConflict, "oauth_mfa_not_supported", "Use your password and authenticator flow for this account right now.")
+		case errors.Is(err, service.ErrAccountBlocked):
+			httpx.Error(w, http.StatusForbidden, "account_blocked", "This account has been blocked.")
 		default:
 			httpx.Error(w, http.StatusInternalServerError, "oauth_complete_failed", "Could not complete Google sign in.")
 		}
@@ -195,6 +201,8 @@ func (h *AuthHandler) CompleteGitHubOAuth(w http.ResponseWriter, r *http.Request
 			httpx.Error(w, http.StatusServiceUnavailable, "oauth_not_configured", "GitHub OAuth is not configured yet.")
 		case errors.Is(err, service.ErrOAuthMFASignInNotSupported):
 			httpx.Error(w, http.StatusConflict, "oauth_mfa_not_supported", "Use your password and authenticator flow for this account right now.")
+		case errors.Is(err, service.ErrAccountBlocked):
+			httpx.Error(w, http.StatusForbidden, "account_blocked", "This account has been blocked.")
 		default:
 			httpx.Error(w, http.StatusInternalServerError, "oauth_complete_failed", "Could not complete GitHub sign in.")
 		}

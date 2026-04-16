@@ -16,6 +16,7 @@ var ErrSkillForbidden = errors.New("skill access forbidden")
 type SkillService struct {
 	skills      repository.SkillStore
 	enrollments repository.EnrollmentStore
+	users       repository.UserStore
 }
 
 type SkillMutationInput struct {
@@ -30,8 +31,12 @@ type SkillMutationInput struct {
 	Visibility  domain.Visibility  `json:"visibility" validate:"required,oneof=public private"`
 }
 
-func NewSkillService(skills repository.SkillStore, enrollments repository.EnrollmentStore) *SkillService {
-	return &SkillService{skills: skills, enrollments: enrollments}
+func NewSkillService(
+	skills repository.SkillStore,
+	enrollments repository.EnrollmentStore,
+	users repository.UserStore,
+) *SkillService {
+	return &SkillService{skills: skills, enrollments: enrollments, users: users}
 }
 
 func (s *SkillService) ListPublic(ctx context.Context) ([]domain.Skill, error) {
@@ -70,6 +75,10 @@ func (s *SkillService) FindOwnedByCreator(ctx context.Context, id string, creato
 }
 
 func (s *SkillService) Create(ctx context.Context, actorID string, input SkillMutationInput) (domain.Skill, error) {
+	if err := s.ensureCreatorCanMutate(ctx, actorID); err != nil {
+		return domain.Skill{}, err
+	}
+
 	skill := domain.Skill{
 		ID:          uuid.NewString(),
 		Slug:        input.Slug,
@@ -113,6 +122,10 @@ func (s *SkillService) Update(ctx context.Context, id string, input SkillMutatio
 }
 
 func (s *SkillService) UpdateOwnedByCreator(ctx context.Context, id string, creatorID string, input SkillMutationInput) (domain.Skill, error) {
+	if err := s.ensureCreatorCanMutate(ctx, creatorID); err != nil {
+		return domain.Skill{}, err
+	}
+
 	skill, err := s.FindOwnedByCreator(ctx, id, creatorID)
 	if err != nil {
 		return domain.Skill{}, err
@@ -144,6 +157,9 @@ func (s *SkillService) Archive(ctx context.Context, id string) error {
 }
 
 func (s *SkillService) ArchiveOwnedByCreator(ctx context.Context, id string, creatorID string) error {
+	if err := s.ensureCreatorCanMutate(ctx, creatorID); err != nil {
+		return err
+	}
 	if _, err := s.FindOwnedByCreator(ctx, id, creatorID); err != nil {
 		return err
 	}
@@ -151,4 +167,24 @@ func (s *SkillService) ArchiveOwnedByCreator(ctx context.Context, id string, cre
 		return fmt.Errorf("archive owned skill: %w", err)
 	}
 	return nil
+}
+
+func (s *SkillService) ensureCreatorCanMutate(ctx context.Context, creatorID string) error {
+	if s.users == nil {
+		return nil
+	}
+
+	user, err := s.users.FindByID(ctx, creatorID)
+	if err != nil {
+		return fmt.Errorf("find creator account: %w", err)
+	}
+
+	switch user.Status {
+	case domain.AccountStatusBlocked:
+		return ErrAccountBlocked
+	case domain.AccountStatusSuspended:
+		return ErrAccountSuspended
+	default:
+		return nil
+	}
 }

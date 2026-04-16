@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
@@ -29,6 +30,15 @@ func (s skillRepoStub) Update(_ context.Context, skill domain.Skill) (domain.Ski
 	return skill, nil
 }
 func (s skillRepoStub) SoftDelete(context.Context, string) error { return nil }
+func (skillRepoStub) UpdateGovernance(_ context.Context, _, _ string, _ domain.SkillStatus, _ *string, _, _ bool) (domain.Skill, error) {
+	return domain.Skill{}, nil
+}
+func (skillRepoStub) UpdatePricing(_ context.Context, _ string, _ int, _ string, _ domain.SkillAccessType) (domain.Skill, error) {
+	return domain.Skill{}, nil
+}
+func (skillRepoStub) GetStats(_ context.Context) (domain.AdminSkillStats, error) {
+	return domain.AdminSkillStats{}, nil
+}
 
 type enrollmentRepoStub struct{}
 
@@ -45,8 +55,56 @@ func (enrollmentRepoStub) UpdateStatus(_ context.Context, _ string, _ domain.Enr
 	return domain.Enrollment{}, nil
 }
 
+type skillUserRepoStub struct {
+	user domain.User
+	err  error
+}
+
+func (s skillUserRepoStub) Create(_ context.Context, user domain.User) (domain.User, error) {
+	return user, s.err
+}
+func (s skillUserRepoStub) FindByEmail(_ context.Context, _ string) (domain.User, error) {
+	return s.user, s.err
+}
+func (s skillUserRepoStub) FindByID(_ context.Context, _ string) (domain.User, error) {
+	return s.user, s.err
+}
+func (s skillUserRepoStub) MarkEmailVerified(_ context.Context, _ string) (domain.User, error) {
+	return s.user, s.err
+}
+func (s skillUserRepoStub) UpdatePasswordHash(_ context.Context, _, _ string) (domain.User, error) {
+	return s.user, s.err
+}
+func (s skillUserRepoStub) UpdateRoleAndStatus(_ context.Context, _ string, _ domain.Role, _ domain.AccountStatus) (domain.User, error) {
+	return s.user, s.err
+}
+func (s skillUserRepoStub) UpdateRoleStatusModeration(_ context.Context, _, _ string, _ domain.Role, _ domain.AccountStatus, _ *string) (domain.User, error) {
+	return s.user, s.err
+}
+func (s skillUserRepoStub) GetStats(_ context.Context) (domain.AdminUserStats, error) {
+	return domain.AdminUserStats{}, s.err
+}
+func (s skillUserRepoStub) StartTOTPEnrollment(_ context.Context, _ string, _ string) (domain.User, error) {
+	return s.user, s.err
+}
+func (s skillUserRepoStub) CancelTOTPEnrollment(_ context.Context, _ string) (domain.User, error) {
+	return s.user, s.err
+}
+func (s skillUserRepoStub) EnableTOTP(_ context.Context, _ string, _ string) (domain.User, error) {
+	return s.user, s.err
+}
+func (s skillUserRepoStub) DisableTOTP(_ context.Context, _ string) (domain.User, error) {
+	return s.user, s.err
+}
+func (s skillUserRepoStub) SoftDelete(_ context.Context, _ string) error { return s.err }
+func (s skillUserRepoStub) List(_ context.Context) ([]domain.User, error) {
+	return []domain.User{s.user}, s.err
+}
+
 func TestSkillServiceCreateAssignsActorID(t *testing.T) {
-	service := NewSkillService(skillRepoStub{}, enrollmentRepoStub{})
+	service := NewSkillService(skillRepoStub{}, enrollmentRepoStub{}, skillUserRepoStub{
+		user: domain.User{ID: "admin-1", Status: domain.AccountStatusActive},
+	})
 	result, err := service.Create(context.Background(), "admin-1", SkillMutationInput{
 		Slug:        "clean-architecture",
 		Title:       "Clean Architecture",
@@ -66,5 +124,26 @@ func TestSkillServiceCreateAssignsActorID(t *testing.T) {
 	}
 	if result.Provider != "internal" {
 		t.Fatalf("expected provider to be preserved, got %s", result.Provider)
+	}
+}
+
+func TestSkillServiceCreateRejectsSuspendedCreator(t *testing.T) {
+	service := NewSkillService(skillRepoStub{}, enrollmentRepoStub{}, skillUserRepoStub{
+		user: domain.User{ID: "creator-1", Status: domain.AccountStatusSuspended},
+	})
+
+	_, err := service.Create(context.Background(), "creator-1", SkillMutationInput{
+		Slug:        "clean-architecture",
+		Title:       "Clean Architecture",
+		Summary:     "Use clear boundaries for sustainable product growth.",
+		Description: "Learn how to separate application layers and keep product systems maintainable over time.",
+		Provider:    "internal",
+		Entrypoint:  "echo",
+		Config:      map[string]any{"mode": "test"},
+		Status:      domain.SkillStatusDraft,
+		Visibility:  domain.VisibilityPrivate,
+	})
+	if !errors.Is(err, ErrAccountSuspended) {
+		t.Fatalf("expected ErrAccountSuspended, got %v", err)
 	}
 }

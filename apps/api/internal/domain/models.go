@@ -394,8 +394,8 @@ type AdminAuditLog struct {
 	EntityType   string    `json:"entityType"`
 	EntityID     string    `json:"entityId"`
 	Action       string    `json:"action"`
-	OldValueJSON *string   `json:"oldValue,omitempty"`
-	NewValueJSON *string   `json:"newValue,omitempty"`
+	OldValueJSON *string   `json:"oldValueJson,omitempty"`
+	NewValueJSON *string   `json:"newValueJson,omitempty"`
 	Reason       *string   `json:"reason,omitempty"`
 	ActorID      string    `json:"actorId"`
 	CreatedAt    time.Time `json:"createdAt"`
@@ -412,8 +412,8 @@ type AdminUserStats struct {
 	Active     int64 `json:"active"`
 	Suspended  int64 `json:"suspended"`
 	Blocked    int64 `json:"blocked"`
-	NewLast7d  int64 `json:"newLast7d"`
-	NewLast30d int64 `json:"newLast30d"`
+	NewLast7d  int64 `json:"new7d"`
+	NewLast30d int64 `json:"new30d"`
 }
 
 type AdminSkillStats struct {
@@ -423,5 +423,5 @@ type AdminSkillStats struct {
 	Hidden        int64 `json:"hidden"`
 	Free          int64 `json:"free"`
 	Paid          int64 `json:"paid"`
-	NewLast7d     int64 `json:"newLast7d"`
+	NewLast7d     int64 `json:"new7d"`
 }

@@ -37,6 +37,15 @@ func (s adminUserStub) UpdateRoleAndStatus(_ context.Context, _ string, role dom
 	u.Status = status
 	return u, s.err
 }
+func (s adminUserStub) UpdateRoleStatusModeration(_ context.Context, _, _ string, role domain.Role, status domain.AccountStatus, _ *string) (domain.User, error) {
+	u := s.user
+	u.Role = role
+	u.Status = status
+	return u, s.err
+}
+func (s adminUserStub) GetStats(_ context.Context) (domain.AdminUserStats, error) {
+	return domain.AdminUserStats{}, s.err
+}
 func (s adminUserStub) StartTOTPEnrollment(_ context.Context, _ string, _ string) (domain.User, error) {
 	return s.user, s.err
 }
@@ -95,6 +104,15 @@ func (adminSkillStub) Update(_ context.Context, s domain.Skill) (domain.Skill, e
 	return s, nil
 }
 func (adminSkillStub) SoftDelete(_ context.Context, _ string) error { return nil }
+func (adminSkillStub) UpdateGovernance(_ context.Context, _, _ string, _ domain.SkillStatus, _ *string, _, _ bool) (domain.Skill, error) {
+	return domain.Skill{}, nil
+}
+func (adminSkillStub) UpdatePricing(_ context.Context, _ string, _ int, _ string, _ domain.SkillAccessType) (domain.Skill, error) {
+	return domain.Skill{}, nil
+}
+func (adminSkillStub) GetStats(_ context.Context) (domain.AdminSkillStats, error) {
+	return domain.AdminSkillStats{}, nil
+}
 
 type adminEnrollmentStub struct {
 	enrollment domain.Enrollment
@@ -276,8 +294,13 @@ func TestAdminUpdateUserSetsRoleAndStatus(t *testing.T) {
 		adminModuleStub{},
 	)
 
-	input := UpdateUserInput{Role: domain.RoleAdmin, Status: domain.AccountStatusSuspended}
-	user, err := svc.UpdateUser(context.Background(), "u1", input)
+	reason := "Repeated marketplace policy violations"
+	input := UpdateUserInput{
+		Role:   domain.RoleAdmin,
+		Status: domain.AccountStatusSuspended,
+		Reason: &reason,
+	}
+	user, err := svc.UpdateUser(context.Background(), "actor-id", "u1", input)
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}

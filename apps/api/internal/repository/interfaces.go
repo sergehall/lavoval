@@ -13,7 +13,12 @@ type UserStore interface {
 	FindByID(context.Context, string) (domain.User, error)
 	MarkEmailVerified(context.Context, string) (domain.User, error)
 	UpdatePasswordHash(context.Context, string, string) (domain.User, error)
+	// UpdateRoleAndStatus is kept for backward compatibility; prefer UpdateRoleStatusModeration.
 	UpdateRoleAndStatus(context.Context, string, domain.Role, domain.AccountStatus) (domain.User, error)
+	// UpdateRoleStatusModeration updates role, status and the moderation audit fields atomically.
+	UpdateRoleStatusModeration(ctx context.Context, id, actorID string, role domain.Role, status domain.AccountStatus, reason *string) (domain.User, error)
+	// GetStats returns aggregate user counts for the admin dashboard.
+	GetStats(context.Context) (domain.AdminUserStats, error)
 	StartTOTPEnrollment(context.Context, string, string) (domain.User, error)
 	CancelTOTPEnrollment(context.Context, string) (domain.User, error)
 	EnableTOTP(context.Context, string, string) (domain.User, error)
@@ -112,6 +117,12 @@ type SkillStore interface {
 	FindByID(context.Context, string) (domain.Skill, error)
 	Create(context.Context, domain.Skill) (domain.Skill, error)
 	Update(context.Context, domain.Skill) (domain.Skill, error)
+	// UpdateGovernance sets moderation status, reason, and featured/verified flags atomically.
+	UpdateGovernance(ctx context.Context, id, actorID string, status domain.SkillStatus, reason *string, featured, verified bool) (domain.Skill, error)
+	// UpdatePricing updates price and access control fields.
+	UpdatePricing(ctx context.Context, id string, priceCents int, currency string, accessType domain.SkillAccessType) (domain.Skill, error)
+	// GetStats returns aggregate skill counts for the admin dashboard.
+	GetStats(context.Context) (domain.AdminSkillStats, error)
 	SoftDelete(context.Context, string) error
 }
 
@@ -136,4 +147,18 @@ type SkillRunStore interface {
 	FindByID(context.Context, string) (domain.SkillRun, error)
 	ListByUserID(context.Context, string) ([]domain.SkillRun, error)
 	ListAll(context.Context) ([]domain.SkillRun, error)
+}
+
+// AdminAuditLogStore persists admin governance actions.
+type AdminAuditLogStore interface {
+	Create(context.Context, domain.AdminAuditLog) (domain.AdminAuditLog, error)
+	ListByEntity(ctx context.Context, entityType, entityID string, limit int) ([]domain.AdminAuditLog, error)
+}
+
+// SkillAccessStore tracks explicit user access grants for paid / invite-only skills.
+type SkillAccessStore interface {
+	Create(context.Context, domain.SkillAccess) (domain.SkillAccess, error)
+	FindBySkillAndUser(ctx context.Context, skillID, userID string) (*domain.SkillAccess, error)
+	ListBySkillID(ctx context.Context, skillID string) ([]domain.SkillAccess, error)
+	ListByUserID(ctx context.Context, userID string) ([]domain.SkillAccess, error)
 }

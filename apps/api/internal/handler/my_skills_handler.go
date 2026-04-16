@@ -58,6 +58,10 @@ func (h *MySkillsHandler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 	skill, err := h.service.Create(r.Context(), claims.UserID, input)
 	if err != nil {
+		if errors.Is(err, service.ErrAccountBlocked) || errors.Is(err, service.ErrAccountSuspended) {
+			httpx.Error(w, http.StatusForbidden, "skill_mutation_forbidden", "Your account cannot change skills right now")
+			return
+		}
 		httpx.Error(w, http.StatusInternalServerError, "skill_create_failed", "Could not create your skill")
 		return
 	}
@@ -81,6 +85,10 @@ func (h *MySkillsHandler) Update(w http.ResponseWriter, r *http.Request) {
 			httpx.Error(w, http.StatusForbidden, "forbidden", "You do not have access to this skill")
 			return
 		}
+		if errors.Is(err, service.ErrAccountBlocked) || errors.Is(err, service.ErrAccountSuspended) {
+			httpx.Error(w, http.StatusForbidden, "skill_mutation_forbidden", "Your account cannot change skills right now")
+			return
+		}
 		httpx.Error(w, http.StatusInternalServerError, "skill_update_failed", "Could not update your skill")
 		return
 	}
@@ -92,6 +100,10 @@ func (h *MySkillsHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	if err := h.service.ArchiveOwnedByCreator(r.Context(), chi.URLParam(r, "skillID"), claims.UserID); err != nil {
 		if errors.Is(err, service.ErrSkillForbidden) {
 			httpx.Error(w, http.StatusForbidden, "forbidden", "You do not have access to this skill")
+			return
+		}
+		if errors.Is(err, service.ErrAccountBlocked) || errors.Is(err, service.ErrAccountSuspended) {
+			httpx.Error(w, http.StatusForbidden, "skill_mutation_forbidden", "Your account cannot change skills right now")
 			return
 		}
 		httpx.Error(w, http.StatusInternalServerError, "skill_delete_failed", "Could not archive your skill")

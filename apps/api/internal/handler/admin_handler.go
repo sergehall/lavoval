@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"errors"
 	"net/http"
 	"strconv"
 
@@ -41,7 +42,20 @@ func (h *AdminHandler) GetUser(w http.ResponseWriter, r *http.Request) {
 	httpx.JSON(w, http.StatusOK, detail)
 }
 
+func (h *AdminHandler) GetUserAuditLog(w http.ResponseWriter, r *http.Request) {
+	entries, err := h.adminService.GetUserAuditLog(r.Context(), chi.URLParam(r, "userID"), parseLimit(r, 50))
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "audit_log_load_failed", "Could not load user audit log")
+		return
+	}
+	httpx.JSON(w, http.StatusOK, entries)
+}
+
 func (h *AdminHandler) UpdateUser(w http.ResponseWriter, r *http.Request) {
+	actorID := ""
+	if claims, ok := appmiddleware.ClaimsFromContext(r.Context()); ok && claims != nil {
+		actorID = claims.UserID
+	}
 	var input service.UpdateUserInput
 	if err := httpx.Decode(r, &input); err != nil {
 		httpx.Error(w, http.StatusBadRequest, "invalid_request", err.Error())
@@ -51,12 +65,25 @@ func (h *AdminHandler) UpdateUser(w http.ResponseWriter, r *http.Request) {
 		httpx.Error(w, http.StatusBadRequest, "validation_error", err.Error())
 		return
 	}
-	user, err := h.adminService.UpdateUser(r.Context(), chi.URLParam(r, "userID"), input)
+	user, err := h.adminService.UpdateUser(r.Context(), actorID, chi.URLParam(r, "userID"), input)
 	if err != nil {
+		if errors.Is(err, service.ErrAdminReasonRequired) {
+			httpx.Error(w, http.StatusBadRequest, "reason_required", "A reason is required for this status change")
+			return
+		}
 		httpx.Error(w, http.StatusInternalServerError, "user_update_failed", "Could not update user")
 		return
 	}
 	httpx.JSON(w, http.StatusOK, user)
+}
+
+func (h *AdminHandler) GetAdminStats(w http.ResponseWriter, r *http.Request) {
+	stats, err := h.adminService.GetAdminStats(r.Context())
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "stats_load_failed", "Could not load admin stats")
+		return
+	}
+	httpx.JSON(w, http.StatusOK, stats)
 }
 
 func (h *AdminHandler) ListEnrollments(w http.ResponseWriter, r *http.Request) {
@@ -222,6 +249,67 @@ func (h *AdminHandler) DeleteSkill(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	httpx.JSON(w, http.StatusOK, map[string]bool{"success": true})
+}
+
+func (h *AdminHandler) GovernSkill(w http.ResponseWriter, r *http.Request) {
+	actorID := ""
+	if claims, ok := appmiddleware.ClaimsFromContext(r.Context()); ok && claims != nil {
+		actorID = claims.UserID
+	}
+	var input service.SkillGovernanceInput
+	if err := httpx.Decode(r, &input); err != nil {
+		httpx.Error(w, http.StatusBadRequest, "invalid_request", err.Error())
+		return
+	}
+	if err := h.validate.Struct(input); err != nil {
+		httpx.Error(w, http.StatusBadRequest, "validation_error", err.Error())
+		return
+	}
+	skill, err := h.adminService.GovernSkill(r.Context(), actorID, chi.URLParam(r, "skillID"), input)
+	if err != nil {
+		if errors.Is(err, service.ErrAdminReasonRequired) {
+			httpx.Error(w, http.StatusBadRequest, "reason_required", "A reason is required for this governance change")
+			return
+		}
+		httpx.Error(w, http.StatusInternalServerError, "skill_govern_failed", "Could not update skill governance")
+		return
+	}
+	httpx.JSON(w, http.StatusOK, skill)
+}
+
+func (h *AdminHandler) UpdateSkillPricing(w http.ResponseWriter, r *http.Request) {
+	actorID := ""
+	if claims, ok := appmiddleware.ClaimsFromContext(r.Context()); ok && claims != nil {
+		actorID = claims.UserID
+	}
+	var input service.SkillPricingInput
+	if err := httpx.Decode(r, &input); err != nil {
+		httpx.Error(w, http.StatusBadRequest, "invalid_request", err.Error())
+		return
+	}
+	if err := h.validate.Struct(input); err != nil {
+		httpx.Error(w, http.StatusBadRequest, "validation_error", err.Error())
+		return
+	}
+	skill, err := h.adminService.UpdateSkillPricing(r.Context(), actorID, chi.URLParam(r, "skillID"), input)
+	if err != nil {
+		if errors.Is(err, service.ErrInvalidSkillPricing) {
+			httpx.Error(w, http.StatusBadRequest, "invalid_skill_pricing", "Pricing settings are inconsistent with the selected access type")
+			return
+		}
+		httpx.Error(w, http.StatusInternalServerError, "skill_pricing_failed", "Could not update skill pricing")
+		return
+	}
+	httpx.JSON(w, http.StatusOK, skill)
+}
+
+func (h *AdminHandler) GetSkillAuditLog(w http.ResponseWriter, r *http.Request) {
+	entries, err := h.adminService.GetSkillAuditLog(r.Context(), chi.URLParam(r, "skillID"), parseLimit(r, 50))
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "audit_log_load_failed", "Could not load skill audit log")
+		return
+	}
+	httpx.JSON(w, http.StatusOK, entries)
 }
 
 func (h *AdminHandler) MailOperations(w http.ResponseWriter, r *http.Request) {

@@ -118,6 +118,15 @@ func (s authUserRepoStub) SoftDelete(_ context.Context, id string) error {
 	s.softDeletedID = id
 	return nil
 }
+func (s authUserRepoStub) UpdateRoleStatusModeration(_ context.Context, _, _ string, role domain.Role, status domain.AccountStatus, _ *string) (domain.User, error) {
+	u := s.user
+	u.Role = role
+	u.Status = status
+	return u, nil
+}
+func (authUserRepoStub) GetStats(_ context.Context) (domain.AdminUserStats, error) {
+	return domain.AdminUserStats{}, nil
+}
 
 type authProfileRepoStub struct {
 	profile              domain.Profile
@@ -549,6 +558,47 @@ func TestAuthServiceLoginSucceeds(t *testing.T) {
 	}
 	if payload.User.FirstName != "Ada" {
 		t.Fatalf("expected firstName Ada, got %s", payload.User.FirstName)
+	}
+}
+
+func TestAuthServiceLoginRejectsBlockedAccount(t *testing.T) {
+	verified := now()
+	cfg := config.Config{
+		JWTIssuer:     "test",
+		JWTAudience:   "test",
+		JWTSecret:     "super-secret",
+		JWTAccessTTL:  time.Minute,
+		JWTRefreshTTL: time.Hour,
+	}
+	service := NewAuthService(
+		authUserRepoStub{
+			user: domain.User{
+				ID:              "user-1",
+				Email:           "user@example.com",
+				PasswordHash:    mustHashPassword(t, "SuperSecurePass123"),
+				EmailVerifiedAt: &verified,
+				Status:          domain.AccountStatusBlocked,
+			},
+		},
+		authProfileRepoStub{profile: domain.Profile{FirstName: "Ada", LastName: "Lovelace"}},
+		&verificationRepoStub{},
+		&passwordResetRepoStub{},
+		nil,
+		nil,
+		nil,
+		nil,
+		auth.NewTokenManager(cfg),
+		&verificationMailerStub{},
+		NoopSessionRevoker{},
+		cfg,
+	)
+
+	_, err := service.Login(context.Background(), LoginInput{
+		Email:    "user@example.com",
+		Password: "SuperSecurePass123",
+	})
+	if !errors.Is(err, ErrAccountBlocked) {
+		t.Fatalf("expected ErrAccountBlocked, got %v", err)
 	}
 }
 

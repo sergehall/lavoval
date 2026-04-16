@@ -401,6 +401,9 @@ func (s *AuthService) completeOAuth(
 	if err != nil {
 		return AuthPayload{}, err
 	}
+	if err := ensureAccountCanAuthenticate(user); err != nil {
+		return AuthPayload{}, err
+	}
 	if user.MFAEnabled {
 		return AuthPayload{}, ErrOAuthMFASignInNotSupported
 	}

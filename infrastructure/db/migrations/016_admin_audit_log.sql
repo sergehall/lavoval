@@ -1,0 +1,15 @@
+CREATE TABLE IF NOT EXISTS admin_audit_logs (
+  id             UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  entity_type    TEXT        NOT NULL,
+  entity_id      UUID        NOT NULL,
+  action         TEXT        NOT NULL,
+  old_value_json JSONB,
+  new_value_json JSONB,
+  reason         TEXT,
+  actor_id       UUID        NOT NULL REFERENCES users(id),
+  created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_audit_logs_entity   ON admin_audit_logs(entity_type, entity_id);
+CREATE INDEX IF NOT EXISTS idx_audit_logs_actor    ON admin_audit_logs(actor_id);
+CREATE INDEX IF NOT EXISTS idx_audit_logs_created  ON admin_audit_logs(created_at DESC);

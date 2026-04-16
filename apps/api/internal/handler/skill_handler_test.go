@@ -37,6 +37,15 @@ func (s handlerSkillRepoStub) Update(_ context.Context, skill domain.Skill) (dom
 	return skill, nil
 }
 func (s handlerSkillRepoStub) SoftDelete(_ context.Context, _ string) error { return nil }
+func (handlerSkillRepoStub) UpdateGovernance(_ context.Context, _, _ string, _ domain.SkillStatus, _ *string, _, _ bool) (domain.Skill, error) {
+	return domain.Skill{}, nil
+}
+func (handlerSkillRepoStub) UpdatePricing(_ context.Context, _ string, _ int, _ string, _ domain.SkillAccessType) (domain.Skill, error) {
+	return domain.Skill{}, nil
+}
+func (handlerSkillRepoStub) GetStats(_ context.Context) (domain.AdminSkillStats, error) {
+	return domain.AdminSkillStats{}, nil
+}
 
 type handlerEnrollmentRepoStub struct{}
 
@@ -54,7 +63,7 @@ func (handlerEnrollmentRepoStub) UpdateStatus(_ context.Context, _ string, _ dom
 }
 
 func newSkillHandlerWithRepo(repo handlerSkillRepoStub) *SkillHandler {
-	skillSvc := service.NewSkillService(repo, handlerEnrollmentRepoStub{})
+	skillSvc := service.NewSkillService(repo, handlerEnrollmentRepoStub{}, nil)
 	return NewSkillHandler(validator.New(validator.WithRequiredStructEnabled()), skillSvc)
 }
 
