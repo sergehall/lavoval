@@ -40,6 +40,12 @@ import type {
 } from '@lavoval/contracts';
 import type { RuntimeRunRequest, SkillRun } from '@lavoval/contracts/runtime';
 import { env } from '@/shared/config/env';
+import {
+  ACCESS_COOKIE,
+  getSessionFromCookies,
+  REFRESH_COOKIE,
+  SESSION_COOKIE,
+} from '@/shared/lib/auth-session';
 import { signInHref } from '@/shared/lib/auth-navigation';
 import { canAccessAdmin } from '@/shared/lib/rbac';
 import type {
@@ -53,15 +59,11 @@ import type {
   MailOperationalSnapshot,
   MailRetentionSnapshot,
   MailSuppression,
-  SessionState,
   UsersListItem,
   UserWithProfile,
 } from './types';
 export type { AdminAuditLog, AdminStats };
-
-const ACCESS_COOKIE = 'csl_access_token';
-const REFRESH_COOKIE = 'csl_refresh_token';
-const SESSION_COOKIE = 'csl_session';
+export type { SessionState } from '@/shared/lib/auth-session';
 
 export class ApiError extends Error {
   constructor(
@@ -770,20 +772,40 @@ export async function clearSession() {
 
 export async function getSession() {
   const store = await cookies();
-  const session = store.get(SESSION_COOKIE)?.value;
+  return getSessionFromCookies({
+    sessionCookie: store.get(SESSION_COOKIE)?.value,
+    accessTokenCookie: store.get(ACCESS_COOKIE)?.value,
+  });
+}
+
+export async function getValidatedSession() {
+  const session = await getSession();
   if (!session) {
     return null;
   }
 
   try {
-    return JSON.parse(session) as SessionState;
-  } catch {
-    return null;
+    const { data: profile } = await fetchProfile(session.accessToken);
+    return {
+      ...session,
+      user: {
+        ...session.user,
+        role: profile.role,
+        firstName: profile.firstName,
+        lastName: profile.lastName,
+      },
+    };
+  } catch (error) {
+    if (error instanceof ApiError && (error.status === 401 || error.status === 403)) {
+      return null;
+    }
+
+    throw error;
   }
 }
 
 export async function requireSession() {
-  const session = await getSession();
+  const session = await getValidatedSession();
   if (!session) {
     redirect(signInHref);
   }

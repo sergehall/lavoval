@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { Badge } from '@/shared/ui/badge';
 import { Card } from '@/shared/ui/card';
-import { ApiError, fetchSkillById, getSession } from '@/shared/api/server-client';
+import { ApiError, fetchSkillById, getValidatedSession } from '@/shared/api/server-client';
 import { signInHref, signUpHref } from '@/shared/lib/auth-navigation';
 import { formatDate } from '@/shared/lib/utils';
 import { SkillMarkdown } from '@/features/skills/skill-markdown';
@@ -73,7 +73,7 @@ export default async function PublicSkillDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const session = await getSession();
+  const session = await getValidatedSession();
 
   // Data fetching is isolated inside try/catch — no JSX here.
   // The rule react-hooks/error-boundaries disallows returning JSX from

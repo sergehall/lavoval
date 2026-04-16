@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import './globals.css';
 import { AppShell } from '@/components/app-shell';
-import { getSession } from '@/shared/api/server-client';
+import { getValidatedSession } from '@/shared/api/server-client';
 import { env } from '@/shared/config/env';
 import { loadPublicSkills } from '@/shared/lib/public-skill-loader';
 
@@ -82,7 +82,7 @@ export const metadata: Metadata = {
 };
 
 export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  const session = await getSession();
+  const session = await getValidatedSession();
   const publicSkills = await loadPublicSkills();
 
   return (
