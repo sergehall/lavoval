@@ -30,6 +30,7 @@ import {
   resendVerification,
   requireSession,
   resetPassword,
+  withValidSession,
   verifyMFAEnrollment,
   verifyEmail,
 } from '@/shared/api/server-client';
@@ -417,20 +418,21 @@ export async function resetPasswordAction(_previousState: ResetPasswordState, fo
 }
 
 export async function loadMFAState(): Promise<MFAState> {
-  const session = await requireSession();
-  const response = await fetchMFAStatus(session.accessToken);
+  return withValidSession(async (session) => {
+    const response = await fetchMFAStatus(session.accessToken);
 
-  return {
-    error: null,
-    success: null,
-    successTitle: null,
-    enabled: response.data.enabled,
-    pendingEnrollment: response.data.pendingEnrollment,
-    enrolledAt: response.data.enrolledAt ?? null,
-    secret: null,
-    provisionUrl: null,
-    recoveryCodes: response.data.recoveryCodes ?? [],
-  };
+    return {
+      error: null,
+      success: null,
+      successTitle: null,
+      enabled: response.data.enabled,
+      pendingEnrollment: response.data.pendingEnrollment,
+      enrolledAt: response.data.enrolledAt ?? null,
+      secret: null,
+      provisionUrl: null,
+      recoveryCodes: response.data.recoveryCodes ?? [],
+    };
+  });
 }
 
 export async function mfaSettingsAction(previousState: MFAState, formData: FormData) {

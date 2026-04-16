@@ -5,14 +5,12 @@ import {
   fetchAdminMailOperations,
   fetchAdminRuns,
   fetchAdminStats,
-  requireAdminSession,
   withValidSession,
 } from '@/shared/api/server-client';
 
 export default async function AdminDashboardPage() {
-  const session = await requireAdminSession();
   const { stats, runs, mailOps } = await withValidSession(async (activeSession) => {
-    const [stats, { data: runs }, mailOps] = await Promise.all([
+    const [{ data: stats }, { data: runs }, { data: mailOps }] = await Promise.all([
       fetchAdminStats(activeSession.accessToken),
       fetchAdminRuns(activeSession.accessToken),
       fetchAdminMailOperations(activeSession.accessToken),
