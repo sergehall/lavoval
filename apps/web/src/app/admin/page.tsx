@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { Card } from '@/shared/ui/card';
 import {
+  fetchAdminMailOperations,
   fetchAdminSkills,
   fetchAdminRuns,
   fetchAdminUsers,
@@ -10,14 +11,15 @@ import {
 
 export default async function AdminDashboardPage() {
   const session = await requireAdminSession();
-  const { users, skills, runs } = await withValidSession(async (activeSession) => {
-    const [{ data: users }, { data: skills }, { data: runs }] = await Promise.all([
+  const { users, skills, runs, mailOps } = await withValidSession(async (activeSession) => {
+    const [{ data: users }, { data: skills }, { data: runs }, mailOps] = await Promise.all([
       fetchAdminUsers(activeSession.accessToken),
       fetchAdminSkills(activeSession.accessToken),
       fetchAdminRuns(activeSession.accessToken),
+      fetchAdminMailOperations(activeSession.accessToken),
     ]);
 
-    return { users, skills, runs };
+    return { users, skills, runs, mailOps };
   });
 
   return (
@@ -50,6 +52,13 @@ export default async function AdminDashboardPage() {
             triage, and future audit trails.
           </p>
         </Card>
+        <Card>
+          <h2>{mailOps.countsByStatus.dead_letter}</h2>
+          <p>
+            Dead-letter email jobs currently waiting for operator review, requeue decisions, and
+            delivery debugging.
+          </p>
+        </Card>
       </section>
       <div className="inline-actions">
         <Link href="/admin/users" className="muted">
@@ -60,6 +69,9 @@ export default async function AdminDashboardPage() {
         </Link>
         <Link href="/admin/runs" className="muted">
           Observe runtime
+        </Link>
+        <Link href="/admin/mail" className="muted">
+          Operate mail
         </Link>
       </div>
     </div>

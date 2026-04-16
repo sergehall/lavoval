@@ -18,6 +18,7 @@ type AvailabilityStatus string
 
 type OAuthProvider string
 type MailJobStatus string
+type MailSuppressionKind string
 
 const (
 	RoleUser  Role = "user"
@@ -55,6 +56,9 @@ const (
 	MailJobStatusProcessing MailJobStatus = "processing"
 	MailJobStatusSent       MailJobStatus = "sent"
 	MailJobStatusDeadLetter MailJobStatus = "dead_letter"
+
+	MailSuppressionKindEmail  MailSuppressionKind = "email"
+	MailSuppressionKindDomain MailSuppressionKind = "domain"
 )
 
 type User struct {
@@ -129,6 +133,77 @@ type MailEvent struct {
 	Attempt           *int      `json:"attempt,omitempty"`
 	Metadata          []byte    `json:"-"`
 	CreatedAt         time.Time `json:"createdAt"`
+}
+
+type MailJobFilter struct {
+	Query       string `json:"query,omitempty"`
+	MessageType string `json:"messageType,omitempty"`
+	Provider    string `json:"provider,omitempty"`
+	ErrorCode   string `json:"errorCode,omitempty"`
+	Limit       int    `json:"limit,omitempty"`
+}
+
+type MailEventFilter struct {
+	Query       string `json:"query,omitempty"`
+	JobID       string `json:"jobId,omitempty"`
+	EventType   string `json:"eventType,omitempty"`
+	MessageType string `json:"messageType,omitempty"`
+	Provider    string `json:"provider,omitempty"`
+	ErrorCode   string `json:"errorCode,omitempty"`
+	Limit       int    `json:"limit,omitempty"`
+}
+
+type MailSuppression struct {
+	ID        string              `json:"id"`
+	Kind      MailSuppressionKind `json:"kind"`
+	Value     string              `json:"value"`
+	Reason    string              `json:"reason"`
+	CreatedAt time.Time           `json:"createdAt"`
+}
+
+type MailRetentionSnapshot struct {
+	JobsRetention         string               `json:"jobsRetention"`
+	EventsRetention       string               `json:"eventsRetention"`
+	CleanupBatchSize      int                  `json:"cleanupBatchSize"`
+	CleanupInterval       string               `json:"cleanupInterval"`
+	CleanupDryRun         bool                 `json:"cleanupDryRun"`
+	AutoCleanupEnabled    bool                 `json:"autoCleanupEnabled"`
+	JobsCutoff            *time.Time           `json:"jobsCutoff,omitempty"`
+	EventsCutoff          *time.Time           `json:"eventsCutoff,omitempty"`
+	EligibleJobs          int64                `json:"eligibleJobs"`
+	EligibleEvents        int64                `json:"eligibleEvents"`
+	JobsRetentionActive   bool                 `json:"jobsRetentionActive"`
+	EventsRetentionActive bool                 `json:"eventsRetentionActive"`
+	LatestCleanupRun      *MailCleanupRun      `json:"latestCleanupRun,omitempty"`
+	Alerts                []MailRetentionAlert `json:"alerts"`
+}
+
+type MailCleanupResult struct {
+	JobsDeleted     int64     `json:"jobsDeleted"`
+	EventsDeleted   int64     `json:"eventsDeleted"`
+	RemainingJobs   int64     `json:"remainingJobs"`
+	RemainingEvents int64     `json:"remainingEvents"`
+	CompletedAt     time.Time `json:"completedAt"`
+}
+
+type MailCleanupRun struct {
+	ID              string    `json:"id"`
+	Mode            string    `json:"mode"`
+	Status          string    `json:"status"`
+	DryRun          bool      `json:"dryRun"`
+	CandidateJobs   int64     `json:"candidateJobs"`
+	CandidateEvents int64     `json:"candidateEvents"`
+	DeletedJobs     int64     `json:"deletedJobs"`
+	DeletedEvents   int64     `json:"deletedEvents"`
+	ErrorMessage    *string   `json:"errorMessage,omitempty"`
+	DurationMs      int64     `json:"durationMs"`
+	CreatedAt       time.Time `json:"createdAt"`
+}
+
+type MailRetentionAlert struct {
+	Severity string `json:"severity"`
+	Code     string `json:"code"`
+	Message  string `json:"message"`
 }
 
 type MFARecoveryCode struct {

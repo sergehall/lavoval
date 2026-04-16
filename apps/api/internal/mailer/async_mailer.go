@@ -29,15 +29,25 @@ const (
 )
 
 type PrometheusHandler struct {
-	mu         sync.RWMutex
-	counters   map[string]map[counterKey]int64
-	jobCounter repository.MailJobStore
+	mu                  sync.RWMutex
+	counters            map[string]map[counterKey]int64
+	jobCounter          repository.MailJobStore
+	cleanupRuns         map[cleanupRunKey]int64
+	cleanupDeletedTotal map[string]int64
+	cleanupCandidates   map[string]int64
+	lastCleanupAt       time.Time
+	lastCleanupDuration float64
 }
 
 type counterKey struct {
 	Provider    string
 	MessageType string
 	ErrorCode   string
+}
+
+type cleanupRunKey struct {
+	Mode   string
+	Status string
 }
 
 func NewPrometheusHandler(jobCounter repository.MailJobStore) *PrometheusHandler {
@@ -49,7 +59,10 @@ func NewPrometheusHandler(jobCounter repository.MailJobStore) *PrometheusHandler
 			"dead_letter":  {},
 			"deduplicated": {},
 		},
-		jobCounter: jobCounter,
+		jobCounter:          jobCounter,
+		cleanupRuns:         map[cleanupRunKey]int64{},
+		cleanupDeletedTotal: map[string]int64{"jobs": 0, "events": 0},
+		cleanupCandidates:   map[string]int64{"jobs": 0, "events": 0},
 	}
 }
 
@@ -65,6 +78,21 @@ func (h *PrometheusHandler) Inc(result string, provider string, messageType stri
 		MessageType: messageType,
 		ErrorCode:   errorCode,
 	}]++
+}
+
+func (h *PrometheusHandler) RecordCleanup(mode string, status string, duration time.Duration, deletedJobs int64, deletedEvents int64, candidateJobs int64, candidateEvents int64) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
+	h.cleanupRuns[cleanupRunKey{Mode: mode, Status: status}]++
+	h.cleanupCandidates["jobs"] = candidateJobs
+	h.cleanupCandidates["events"] = candidateEvents
+	if status == "success" && mode == "apply" {
+		h.cleanupDeletedTotal["jobs"] += deletedJobs
+		h.cleanupDeletedTotal["events"] += deletedEvents
+	}
+	h.lastCleanupAt = time.Now().UTC()
+	h.lastCleanupDuration = duration.Seconds()
 }
 
 func (h *PrometheusHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -141,28 +169,67 @@ func (h *PrometheusHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	for _, errorCode := range keys {
 		fmt.Fprintf(w, "lavoval_mail_dead_letters{error_code=%q} %d\n", errorCode, snapshot.DeadLettersByErrorCode[errorCode])
 	}
+
+	fmt.Fprintln(w, "# TYPE lavoval_mail_cleanup_runs_total counter")
+	h.mu.RLock()
+	cleanupRunKeys := make([]cleanupRunKey, 0, len(h.cleanupRuns))
+	for key := range h.cleanupRuns {
+		cleanupRunKeys = append(cleanupRunKeys, key)
+	}
+	sort.Slice(cleanupRunKeys, func(i, j int) bool {
+		if cleanupRunKeys[i].Mode != cleanupRunKeys[j].Mode {
+			return cleanupRunKeys[i].Mode < cleanupRunKeys[j].Mode
+		}
+		return cleanupRunKeys[i].Status < cleanupRunKeys[j].Status
+	})
+	for _, key := range cleanupRunKeys {
+		fmt.Fprintf(w, "lavoval_mail_cleanup_runs_total{mode=%q,status=%q} %d\n", key.Mode, key.Status, h.cleanupRuns[key])
+	}
+
+	fmt.Fprintln(w, "# TYPE lavoval_mail_cleanup_deleted_total counter")
+	for _, resource := range []string{"jobs", "events"} {
+		fmt.Fprintf(w, "lavoval_mail_cleanup_deleted_total{resource=%q} %d\n", resource, h.cleanupDeletedTotal[resource])
+	}
+
+	fmt.Fprintln(w, "# TYPE lavoval_mail_cleanup_candidates gauge")
+	for _, resource := range []string{"jobs", "events"} {
+		fmt.Fprintf(w, "lavoval_mail_cleanup_candidates{resource=%q} %d\n", resource, h.cleanupCandidates[resource])
+	}
+
+	fmt.Fprintln(w, "# TYPE lavoval_mail_cleanup_last_run_timestamp_seconds gauge")
+	if !h.lastCleanupAt.IsZero() {
+		fmt.Fprintf(w, "lavoval_mail_cleanup_last_run_timestamp_seconds %d\n", h.lastCleanupAt.Unix())
+	} else {
+		fmt.Fprintln(w, "lavoval_mail_cleanup_last_run_timestamp_seconds 0")
+	}
+
+	fmt.Fprintln(w, "# TYPE lavoval_mail_cleanup_last_duration_seconds gauge")
+	fmt.Fprintf(w, "lavoval_mail_cleanup_last_duration_seconds %f\n", h.lastCleanupDuration)
+	h.mu.RUnlock()
 }
 
 type PostgresVerificationMailer struct {
-	cfg         config.Config
-	jobs        repository.MailJobStore
-	events      repository.MailEventStore
-	metrics     *PrometheusHandler
-	maxAttempts int
+	cfg          config.Config
+	jobs         repository.MailJobStore
+	events       repository.MailEventStore
+	suppressions repository.MailSuppressionStore
+	metrics      *PrometheusHandler
+	maxAttempts  int
 }
 
-func NewPostgresVerificationMailer(cfg config.Config, jobs repository.MailJobStore, events repository.MailEventStore, metrics *PrometheusHandler) *PostgresVerificationMailer {
+func NewPostgresVerificationMailer(cfg config.Config, jobs repository.MailJobStore, events repository.MailEventStore, suppressions repository.MailSuppressionStore, metrics *PrometheusHandler) *PostgresVerificationMailer {
 	maxAttempts := cfg.MailMaxAttempts
 	if maxAttempts <= 0 {
 		maxAttempts = 4
 	}
 
 	return &PostgresVerificationMailer{
-		cfg:         cfg,
-		jobs:        jobs,
-		events:      events,
-		metrics:     metrics,
-		maxAttempts: maxAttempts,
+		cfg:          cfg,
+		jobs:         jobs,
+		events:       events,
+		suppressions: suppressions,
+		metrics:      metrics,
+		maxAttempts:  maxAttempts,
 	}
 }
 
@@ -179,6 +246,27 @@ func (m *PostgresVerificationMailer) SendPasswordChangedEmail(ctx context.Contex
 }
 
 func (m *PostgresVerificationMailer) enqueue(ctx context.Context, messageType string, recipient string, payload any) error {
+	if m.suppressions != nil {
+		match, err := m.suppressions.FindMatch(ctx, recipient)
+		if err != nil {
+			return fmt.Errorf("check mail suppression: %w", err)
+		}
+		if match != nil {
+			if m.metrics != nil {
+				m.metrics.Inc("suppressed", "queue", messageType, string(match.Kind))
+			}
+			log.Printf(
+				"mailer: status=suppressed message_type=%s recipient_domain=%s suppression_kind=%s suppression_value=%s reason=%s",
+				messageType,
+				recipientDomain(recipient),
+				match.Kind,
+				match.Value,
+				match.Reason,
+			)
+			return nil
+		}
+	}
+
 	encoded, err := json.Marshal(payload)
 	if err != nil {
 		return fmt.Errorf("marshal mail job payload: %w", err)

@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -345,20 +346,47 @@ func (r *MailJobRepository) OperationalSnapshot(ctx context.Context) (domain.Mai
 	return snapshot, nil
 }
 
-func (r *MailJobRepository) ListDeadLetters(ctx context.Context, limit int) ([]domain.MailJob, error) {
+func (r *MailJobRepository) ListDeadLetters(ctx context.Context, filter domain.MailJobFilter) ([]domain.MailJob, error) {
+	limit := filter.Limit
 	if limit <= 0 {
 		limit = 100
 	}
 
-	rows, err := r.pool.Query(ctx, `
+	query := `
 		SELECT id, message_type, recipient_email, idempotency_key, payload, status, attempts, max_attempts,
 		       next_attempt_at, leased_until, last_error, last_error_code, provider, provider_message_id,
 		       sent_at, dead_lettered_at, created_at, updated_at
 		FROM mail_jobs
 		WHERE status = 'dead_letter'
-		ORDER BY dead_lettered_at DESC NULLS LAST, updated_at DESC
-		LIMIT $1
-	`, limit)
+	`
+	args := make([]any, 0, 5)
+	nextArg := 1
+
+	if queryText := strings.TrimSpace(filter.Query); queryText != "" {
+		query += fmt.Sprintf(" AND (recipient_email::text ILIKE $%d OR id::text ILIKE $%d OR COALESCE(idempotency_key, '') ILIKE $%d OR COALESCE(last_error, '') ILIKE $%d)", nextArg, nextArg, nextArg, nextArg)
+		args = append(args, "%"+queryText+"%")
+		nextArg++
+	}
+	if value := strings.TrimSpace(filter.MessageType); value != "" {
+		query += fmt.Sprintf(" AND message_type = $%d", nextArg)
+		args = append(args, value)
+		nextArg++
+	}
+	if value := strings.TrimSpace(filter.Provider); value != "" {
+		query += fmt.Sprintf(" AND provider = $%d", nextArg)
+		args = append(args, value)
+		nextArg++
+	}
+	if value := strings.TrimSpace(filter.ErrorCode); value != "" {
+		query += fmt.Sprintf(" AND last_error_code = $%d", nextArg)
+		args = append(args, value)
+		nextArg++
+	}
+
+	query += fmt.Sprintf(" ORDER BY dead_lettered_at DESC NULLS LAST, updated_at DESC LIMIT $%d", nextArg)
+	args = append(args, limit)
+
+	rows, err := r.pool.Query(ctx, query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("list dead letter jobs: %w", err)
 	}
@@ -445,6 +473,47 @@ func (r *MailJobRepository) FindByID(ctx context.Context, jobID string) (domain.
 	}
 
 	return job, nil
+}
+
+func (r *MailJobRepository) Replay(ctx context.Context, job domain.MailJob) (domain.MailJob, bool, error) {
+	return r.Enqueue(ctx, job)
+}
+
+func (r *MailJobRepository) CountTerminalBefore(ctx context.Context, before time.Time) (int64, error) {
+	var count int64
+	if err := r.pool.QueryRow(ctx, `
+		SELECT COUNT(*)
+		FROM mail_jobs
+		WHERE status IN ('sent', 'dead_letter')
+		  AND COALESCE(sent_at, dead_lettered_at, updated_at) < $1
+	`, before).Scan(&count); err != nil {
+		return 0, fmt.Errorf("count purgeable mail jobs: %w", err)
+	}
+	return count, nil
+}
+
+func (r *MailJobRepository) DeleteTerminalBefore(ctx context.Context, before time.Time, limit int) (int64, error) {
+	if limit <= 0 {
+		limit = 500
+	}
+
+	tag, err := r.pool.Exec(ctx, `
+		WITH doomed AS (
+			SELECT id
+			FROM mail_jobs
+			WHERE status IN ('sent', 'dead_letter')
+			  AND COALESCE(sent_at, dead_lettered_at, updated_at) < $1
+			ORDER BY COALESCE(sent_at, dead_lettered_at, updated_at) ASC
+			LIMIT $2
+		)
+		DELETE FROM mail_jobs
+		WHERE id IN (SELECT id FROM doomed)
+	`, before, limit)
+	if err != nil {
+		return 0, fmt.Errorf("delete purgeable mail jobs: %w", err)
+	}
+
+	return tag.RowsAffected(), nil
 }
 
 func pgInterval(d time.Duration) string {

@@ -37,6 +37,7 @@ describe('AdminNav', () => {
     expect(screen.getByText('Skills')).toBeInTheDocument();
     expect(screen.getByText('Runs')).toBeInTheDocument();
     expect(screen.getByText('Enrollments')).toBeInTheDocument();
+    expect(screen.getByText('Mail')).toBeInTheDocument();
   });
 
   it('renders the Governance badge', () => {
@@ -111,5 +112,13 @@ describe('AdminNav', () => {
       'href',
       '/admin/enrollments',
     );
+    expect(screen.getByRole('link', { name: 'Mail' })).toHaveAttribute('href', '/admin/mail');
+  });
+
+  it('marks Mail active when pathname is /admin/mail', () => {
+    setPathname('/admin/mail');
+    render(<AdminNav />);
+
+    expect(screen.getByRole('link', { name: 'Mail' })).toHaveClass('admin-nav__link--active');
   });
 });

@@ -7,6 +7,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-playground/validator/v10"
 
+	"github.com/sergehall/lavoval/apps/api/internal/domain"
 	"github.com/sergehall/lavoval/apps/api/internal/httpx"
 	appmiddleware "github.com/sergehall/lavoval/apps/api/internal/middleware"
 	"github.com/sergehall/lavoval/apps/api/internal/service"
@@ -233,7 +234,13 @@ func (h *AdminHandler) MailOperations(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *AdminHandler) ListDeadLetters(w http.ResponseWriter, r *http.Request) {
-	items, err := h.adminService.ListDeadLetters(r.Context(), parseLimit(r, 100))
+	items, err := h.adminService.ListDeadLetters(r.Context(), domain.MailJobFilter{
+		Query:       r.URL.Query().Get("query"),
+		MessageType: r.URL.Query().Get("messageType"),
+		Provider:    r.URL.Query().Get("provider"),
+		ErrorCode:   r.URL.Query().Get("errorCode"),
+		Limit:       parseLimit(r, 100),
+	})
 	if err != nil {
 		httpx.Error(w, http.StatusInternalServerError, "dead_letters_load_failed", "Could not load dead-letter jobs")
 		return
@@ -242,7 +249,15 @@ func (h *AdminHandler) ListDeadLetters(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *AdminHandler) ListMailEvents(w http.ResponseWriter, r *http.Request) {
-	items, err := h.adminService.ListMailEvents(r.Context(), parseLimit(r, 100))
+	items, err := h.adminService.ListMailEvents(r.Context(), domain.MailEventFilter{
+		Query:       r.URL.Query().Get("query"),
+		JobID:       r.URL.Query().Get("jobId"),
+		EventType:   r.URL.Query().Get("eventType"),
+		MessageType: r.URL.Query().Get("messageType"),
+		Provider:    r.URL.Query().Get("provider"),
+		ErrorCode:   r.URL.Query().Get("errorCode"),
+		Limit:       parseLimit(r, 100),
+	})
 	if err != nil {
 		httpx.Error(w, http.StatusInternalServerError, "mail_events_load_failed", "Could not load mail events")
 		return
@@ -251,7 +266,14 @@ func (h *AdminHandler) ListMailEvents(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *AdminHandler) ListMailEventsByJob(w http.ResponseWriter, r *http.Request) {
-	items, err := h.adminService.ListMailEventsByJob(r.Context(), chi.URLParam(r, "jobID"), parseLimit(r, 100))
+	items, err := h.adminService.ListMailEventsByJob(r.Context(), chi.URLParam(r, "jobID"), domain.MailEventFilter{
+		Query:       r.URL.Query().Get("query"),
+		EventType:   r.URL.Query().Get("eventType"),
+		MessageType: r.URL.Query().Get("messageType"),
+		Provider:    r.URL.Query().Get("provider"),
+		ErrorCode:   r.URL.Query().Get("errorCode"),
+		Limit:       parseLimit(r, 100),
+	})
 	if err != nil {
 		httpx.Error(w, http.StatusInternalServerError, "mail_job_events_load_failed", "Could not load mail job events")
 		return
@@ -266,6 +288,77 @@ func (h *AdminHandler) RequeueDeadLetter(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	httpx.JSON(w, http.StatusOK, job)
+}
+
+func (h *AdminHandler) ReplayMailJob(w http.ResponseWriter, r *http.Request) {
+	job, err := h.adminService.ReplayMailJob(r.Context(), chi.URLParam(r, "jobID"))
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "mail_job_replay_failed", "Could not replay mail job")
+		return
+	}
+	httpx.JSON(w, http.StatusOK, job)
+}
+
+func (h *AdminHandler) ListMailSuppressions(w http.ResponseWriter, r *http.Request) {
+	items, err := h.adminService.ListMailSuppressions(r.Context())
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "mail_suppressions_load_failed", "Could not load mail suppressions")
+		return
+	}
+	httpx.JSON(w, http.StatusOK, items)
+}
+
+func (h *AdminHandler) MailRetentionSnapshot(w http.ResponseWriter, r *http.Request) {
+	snapshot, err := h.adminService.MailRetentionSnapshot(r.Context())
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "mail_retention_load_failed", "Could not load mail retention snapshot")
+		return
+	}
+	httpx.JSON(w, http.StatusOK, snapshot)
+}
+
+func (h *AdminHandler) CleanupMailRetention(w http.ResponseWriter, r *http.Request) {
+	result, err := h.adminService.CleanupMailRetention(r.Context())
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "mail_cleanup_failed", "Could not clean up retained mail data")
+		return
+	}
+	httpx.JSON(w, http.StatusOK, result)
+}
+
+func (h *AdminHandler) ListMailCleanupRuns(w http.ResponseWriter, r *http.Request) {
+	items, err := h.adminService.ListMailCleanupRuns(r.Context(), parseLimit(r, 20))
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "mail_cleanup_runs_load_failed", "Could not load mail cleanup runs")
+		return
+	}
+	httpx.JSON(w, http.StatusOK, items)
+}
+
+func (h *AdminHandler) CreateMailSuppression(w http.ResponseWriter, r *http.Request) {
+	var input service.CreateMailSuppressionInput
+	if err := httpx.Decode(r, &input); err != nil {
+		httpx.Error(w, http.StatusBadRequest, "invalid_request", err.Error())
+		return
+	}
+	if err := h.validate.Struct(input); err != nil {
+		httpx.Error(w, http.StatusBadRequest, "validation_error", err.Error())
+		return
+	}
+	item, err := h.adminService.CreateMailSuppression(r.Context(), input)
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "mail_suppression_create_failed", "Could not create mail suppression")
+		return
+	}
+	httpx.JSON(w, http.StatusCreated, item)
+}
+
+func (h *AdminHandler) DeleteMailSuppression(w http.ResponseWriter, r *http.Request) {
+	if err := h.adminService.DeleteMailSuppression(r.Context(), chi.URLParam(r, "suppressionID")); err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "mail_suppression_delete_failed", "Could not delete mail suppression")
+		return
+	}
+	httpx.JSON(w, http.StatusOK, map[string]bool{"success": true})
 }
 
 func parseLimit(r *http.Request, fallback int) int {

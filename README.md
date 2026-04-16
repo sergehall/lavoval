@@ -124,16 +124,22 @@ Important values:
 - `GMAIL_API_REFRESH_TOKEN`, `GMAIL_API_CLIENT_ID`, `GMAIL_API_CLIENT_SECRET`, `GMAIL_API_TOKEN_URL`: optional safe refresh-token flow for Gmail API access token renewal
 - `MAIL_WORKER_COUNT`, `MAIL_MAX_ATTEMPTS`, `MAIL_RETRY_BASE_DELAY`, `MAIL_POLL_INTERVAL`, `MAIL_LEASE_TTL`, `MAIL_SEND_TIMEOUT`: persisted mail job worker and retry tuning
 - `MAIL_RATE_LIMIT_PER_SECOND`, `MAIL_RATE_LIMIT_BURST`: shared outbound delivery throttling for provider protection
+- `MAIL_JOBS_RETENTION`, `MAIL_EVENTS_RETENTION`, `MAIL_CLEANUP_BATCH_SIZE`: bounded cleanup policy for terminal `mail_jobs` and historical `mail_events`
+- `MAIL_CLEANUP_INTERVAL`, `MAIL_CLEANUP_DRY_RUN`: periodic cleanup worker schedule and safe dry-run mode
+- `MAIL_CLEANUP_ALERT_JOBS_THRESHOLD`, `MAIL_CLEANUP_ALERT_EVENTS_THRESHOLD`, `MAIL_CLEANUP_ALERT_FAILURE_STREAK`, `MAIL_CLEANUP_ALERT_STALE_AFTER`: admin alert thresholds for retention backlog, repeated failures, and stale worker activity
 
 Mail delivery runtime notes:
 
 - Lavoval now stores outbound email work in the `mail_jobs` table and delivers it asynchronously from background workers in the Go API process
 - `mail_jobs` now stores idempotency keys and provider delivery identifiers so duplicate queued sends can collapse safely
 - `mail_events` stores an append-only operational timeline for queue, retry, send, deduplication, and dead-letter transitions
+- retention cleanup is exposed in admin mail ops as a preview plus manual batch cleanup trigger, so operators can prune old terminal jobs and historical events without deleting live queue state
+- a periodic retention worker can also run automatically inside the API process; in dry-run mode it reports candidate rows and metrics without deleting data
+- `mail_cleanup_runs` stores a durable history of cleanup attempts so admin UI can show explicit run history, failure logs, and retention alerts
 - `/metrics` exposes Prometheus-compatible mail counters, queue gauges, oldest-ready age, and dead-letter error-code breakdowns
 - failed delivery attempts are retried with backoff; exhausted jobs move to a dead-letter status in `mail_jobs`
 - dispatch workers can be throttled with rate limiting, which is useful for Gmail and other providers with burst constraints
-- admin mail operations are exposed at `/api/v1/admin/mail/ops`, `/api/v1/admin/mail/dead-letters`, `/api/v1/admin/mail/events`, and `/api/v1/admin/mail/jobs/{jobID}/events`
+- admin mail operations are exposed at `/api/v1/admin/mail/ops`, `/api/v1/admin/mail/retention`, `/api/v1/admin/mail/cleanup`, `/api/v1/admin/mail/cleanup-runs`, `/api/v1/admin/mail/dead-letters`, `/api/v1/admin/mail/events`, and `/api/v1/admin/mail/jobs/{jobID}/events`
 
 Google email confirmation setup:
 

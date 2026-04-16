@@ -9,6 +9,7 @@ const adminNavItems = [
   { href: '/admin/skills', label: 'Skills' },
   { href: '/admin/runs', label: 'Runs' },
   { href: '/admin/enrollments', label: 'Enrollments' },
+  { href: '/admin/mail', label: 'Mail' },
 ] as const;
 
 export function AdminNav() {

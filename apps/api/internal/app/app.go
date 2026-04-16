@@ -26,6 +26,24 @@ type Application struct {
 	}
 }
 
+type lifecycleGroup struct {
+	members []interface {
+		Close(context.Context) error
+	}
+}
+
+func (g lifecycleGroup) Close(ctx context.Context) error {
+	for _, member := range g.members {
+		if member == nil {
+			continue
+		}
+		if err := member.Close(ctx); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func New() (*Application, error) {
 	cfg, err := config.Load()
 	if err != nil {
@@ -47,6 +65,8 @@ func New() (*Application, error) {
 	passwordResetRepo := repository.NewPasswordResetRepository(pool)
 	mailJobRepo := repository.NewMailJobRepository(pool)
 	mailEventRepo := repository.NewMailEventRepository(pool)
+	mailSuppressionRepo := repository.NewMailSuppressionRepository(pool)
+	mailCleanupRunRepo := repository.NewMailCleanupRunRepository(pool)
 	mfaRecoveryCodeRepo := repository.NewMFARecoveryCodeRepository(pool)
 	signInChallengeRepo := repository.NewSignInChallengeRepository(pool)
 	oauthStateRepo := repository.NewOAuthStateRepository(pool)
@@ -57,8 +77,9 @@ func New() (*Application, error) {
 	skillRunRepo := repository.NewSkillRunRepository(pool)
 	runtimeRegistry := appRuntime.DefaultRegistry()
 	mailMetrics := mailer.NewPrometheusHandler(mailJobRepo)
-	verificationMailer := mailer.NewPostgresVerificationMailer(cfg, mailJobRepo, mailEventRepo, mailMetrics)
+	verificationMailer := mailer.NewPostgresVerificationMailer(cfg, mailJobRepo, mailEventRepo, mailSuppressionRepo, mailMetrics)
 	mailDispatcher := mailer.NewMailDispatcher(cfg, mailJobRepo, mailEventRepo, mailMetrics)
+	mailRetentionWorker := mailer.NewMailRetentionWorker(cfg, mailJobRepo, mailEventRepo, mailCleanupRunRepo, mailMetrics)
 
 	authService := service.NewAuthService(
 		userRepo,
@@ -78,7 +99,28 @@ func New() (*Application, error) {
 	accountSecurityService := service.NewAccountSecurityService(userRepo, oauthIdentityRepo)
 	skillService := service.NewSkillService(skillRepo, enrollmentRepo)
 	runtimeService := service.NewRuntimeService(skillRepo, skillRunRepo, runtimeRegistry)
-	adminService := service.NewAdminService(userRepo, profileRepo, skillRepo, enrollmentRepo, moduleRepo, mailJobRepo, mailEventRepo)
+	adminService := service.NewAdminService(
+		userRepo,
+		profileRepo,
+		skillRepo,
+		enrollmentRepo,
+		moduleRepo,
+		mailJobRepo,
+		mailEventRepo,
+		mailSuppressionRepo,
+		mailCleanupRunRepo,
+		service.MailRetentionPolicy{
+			JobsRetention:        cfg.MailJobsRetention,
+			EventsRetention:      cfg.MailEventsRetention,
+			CleanupBatchSize:     cfg.MailCleanupBatchSize,
+			CleanupInterval:      cfg.MailCleanupInterval,
+			CleanupDryRun:        cfg.MailCleanupDryRun,
+			AlertJobsThreshold:   cfg.MailCleanupAlertJobsThreshold,
+			AlertEventsThreshold: cfg.MailCleanupAlertEventsThreshold,
+			AlertFailureStreak:   cfg.MailCleanupAlertFailureStreak,
+			AlertStaleAfter:      cfg.MailCleanupAlertStaleAfter,
+		},
+	)
 
 	router := handler.NewRouter(cfg, tokenManager, authService, profileService, accountSecurityService, skillService, runtimeService, adminService, mailMetrics)
 
@@ -88,7 +130,19 @@ func New() (*Application, error) {
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 
-	return &Application{Config: cfg, Server: server, Store: pool, dispatcher: mailDispatcher}, nil
+	return &Application{
+		Config: cfg,
+		Server: server,
+		Store:  pool,
+		dispatcher: lifecycleGroup{
+			members: []interface {
+				Close(context.Context) error
+			}{
+				mailDispatcher,
+				mailRetentionWorker,
+			},
+		},
+	}, nil
 }
 
 func (a *Application) Close(ctx context.Context) error {

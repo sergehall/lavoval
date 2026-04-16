@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/sergehall/lavoval/apps/api/internal/domain"
 )
@@ -140,6 +141,83 @@ func (s adminModuleStub) Update(_ context.Context, m domain.Module) (domain.Modu
 }
 func (s adminModuleStub) SoftDelete(_ context.Context, _ string) error { return s.err }
 
+type adminMailJobStub struct {
+	jobCount     int64
+	deletedCount int64
+	err          error
+}
+
+func (s adminMailJobStub) Enqueue(_ context.Context, job domain.MailJob) (domain.MailJob, bool, error) {
+	return job, false, s.err
+}
+func (s adminMailJobStub) ClaimNext(_ context.Context, _ time.Duration) (domain.MailJob, bool, error) {
+	return domain.MailJob{}, false, s.err
+}
+func (s adminMailJobStub) MarkSent(_ context.Context, _, _, _ string) error { return s.err }
+func (s adminMailJobStub) MarkRetry(_ context.Context, _, _, _ string, _ time.Time) error {
+	return s.err
+}
+func (s adminMailJobStub) MarkDeadLetter(_ context.Context, _, _, _ string) error { return s.err }
+func (s adminMailJobStub) CountByStatus(_ context.Context) (map[domain.MailJobStatus]int64, error) {
+	return map[domain.MailJobStatus]int64{}, s.err
+}
+func (s adminMailJobStub) OperationalSnapshot(_ context.Context) (domain.MailOperationalSnapshot, error) {
+	return domain.MailOperationalSnapshot{}, s.err
+}
+func (s adminMailJobStub) ListDeadLetters(_ context.Context, _ domain.MailJobFilter) ([]domain.MailJob, error) {
+	return nil, s.err
+}
+func (s adminMailJobStub) RequeueDeadLetter(_ context.Context, _ string) (domain.MailJob, error) {
+	return domain.MailJob{}, s.err
+}
+func (s adminMailJobStub) FindByID(_ context.Context, _ string) (domain.MailJob, error) {
+	return domain.MailJob{}, s.err
+}
+func (s adminMailJobStub) Replay(_ context.Context, job domain.MailJob) (domain.MailJob, bool, error) {
+	return job, false, s.err
+}
+func (s adminMailJobStub) CountTerminalBefore(_ context.Context, _ time.Time) (int64, error) {
+	return s.jobCount, s.err
+}
+func (s adminMailJobStub) DeleteTerminalBefore(_ context.Context, _ time.Time, _ int) (int64, error) {
+	return s.deletedCount, s.err
+}
+
+type adminMailEventStub struct {
+	eventCount   int64
+	deletedCount int64
+	err          error
+}
+
+func (s adminMailEventStub) Append(_ context.Context, event domain.MailEvent) (domain.MailEvent, error) {
+	return event, s.err
+}
+func (s adminMailEventStub) ListRecent(_ context.Context, _ domain.MailEventFilter) ([]domain.MailEvent, error) {
+	return nil, s.err
+}
+func (s adminMailEventStub) ListByJobID(_ context.Context, _ string, _ domain.MailEventFilter) ([]domain.MailEvent, error) {
+	return nil, s.err
+}
+func (s adminMailEventStub) CountBefore(_ context.Context, _ time.Time) (int64, error) {
+	return s.eventCount, s.err
+}
+func (s adminMailEventStub) DeleteBefore(_ context.Context, _ time.Time, _ int) (int64, error) {
+	return s.deletedCount, s.err
+}
+
+type adminMailCleanupRunStub struct {
+	runs []domain.MailCleanupRun
+	err  error
+}
+
+func (s adminMailCleanupRunStub) Create(_ context.Context, item domain.MailCleanupRun) (domain.MailCleanupRun, error) {
+	return item, s.err
+}
+
+func (s adminMailCleanupRunStub) ListRecent(_ context.Context, _ int) ([]domain.MailCleanupRun, error) {
+	return s.runs, s.err
+}
+
 // ── helpers ───────────────────────────────────────────────────────────────────
 
 func newAdminSvc(
@@ -148,7 +226,7 @@ func newAdminSvc(
 	enrollments adminEnrollmentStub,
 	modules adminModuleStub,
 ) *AdminService {
-	return NewAdminService(users, profiles, adminSkillStub{}, enrollments, modules, nil, nil)
+	return NewAdminService(users, profiles, adminSkillStub{}, enrollments, modules, nil, nil, nil, nil, MailRetentionPolicy{})
 }
 
 // ── user tests ────────────────────────────────────────────────────────────────
@@ -259,6 +337,77 @@ func TestAdminAssignSkillAttachesIDs(t *testing.T) {
 	}
 	if enrollment.SkillID != input.SkillID {
 		t.Fatalf("expected skillID %s, got %s", input.SkillID, enrollment.SkillID)
+	}
+}
+
+func TestMailRetentionSnapshotReturnsEligibleCounts(t *testing.T) {
+	svc := NewAdminService(
+		adminUserStub{},
+		adminProfileStub{},
+		adminSkillStub{},
+		adminEnrollmentStub{},
+		adminModuleStub{},
+		adminMailJobStub{jobCount: 7},
+		adminMailEventStub{eventCount: 19},
+		nil,
+		adminMailCleanupRunStub{},
+		MailRetentionPolicy{
+			JobsRetention:    30 * 24 * time.Hour,
+			EventsRetention:  14 * 24 * time.Hour,
+			CleanupBatchSize: 250,
+		},
+	)
+
+	snapshot, err := svc.MailRetentionSnapshot(context.Background())
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if snapshot.EligibleJobs != 7 {
+		t.Fatalf("expected eligible jobs 7, got %d", snapshot.EligibleJobs)
+	}
+	if snapshot.EligibleEvents != 19 {
+		t.Fatalf("expected eligible events 19, got %d", snapshot.EligibleEvents)
+	}
+	if snapshot.CleanupBatchSize != 250 {
+		t.Fatalf("expected batch size 250, got %d", snapshot.CleanupBatchSize)
+	}
+}
+
+func TestCleanupMailRetentionReturnsDeletedAndRemainingCounts(t *testing.T) {
+	jobStore := adminMailJobStub{jobCount: 11, deletedCount: 3}
+	eventStore := adminMailEventStub{eventCount: 17, deletedCount: 5}
+	svc := NewAdminService(
+		adminUserStub{},
+		adminProfileStub{},
+		adminSkillStub{},
+		adminEnrollmentStub{},
+		adminModuleStub{},
+		jobStore,
+		eventStore,
+		nil,
+		adminMailCleanupRunStub{},
+		MailRetentionPolicy{
+			JobsRetention:    30 * 24 * time.Hour,
+			EventsRetention:  14 * 24 * time.Hour,
+			CleanupBatchSize: 200,
+		},
+	)
+
+	result, err := svc.CleanupMailRetention(context.Background())
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if result.JobsDeleted != 3 {
+		t.Fatalf("expected 3 deleted jobs, got %d", result.JobsDeleted)
+	}
+	if result.EventsDeleted != 5 {
+		t.Fatalf("expected 5 deleted events, got %d", result.EventsDeleted)
+	}
+	if result.RemainingJobs != 11 {
+		t.Fatalf("expected remaining jobs 11, got %d", result.RemainingJobs)
+	}
+	if result.RemainingEvents != 17 {
+		t.Fatalf("expected remaining events 17, got %d", result.RemainingEvents)
 	}
 }
 

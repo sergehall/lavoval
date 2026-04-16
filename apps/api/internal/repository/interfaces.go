@@ -44,15 +44,32 @@ type MailJobStore interface {
 	MarkDeadLetter(context.Context, string, string, string) error
 	CountByStatus(context.Context) (map[domain.MailJobStatus]int64, error)
 	OperationalSnapshot(context.Context) (domain.MailOperationalSnapshot, error)
-	ListDeadLetters(context.Context, int) ([]domain.MailJob, error)
+	ListDeadLetters(context.Context, domain.MailJobFilter) ([]domain.MailJob, error)
 	RequeueDeadLetter(context.Context, string) (domain.MailJob, error)
 	FindByID(context.Context, string) (domain.MailJob, error)
+	Replay(context.Context, domain.MailJob) (domain.MailJob, bool, error)
+	CountTerminalBefore(context.Context, time.Time) (int64, error)
+	DeleteTerminalBefore(context.Context, time.Time, int) (int64, error)
 }
 
 type MailEventStore interface {
 	Append(context.Context, domain.MailEvent) (domain.MailEvent, error)
-	ListRecent(context.Context, int) ([]domain.MailEvent, error)
-	ListByJobID(context.Context, string, int) ([]domain.MailEvent, error)
+	ListRecent(context.Context, domain.MailEventFilter) ([]domain.MailEvent, error)
+	ListByJobID(context.Context, string, domain.MailEventFilter) ([]domain.MailEvent, error)
+	CountBefore(context.Context, time.Time) (int64, error)
+	DeleteBefore(context.Context, time.Time, int) (int64, error)
+}
+
+type MailSuppressionStore interface {
+	Create(context.Context, domain.MailSuppression) (domain.MailSuppression, error)
+	Delete(context.Context, string) error
+	List(context.Context) ([]domain.MailSuppression, error)
+	FindMatch(context.Context, string) (*domain.MailSuppression, error)
+}
+
+type MailCleanupRunStore interface {
+	Create(context.Context, domain.MailCleanupRun) (domain.MailCleanupRun, error)
+	ListRecent(context.Context, int) ([]domain.MailCleanupRun, error)
 }
 
 type MFARecoveryCodeStore interface {

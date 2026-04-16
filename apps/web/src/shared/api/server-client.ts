@@ -35,7 +35,21 @@ import type {
 import type { RuntimeRunRequest, SkillRun } from '@lavoval/contracts/runtime';
 import { env } from '@/shared/config/env';
 import { signInHref } from '@/shared/lib/auth-navigation';
-import type { ApiEnvelope, SessionState, UsersListItem, UserWithProfile } from './types';
+import type {
+  ApiEnvelope,
+  AdminMailEventFilter,
+  AdminMailJobFilter,
+  MailEvent,
+  MailCleanupResult,
+  MailCleanupRun,
+  MailJob,
+  MailOperationalSnapshot,
+  MailRetentionSnapshot,
+  MailSuppression,
+  SessionState,
+  UsersListItem,
+  UserWithProfile,
+} from './types';
 
 const ACCESS_COOKIE = 'csl_access_token';
 const REFRESH_COOKIE = 'csl_refresh_token';
@@ -57,6 +71,50 @@ const apiClient = createApiClient({
   baseUrl: env.apiUrl,
   fetchFn: fetch,
 });
+
+async function fetchAdminJson<T>(token: string, path: string, init?: RequestInit): Promise<T> {
+  const response = await fetch(`${env.apiUrl}${path}`, {
+    ...init,
+    headers: {
+      Accept: 'application/json',
+      Authorization: `Bearer ${token}`,
+      ...(init?.headers ?? {}),
+    },
+    cache: 'no-store',
+  });
+
+  let payload: unknown = null;
+  try {
+    payload = await response.json();
+  } catch {
+    payload = null;
+  }
+
+  if (!response.ok) {
+    const errorPayload = payload as { error?: { code?: string; message?: string } } | null;
+    throw new ApiError(
+      errorPayload?.error?.message ?? `Request failed with status ${response.status}`,
+      response.status,
+      errorPayload?.error?.code,
+    );
+  }
+
+  return payload as T;
+}
+
+function withSearchParams(path: string, params: Record<string, string | number | undefined>) {
+  const query = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value == null || value === '') continue;
+    query.set(key, String(value));
+  }
+
+  const encoded = query.toString();
+  if (!encoded) {
+    return path;
+  }
+  return `${path}?${encoded}`;
+}
 
 function mapApiError(error: unknown): never {
   if (error instanceof ApiClientError) {
@@ -391,6 +449,135 @@ export async function updateAdminUser(token: string, id: string, payload: AdminU
 export async function fetchAdminEnrollments(token: string) {
   try {
     return (await apiClient.admin.enrollments({ token })) as ApiEnvelope<EnrollmentDetail[]>;
+  } catch (error) {
+    mapApiError(error);
+  }
+}
+
+export async function fetchAdminMailOperations(token: string) {
+  try {
+    return await fetchAdminJson<MailOperationalSnapshot>(token, '/api/v1/admin/mail/ops');
+  } catch (error) {
+    mapApiError(error);
+  }
+}
+
+export async function fetchAdminMailRetention(token: string) {
+  try {
+    return await fetchAdminJson<MailRetentionSnapshot>(token, '/api/v1/admin/mail/retention');
+  } catch (error) {
+    mapApiError(error);
+  }
+}
+
+export async function cleanupAdminMailRetention(token: string) {
+  try {
+    return await fetchAdminJson<MailCleanupResult>(token, '/api/v1/admin/mail/cleanup', {
+      method: 'POST',
+    });
+  } catch (error) {
+    mapApiError(error);
+  }
+}
+
+export async function fetchAdminMailCleanupRuns(token: string, limit = 20) {
+  try {
+    return await fetchAdminJson<MailCleanupRun[]>(
+      token,
+      withSearchParams('/api/v1/admin/mail/cleanup-runs', { limit }),
+    );
+  } catch (error) {
+    mapApiError(error);
+  }
+}
+
+export async function fetchAdminDeadLetters(token: string, filter: AdminMailJobFilter = {}) {
+  try {
+    return await fetchAdminJson<MailJob[]>(
+      token,
+      withSearchParams('/api/v1/admin/mail/dead-letters', filter),
+    );
+  } catch (error) {
+    mapApiError(error);
+  }
+}
+
+export async function fetchAdminMailEvents(token: string, filter: AdminMailEventFilter = {}) {
+  try {
+    return await fetchAdminJson<MailEvent[]>(
+      token,
+      withSearchParams('/api/v1/admin/mail/events', filter),
+    );
+  } catch (error) {
+    mapApiError(error);
+  }
+}
+
+export async function fetchAdminMailJobEvents(
+  token: string,
+  jobID: string,
+  filter: AdminMailEventFilter = {},
+) {
+  try {
+    return await fetchAdminJson<MailEvent[]>(
+      token,
+      withSearchParams(`/api/v1/admin/mail/jobs/${jobID}/events`, filter),
+    );
+  } catch (error) {
+    mapApiError(error);
+  }
+}
+
+export async function requeueAdminDeadLetter(token: string, jobID: string) {
+  try {
+    return await fetchAdminJson<MailJob>(token, `/api/v1/admin/mail/dead-letters/${jobID}/requeue`, {
+      method: 'POST',
+    });
+  } catch (error) {
+    mapApiError(error);
+  }
+}
+
+export async function replayAdminMailJob(token: string, jobID: string) {
+  try {
+    return await fetchAdminJson<MailJob>(token, `/api/v1/admin/mail/jobs/${jobID}/replay`, {
+      method: 'POST',
+    });
+  } catch (error) {
+    mapApiError(error);
+  }
+}
+
+export async function fetchAdminMailSuppressions(token: string) {
+  try {
+    return await fetchAdminJson<MailSuppression[]>(token, '/api/v1/admin/mail/suppressions');
+  } catch (error) {
+    mapApiError(error);
+  }
+}
+
+export async function createAdminMailSuppression(
+  token: string,
+  payload: { kind: 'email' | 'domain'; value: string; reason: string },
+) {
+  try {
+    return await fetchAdminJson<MailSuppression>(token, '/api/v1/admin/mail/suppressions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+  } catch (error) {
+    mapApiError(error);
+  }
+}
+
+export async function deleteAdminMailSuppression(token: string, suppressionID: string) {
+  try {
+    return await fetchAdminJson<{ success: boolean }>(
+      token,
+      `/api/v1/admin/mail/suppressions/${suppressionID}`,
+      { method: 'DELETE' },
+    );
   } catch (error) {
     mapApiError(error);
   }

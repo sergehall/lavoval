@@ -123,6 +123,9 @@ func newTestAdminHandler() *AdminHandler {
 		hAdminModuleStub{},
 		nil,
 		nil,
+		nil,
+		nil,
+		service.MailRetentionPolicy{},
 	)
 	skillSvc := service.NewSkillService(
 		hAdminSkillStub{},
