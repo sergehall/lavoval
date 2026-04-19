@@ -188,10 +188,17 @@ export default async function PublicSkillDetailPage({
 
       {/* Description */}
       <Card>
-        <div className="stack stack--md">
-          <h2>What this skill covers</h2>
-          <SkillMarkdown content={skill.description} />
-        </div>
+        <details className="skill-contract">
+          <summary className="skill-contract__summary">
+            <div className="section-heading">
+              <h2>What this skill covers</h2>
+              <Badge tone="neutral">Overview</Badge>
+            </div>
+          </summary>
+          <div className="stack stack--md skill-contract__body">
+            <SkillMarkdown content={skill.description} />
+          </div>
+        </details>
       </Card>
 
       {skill.currentVersion ? (

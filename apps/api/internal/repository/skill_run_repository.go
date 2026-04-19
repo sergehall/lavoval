@@ -19,6 +19,9 @@ func NewSkillRunRepository(pool *pgxpool.Pool) *SkillRunRepository {
 }
 
 func (r *SkillRunRepository) Create(ctx context.Context, run domain.SkillRun) (domain.SkillRun, error) {
+	run.Input = normalizeJSONMap(run.Input)
+	run.Output = normalizeJSONMap(run.Output)
+
 	query := `
 		INSERT INTO skill_runs (
 			id, skill_id, user_id, status, input_json, output_json, error_message, started_at, finished_at
@@ -46,6 +49,9 @@ func (r *SkillRunRepository) Create(ctx context.Context, run domain.SkillRun) (d
 }
 
 func (r *SkillRunRepository) Update(ctx context.Context, run domain.SkillRun) (domain.SkillRun, error) {
+	run.Input = normalizeJSONMap(run.Input)
+	run.Output = normalizeJSONMap(run.Output)
+
 	query := `
 		UPDATE skill_runs
 		SET status = $2,
@@ -162,6 +168,14 @@ func decodeJSONMap(raw []byte) (map[string]any, error) {
 	}
 
 	return decoded, nil
+}
+
+func normalizeJSONMap(input map[string]any) map[string]any {
+	if input == nil {
+		return map[string]any{}
+	}
+
+	return input
 }
 
 func finalizeSkillRun(run *domain.SkillRun) {
