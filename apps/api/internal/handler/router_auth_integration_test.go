@@ -299,7 +299,11 @@ func TestRouterRoleChangeRevokesOldAccessToken(t *testing.T) {
 		nil,
 		nil,
 		nil,
+		nil,
 		adminService,
+		nil,
+		nil,
+		nil,
 		nil,
 	)
 
@@ -388,7 +392,7 @@ func TestRouterLoginReturnsMFAChallengeMeta(t *testing.T) {
 		nil,
 		cfg,
 	)
-	router := NewRouter(cfg, manager, users, authService, nil, nil, nil, nil, nil, nil)
+	router := NewRouter(cfg, manager, users, authService, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
 
 	request := httptest.NewRequest(
 		http.MethodPost,
@@ -459,7 +463,7 @@ func TestRouterDisableMFARevokesOldAccessToken(t *testing.T) {
 		service.NewUserSessionRevoker(users),
 		cfg,
 	)
-	router := NewRouter(cfg, tokens, users, authService, nil, nil, nil, nil, nil, nil)
+	router := NewRouter(cfg, tokens, users, authService, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
 
 	userPair, err := tokens.IssueTokens(users.users["user-1"])
 	if err != nil {

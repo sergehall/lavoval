@@ -120,7 +120,7 @@ func (s adminProfileStub) SoftDeleteByUserID(_ context.Context, _ string) error 
 
 type adminSkillStub struct{}
 
-func (adminSkillStub) ListPublished(_ context.Context) ([]domain.Skill, error) {
+func (adminSkillStub) ListPublished(_ context.Context, _ domain.SkillFilter) ([]domain.Skill, error) {
 	return []domain.Skill{}, nil
 }
 func (adminSkillStub) ListAll(_ context.Context) ([]domain.Skill, error) {

@@ -41,11 +41,13 @@
     "lint": "pnpm run lint:web && pnpm run lint:api",
     "lint:web": "pnpm --dir apps/web lint",
     "lint:api": "cd apps/api && test -z \"$(gofmt -l .)\" && go vet ./... && go test ./...",
+    "lint:fix": "pnpm run lint:fix:web && pnpm run lint:fix:api",
+    "lint:fix:web": "pnpm --dir apps/web lint:fix",
+    "lint:fix:api": "cd apps/api && gofmt -w .",
 
     "format": "pnpm run format:web && pnpm run format:api",
     "format:web": "pnpm --filter @lavoval/web format",
     "format:api": "cd apps/api && gofmt -w .",
-
     "format:check": "pnpm run format:check:web && pnpm run format:check:api",
     "format:check:web": "pnpm --dir apps/web exec prettier --check \"src/**/*.{ts,tsx,css}\"",
     "format:check:api": "cd apps/api && test -z \"$(gofmt -l .)\""

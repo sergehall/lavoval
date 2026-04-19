@@ -41,9 +41,28 @@ export type SkillSummary = {
   modulesCount: number;
 };
 
+export type SkillSchema = Record<string, unknown>;
+
+export type SkillCurrentVersion = {
+  id: string;
+  skillId: string;
+  versionNo: number;
+  isCurrent: boolean;
+  changelog?: string | null;
+  contentMd: string;
+  promptTemplate?: string | null;
+  systemInstructions?: string | null;
+  inputSchema?: SkillSchema | null;
+  outputSchema?: SkillSchema | null;
+  errorSchema?: SkillSchema | null;
+  createdBy: string;
+  createdAt: string;
+};
+
 export type SkillDetail = SkillSummary & {
   description: string;
   modules: SkillModule[];
+  currentVersion?: SkillCurrentVersion | null;
 };
 
 export type SkillMutationRequest = {
@@ -56,6 +75,12 @@ export type SkillMutationRequest = {
   config: Record<string, unknown>;
   status: SkillStatus;
   visibility: SkillVisibility;
+  inputSchema?: SkillSchema;
+  outputSchema?: SkillSchema;
+  errorSchema?: SkillSchema;
+  promptTemplate?: string;
+  systemInstructions?: string;
+  changelog?: string;
 };
 
 export function parseSkillConfig(raw: FormDataEntryValue | string | null | undefined) {

@@ -13,31 +13,51 @@ type skillRepoStub struct {
 	created domain.Skill
 }
 
-func (s skillRepoStub) ListPublished(context.Context) ([]domain.Skill, error) {
+func (s *skillRepoStub) ListPublished(context.Context, domain.SkillFilter) ([]domain.Skill, error) {
 	return []domain.Skill{}, nil
 }
-func (s skillRepoStub) ListAll(context.Context) ([]domain.Skill, error) { return []domain.Skill{}, nil }
-func (s skillRepoStub) ListByCreatorID(context.Context, string) ([]domain.Skill, error) {
+func (s *skillRepoStub) ListAll(context.Context) ([]domain.Skill, error) {
 	return []domain.Skill{}, nil
 }
-func (s skillRepoStub) FindByID(context.Context, string) (domain.Skill, error) { return s.created, nil }
-func (s skillRepoStub) Create(_ context.Context, skill domain.Skill) (domain.Skill, error) {
+func (s *skillRepoStub) ListByCreatorID(context.Context, string) ([]domain.Skill, error) {
+	return []domain.Skill{}, nil
+}
+func (s *skillRepoStub) FindByID(context.Context, string) (domain.Skill, error) {
+	return s.created, nil
+}
+func (s *skillRepoStub) Create(_ context.Context, skill domain.Skill) (domain.Skill, error) {
 	skill.CreatedAt = time.Now()
 	skill.UpdatedAt = skill.CreatedAt
+	s.created = skill
 	return skill, nil
 }
-func (s skillRepoStub) Update(_ context.Context, skill domain.Skill) (domain.Skill, error) {
+func (s *skillRepoStub) Update(_ context.Context, skill domain.Skill) (domain.Skill, error) {
+	s.created = skill
 	return skill, nil
 }
-func (s skillRepoStub) SoftDelete(context.Context, string) error { return nil }
-func (skillRepoStub) UpdateGovernance(_ context.Context, _, _ string, _ domain.SkillStatus, _ *string, _, _ bool) (domain.Skill, error) {
+func (s *skillRepoStub) SoftDelete(context.Context, string) error { return nil }
+func (*skillRepoStub) UpdateGovernance(_ context.Context, _, _ string, _ domain.SkillStatus, _ *string, _, _ bool) (domain.Skill, error) {
 	return domain.Skill{}, nil
 }
-func (skillRepoStub) UpdatePricing(_ context.Context, _ string, _ int, _ string, _ domain.SkillAccessType) (domain.Skill, error) {
+func (*skillRepoStub) UpdatePricing(_ context.Context, _ string, _ int, _ string, _ domain.SkillAccessType) (domain.Skill, error) {
 	return domain.Skill{}, nil
 }
-func (skillRepoStub) GetStats(_ context.Context) (domain.AdminSkillStats, error) {
+func (*skillRepoStub) GetStats(_ context.Context) (domain.AdminSkillStats, error) {
 	return domain.AdminSkillStats{}, nil
+}
+
+type skillVersionRepoStub struct {
+	version *domain.SkillVersion
+}
+
+func (s skillVersionRepoStub) FindCurrentBySkillID(_ context.Context, _ string) (*domain.SkillVersion, error) {
+	return s.version, nil
+}
+
+func (s skillVersionRepoStub) SaveCurrent(_ context.Context, version domain.SkillVersion) (domain.SkillVersion, error) {
+	version.VersionNo = 1
+	version.IsCurrent = true
+	return version, nil
 }
 
 type enrollmentRepoStub struct{}
@@ -107,7 +127,8 @@ func (s skillUserRepoStub) List(_ context.Context) ([]domain.User, error) {
 }
 
 func TestSkillServiceCreateAssignsActorID(t *testing.T) {
-	service := NewSkillService(skillRepoStub{}, enrollmentRepoStub{}, skillUserRepoStub{
+	skillRepo := &skillRepoStub{}
+	service := NewSkillService(skillRepo, skillVersionRepoStub{}, enrollmentRepoStub{}, skillUserRepoStub{
 		user: domain.User{ID: "admin-1", Status: domain.AccountStatusActive},
 	})
 	result, err := service.Create(context.Background(), "admin-1", SkillMutationInput{
@@ -133,7 +154,7 @@ func TestSkillServiceCreateAssignsActorID(t *testing.T) {
 }
 
 func TestSkillServiceCreateRejectsSuspendedCreator(t *testing.T) {
-	service := NewSkillService(skillRepoStub{}, enrollmentRepoStub{}, skillUserRepoStub{
+	service := NewSkillService(&skillRepoStub{}, skillVersionRepoStub{}, enrollmentRepoStub{}, skillUserRepoStub{
 		user: domain.User{ID: "creator-1", Status: domain.AccountStatusSuspended},
 	})
 
@@ -150,5 +171,31 @@ func TestSkillServiceCreateRejectsSuspendedCreator(t *testing.T) {
 	})
 	if !errors.Is(err, ErrAccountSuspended) {
 		t.Fatalf("expected ErrAccountSuspended, got %v", err)
+	}
+}
+
+func TestSkillServiceCreateRejectsPromptVariablesOutsideInputSchema(t *testing.T) {
+	service := NewSkillService(&skillRepoStub{}, skillVersionRepoStub{}, enrollmentRepoStub{}, skillUserRepoStub{
+		user: domain.User{ID: "creator-1", Status: domain.AccountStatusActive},
+	})
+
+	_, err := service.Create(context.Background(), "creator-1", SkillMutationInput{
+		Slug:               "ai-brief",
+		Title:              "AI Brief",
+		Summary:            "Create a clear brief for a downstream agent run.",
+		Description:        "Use this skill to generate a structured brief for downstream AI operators.",
+		Provider:           "internal",
+		Entrypoint:         "echo",
+		Config:             map[string]any{"mode": "test"},
+		Status:             domain.SkillStatusDraft,
+		Visibility:         domain.VisibilityPrivate,
+		InputSchema:        map[string]any{"type": "object", "properties": map[string]any{"topic": map[string]any{"type": "string"}}},
+		PromptTemplate:     "Explain {{topic}} for {{audience}}",
+		SystemInstructions: "Stay grounded in the provided schema.",
+	})
+
+	var contractErr *SkillContractValidationError
+	if !errors.As(err, &contractErr) {
+		t.Fatalf("expected skill contract validation error, got %v", err)
 	}
 }

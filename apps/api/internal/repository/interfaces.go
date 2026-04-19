@@ -112,7 +112,7 @@ type ProfileStore interface {
 }
 
 type SkillStore interface {
-	ListPublished(context.Context) ([]domain.Skill, error)
+	ListPublished(ctx context.Context, filter domain.SkillFilter) ([]domain.Skill, error)
 	ListAll(context.Context) ([]domain.Skill, error)
 	ListByCreatorID(context.Context, string) ([]domain.Skill, error)
 	FindByID(context.Context, string) (domain.Skill, error)
@@ -125,6 +125,11 @@ type SkillStore interface {
 	// GetStats returns aggregate skill counts for the admin dashboard.
 	GetStats(context.Context) (domain.AdminSkillStats, error)
 	SoftDelete(context.Context, string) error
+}
+
+type SkillVersionStore interface {
+	FindCurrentBySkillID(ctx context.Context, skillID string) (*domain.SkillVersion, error)
+	SaveCurrent(ctx context.Context, version domain.SkillVersion) (domain.SkillVersion, error)
 }
 
 type EnrollmentStore interface {

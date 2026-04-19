@@ -72,11 +72,15 @@ func New() (*Application, error) {
 	oauthStateRepo := repository.NewOAuthStateRepository(pool)
 	oauthIdentityRepo := repository.NewOAuthIdentityRepository(pool)
 	skillRepo := repository.NewSkillRepository(pool)
+	skillVersionRepo := repository.NewSkillVersionRepository(pool)
 	enrollmentRepo := repository.NewEnrollmentRepository(pool)
 	moduleRepo := repository.NewModuleRepository(pool)
 	skillRunRepo := repository.NewSkillRunRepository(pool)
 	auditLogRepo := repository.NewAdminAuditLogRepository(pool)
 	skillAccessRepo := repository.NewSkillAccessRepository(pool)
+	catalogRepo := repository.NewCatalogRepository(pool)
+	agentRepo := repository.NewAgentRepository(pool)
+	socialRepo := repository.NewSocialRepository(pool)
 	runtimeRegistry := appRuntime.DefaultRegistry()
 	mailMetrics := mailer.NewPrometheusHandler(mailJobRepo)
 	verificationMailer := mailer.NewPostgresVerificationMailer(cfg, mailJobRepo, mailEventRepo, mailSuppressionRepo, mailMetrics)
@@ -99,9 +103,13 @@ func New() (*Application, error) {
 		cfg,
 	)
 	profileService := service.NewProfileService(profileRepo)
+	creatorService := service.NewCreatorService(profileRepo, skillRepo)
 	accountSecurityService := service.NewAccountSecurityService(userRepo, oauthIdentityRepo)
-	skillService := service.NewSkillService(skillRepo, enrollmentRepo, userRepo)
+	skillService := service.NewSkillService(skillRepo, skillVersionRepo, enrollmentRepo, userRepo)
 	runtimeService := service.NewRuntimeService(skillRepo, skillRunRepo, runtimeRegistry)
+	catalogService := service.NewCatalogService(catalogRepo)
+	agentService := service.NewAgentService(agentRepo)
+	socialService := service.NewSocialService(socialRepo)
 	adminService := service.NewAdminService(
 		userRepo,
 		profileRepo,
@@ -129,7 +137,7 @@ func New() (*Application, error) {
 		service.WithSessionRevoker(sessionRevoker),
 	)
 
-	router := handler.NewRouter(cfg, tokenManager, userRepo, authService, profileService, accountSecurityService, skillService, runtimeService, adminService, mailMetrics)
+	router := handler.NewRouter(cfg, tokenManager, userRepo, authService, profileService, creatorService, accountSecurityService, skillService, runtimeService, adminService, catalogService, agentService, socialService, mailMetrics)
 
 	server := &http.Server{
 		Addr:              cfg.HTTPAddr,

@@ -323,6 +323,11 @@ func (h *AdminHandler) CreateSkill(w http.ResponseWriter, r *http.Request) {
 
 	skill, err := h.skillService.Create(r.Context(), claims.UserID, input)
 	if err != nil {
+		var contractErr *service.SkillContractValidationError
+		if errors.As(err, &contractErr) {
+			httpx.Error(w, http.StatusBadRequest, "invalid_skill_contract", contractErr.Error())
+			return
+		}
 		httpx.Error(w, http.StatusInternalServerError, "skill_create_failed", "Could not create skill")
 		return
 	}
@@ -330,6 +335,7 @@ func (h *AdminHandler) CreateSkill(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *AdminHandler) UpdateSkill(w http.ResponseWriter, r *http.Request) {
+	claims, _ := appmiddleware.ClaimsFromContext(r.Context())
 	var input service.SkillMutationInput
 	if err := httpx.Decode(r, &input); err != nil {
 		httpx.Error(w, http.StatusBadRequest, "invalid_request", err.Error())
@@ -340,8 +346,13 @@ func (h *AdminHandler) UpdateSkill(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	skill, err := h.skillService.Update(r.Context(), chi.URLParam(r, "skillID"), input)
+	skill, err := h.skillService.Update(r.Context(), chi.URLParam(r, "skillID"), claims.UserID, input)
 	if err != nil {
+		var contractErr *service.SkillContractValidationError
+		if errors.As(err, &contractErr) {
+			httpx.Error(w, http.StatusBadRequest, "invalid_skill_contract", contractErr.Error())
+			return
+		}
 		httpx.Error(w, http.StatusInternalServerError, "skill_update_failed", "Could not update skill")
 		return
 	}

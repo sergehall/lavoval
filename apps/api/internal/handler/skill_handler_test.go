@@ -18,7 +18,7 @@ type handlerSkillRepoStub struct {
 	err   error
 }
 
-func (s handlerSkillRepoStub) ListPublished(_ context.Context) ([]domain.Skill, error) {
+func (s handlerSkillRepoStub) ListPublished(_ context.Context, _ domain.SkillFilter) ([]domain.Skill, error) {
 	return []domain.Skill{s.skill}, nil
 }
 func (s handlerSkillRepoStub) ListAll(_ context.Context) ([]domain.Skill, error) {
@@ -47,6 +47,16 @@ func (handlerSkillRepoStub) GetStats(_ context.Context) (domain.AdminSkillStats,
 	return domain.AdminSkillStats{}, nil
 }
 
+type handlerSkillVersionRepoStub struct{}
+
+func (handlerSkillVersionRepoStub) FindCurrentBySkillID(_ context.Context, _ string) (*domain.SkillVersion, error) {
+	return nil, nil
+}
+
+func (handlerSkillVersionRepoStub) SaveCurrent(_ context.Context, version domain.SkillVersion) (domain.SkillVersion, error) {
+	return version, nil
+}
+
 type handlerEnrollmentRepoStub struct{}
 
 func (handlerEnrollmentRepoStub) ListByUserID(_ context.Context, _ string) ([]domain.Enrollment, error) {
@@ -63,7 +73,7 @@ func (handlerEnrollmentRepoStub) UpdateStatus(_ context.Context, _ string, _ dom
 }
 
 func newSkillHandlerWithRepo(repo handlerSkillRepoStub) *SkillHandler {
-	skillSvc := service.NewSkillService(repo, handlerEnrollmentRepoStub{}, nil)
+	skillSvc := service.NewSkillService(repo, handlerSkillVersionRepoStub{}, handlerEnrollmentRepoStub{}, nil)
 	return NewSkillHandler(validator.New(validator.WithRequiredStructEnabled()), skillSvc)
 }
 

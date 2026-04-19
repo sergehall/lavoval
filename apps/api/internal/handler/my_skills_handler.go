@@ -58,6 +58,11 @@ func (h *MySkillsHandler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 	skill, err := h.service.Create(r.Context(), claims.UserID, input)
 	if err != nil {
+		var contractErr *service.SkillContractValidationError
+		if errors.As(err, &contractErr) {
+			httpx.Error(w, http.StatusBadRequest, "invalid_skill_contract", contractErr.Error())
+			return
+		}
 		if errors.Is(err, service.ErrAccountBlocked) || errors.Is(err, service.ErrAccountSuspended) {
 			httpx.Error(w, http.StatusForbidden, "skill_mutation_forbidden", "Your account cannot change skills right now")
 			return
@@ -81,6 +86,11 @@ func (h *MySkillsHandler) Update(w http.ResponseWriter, r *http.Request) {
 	}
 	skill, err := h.service.UpdateOwnedByCreator(r.Context(), chi.URLParam(r, "skillID"), claims.UserID, input)
 	if err != nil {
+		var contractErr *service.SkillContractValidationError
+		if errors.As(err, &contractErr) {
+			httpx.Error(w, http.StatusBadRequest, "invalid_skill_contract", contractErr.Error())
+			return
+		}
 		if errors.Is(err, service.ErrSkillForbidden) {
 			httpx.Error(w, http.StatusForbidden, "forbidden", "You do not have access to this skill")
 			return

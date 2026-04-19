@@ -24,7 +24,9 @@ func (r *ProfileRepository) Create(ctx context.Context, profile domain.Profile) 
 	query := `
 		INSERT INTO profiles (user_id, first_name, last_name, bio, timezone)
 		VALUES ($1, $2, $3, $4, $5)
-		RETURNING created_at, updated_at, availability_status, is_public_profile`
+		RETURNING created_at, updated_at, availability_status, is_public_profile,
+			show_avatar, show_bio, show_location, show_skills, show_languages,
+			show_availability_status, show_website_url, show_linkedin_url, show_github_url, show_twitter_url`
 
 	if err := r.pool.QueryRow(
 		ctx, query,
@@ -38,6 +40,16 @@ func (r *ProfileRepository) Create(ctx context.Context, profile domain.Profile) 
 		&profile.UpdatedAt,
 		&profile.AvailabilityStatus,
 		&profile.IsPublicProfile,
+		&profile.ShowAvatar,
+		&profile.ShowBio,
+		&profile.ShowLocation,
+		&profile.ShowSkills,
+		&profile.ShowLanguages,
+		&profile.ShowAvailability,
+		&profile.ShowWebsiteURL,
+		&profile.ShowLinkedInURL,
+		&profile.ShowGitHubURL,
+		&profile.ShowTwitterURL,
 	); err != nil {
 		return domain.Profile{}, fmt.Errorf("create profile: %w", err)
 	}
@@ -65,6 +77,16 @@ func (r *ProfileRepository) Update(ctx context.Context, profile domain.Profile) 
 			twitter_url         = $14,
 			availability_status = $15,
 			is_public_profile   = $16,
+			show_avatar         = $17,
+			show_bio            = $18,
+			show_location       = $19,
+			show_skills         = $20,
+			show_languages      = $21,
+			show_availability_status = $22,
+			show_website_url    = $23,
+			show_linkedin_url   = $24,
+			show_github_url     = $25,
+			show_twitter_url    = $26,
 			updated_at          = NOW()
 		WHERE user_id = $1 AND deleted_at IS NULL
 		RETURNING created_at, updated_at`
@@ -87,6 +109,16 @@ func (r *ProfileRepository) Update(ctx context.Context, profile domain.Profile) 
 		profile.TwitterURL,         // $14
 		profile.AvailabilityStatus, // $15
 		profile.IsPublicProfile,    // $16
+		profile.ShowAvatar,         // $17
+		profile.ShowBio,            // $18
+		profile.ShowLocation,       // $19
+		profile.ShowSkills,         // $20
+		profile.ShowLanguages,      // $21
+		profile.ShowAvailability,   // $22
+		profile.ShowWebsiteURL,     // $23
+		profile.ShowLinkedInURL,    // $24
+		profile.ShowGitHubURL,      // $25
+		profile.ShowTwitterURL,     // $26
 	).Scan(
 		&profile.CreatedAt,
 		&profile.UpdatedAt,
@@ -118,6 +150,16 @@ func (r *ProfileRepository) FindByUserID(ctx context.Context, userID string) (do
 			p.twitter_url,
 			p.availability_status,
 			p.is_public_profile,
+			p.show_avatar,
+			p.show_bio,
+			p.show_location,
+			p.show_skills,
+			p.show_languages,
+			p.show_availability_status,
+			p.show_website_url,
+			p.show_linkedin_url,
+			p.show_github_url,
+			p.show_twitter_url,
 			p.created_at,
 			p.updated_at,
 			p.deleted_at
@@ -144,6 +186,16 @@ func (r *ProfileRepository) FindByUserID(ctx context.Context, userID string) (do
 		&profile.TwitterURL,
 		&profile.AvailabilityStatus,
 		&profile.IsPublicProfile,
+		&profile.ShowAvatar,
+		&profile.ShowBio,
+		&profile.ShowLocation,
+		&profile.ShowSkills,
+		&profile.ShowLanguages,
+		&profile.ShowAvailability,
+		&profile.ShowWebsiteURL,
+		&profile.ShowLinkedInURL,
+		&profile.ShowGitHubURL,
+		&profile.ShowTwitterURL,
 		&profile.CreatedAt,
 		&profile.UpdatedAt,
 		&profile.DeletedAt,

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
@@ -18,7 +19,11 @@ const skillListCols = `
 	s.price_cents, s.currency, s.access_type,
 	s.is_featured, s.is_verified,
 	s.moderation_reason, s.moderated_by, s.moderated_at,
-	s.created_at, s.updated_at, COUNT(m.id) AS modules_count`
+	s.created_at, s.updated_at, COUNT(m.id) AS modules_count,
+	s.category_id, s.subcategory_id, s.skill_type, s.difficulty,
+	s.cover_url, s.icon_url, s.is_agent_ready, s.recommended_agent_id,
+	s.estimated_time_minutes, s.language_code,
+	s.success_rate, s.avg_rating, s.runs_count, s.saves_count, s.forks_count, s.published_at`
 
 // skillDetailCols are the SELECT columns for single-skill queries (no COUNT).
 const skillDetailCols = `
@@ -28,7 +33,11 @@ const skillDetailCols = `
 	s.price_cents, s.currency, s.access_type,
 	s.is_featured, s.is_verified,
 	s.moderation_reason, s.moderated_by, s.moderated_at,
-	s.created_at, s.updated_at`
+	s.created_at, s.updated_at,
+	s.category_id, s.subcategory_id, s.skill_type, s.difficulty,
+	s.cover_url, s.icon_url, s.is_agent_ready, s.recommended_agent_id,
+	s.estimated_time_minutes, s.language_code,
+	s.success_rate, s.avg_rating, s.runs_count, s.saves_count, s.forks_count, s.published_at`
 
 type SkillRepository struct {
 	pool *pgxpool.Pool
@@ -38,8 +47,92 @@ func NewSkillRepository(pool *pgxpool.Pool) *SkillRepository {
 	return &SkillRepository{pool: pool}
 }
 
-func (r *SkillRepository) ListPublished(ctx context.Context) ([]domain.Skill, error) {
-	return r.list(ctx, `WHERE s.deleted_at IS NULL AND s.status = 'published'`)
+func (r *SkillRepository) ListPublished(ctx context.Context, filter domain.SkillFilter) ([]domain.Skill, error) {
+	conditions := []string{"s.deleted_at IS NULL", "s.status = 'published'", "s.visibility = 'public'"}
+	args := []any{}
+	argIdx := 1
+
+	if filter.CategoryID != "" {
+		conditions = append(conditions, fmt.Sprintf("s.category_id = $%d", argIdx))
+		args = append(args, filter.CategoryID)
+		argIdx++
+	}
+	if filter.SubcategoryID != "" {
+		conditions = append(conditions, fmt.Sprintf("s.subcategory_id = $%d", argIdx))
+		args = append(args, filter.SubcategoryID)
+		argIdx++
+	}
+	if filter.Difficulty != "" {
+		conditions = append(conditions, fmt.Sprintf("s.difficulty = $%d", argIdx))
+		args = append(args, filter.Difficulty)
+		argIdx++
+	}
+	if filter.SkillType != "" {
+		conditions = append(conditions, fmt.Sprintf("s.skill_type = $%d", argIdx))
+		args = append(args, filter.SkillType)
+		argIdx++
+	}
+	if filter.IsAgentReady != nil {
+		conditions = append(conditions, fmt.Sprintf("s.is_agent_ready = $%d", argIdx))
+		args = append(args, *filter.IsAgentReady)
+		argIdx++
+	}
+	if filter.Query != "" {
+		conditions = append(conditions, fmt.Sprintf("(s.title ILIKE $%d OR s.summary ILIKE $%d)", argIdx, argIdx))
+		args = append(args, "%"+filter.Query+"%")
+		argIdx++
+	}
+
+	whereClause := "WHERE " + strings.Join(conditions, " AND ")
+
+	// tag filter via subquery
+	tagJoin := ""
+	if len(filter.TagSlugs) > 0 {
+		tagJoin = fmt.Sprintf(`
+			INNER JOIN skill_tag_links stl ON stl.skill_id = s.id
+			INNER JOIN tags t ON t.id = stl.tag_id AND t.slug = ANY($%d)`, argIdx)
+		args = append(args, filter.TagSlugs)
+		argIdx++
+	}
+
+	orderClause := "ORDER BY s.updated_at DESC"
+	switch filter.Sort {
+	case "popular":
+		orderClause = "ORDER BY s.runs_count DESC, s.avg_rating DESC"
+	case "rating":
+		orderClause = "ORDER BY s.avg_rating DESC, s.runs_count DESC"
+	case "runs":
+		orderClause = "ORDER BY s.runs_count DESC"
+	case "new":
+		orderClause = "ORDER BY s.published_at DESC NULLS LAST, s.created_at DESC"
+	}
+
+	query := `
+		SELECT ` + skillListCols + `
+		FROM skills s
+		INNER JOIN users u ON u.id = s.created_by
+		INNER JOIN profiles p ON p.user_id = u.id AND p.deleted_at IS NULL
+		LEFT JOIN skill_modules m ON m.skill_id = s.id AND m.deleted_at IS NULL
+		` + tagJoin + `
+		` + whereClause + `
+		GROUP BY s.id, u.email, p.first_name, p.last_name
+		` + orderClause
+
+	rows, err := r.pool.Query(ctx, query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("list published skills: %w", err)
+	}
+	defer rows.Close()
+
+	skills := make([]domain.Skill, 0)
+	for rows.Next() {
+		skill, err := scanSkillList(rows)
+		if err != nil {
+			return nil, fmt.Errorf("scan skill: %w", err)
+		}
+		skills = append(skills, skill)
+	}
+	return skills, rows.Err()
 }
 
 func (r *SkillRepository) ListAll(ctx context.Context) ([]domain.Skill, error) {
@@ -126,13 +219,24 @@ func (r *SkillRepository) findModules(ctx context.Context, skillID string) ([]do
 
 func (r *SkillRepository) Create(ctx context.Context, skill domain.Skill) (domain.Skill, error) {
 	query := `
-		INSERT INTO skills (id, slug, title, summary, description, provider, entrypoint, config_json, status, visibility, created_by, price_cents, currency, access_type)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+		INSERT INTO skills (
+			id, slug, title, summary, description, provider, entrypoint, config_json,
+			status, visibility, created_by, price_cents, currency, access_type,
+			category_id, subcategory_id, skill_type, difficulty, cover_url, icon_url,
+			is_agent_ready, estimated_time_minutes, language_code
+		) VALUES (
+			$1, $2, $3, $4, $5, $6, $7, $8,
+			$9, $10, $11, $12, $13, $14,
+			$15, $16, $17, $18, $19, $20,
+			$21, $22, $23
+		)
 		RETURNING created_at, updated_at`
 	if err := r.pool.QueryRow(ctx, query,
 		skill.ID, skill.Slug, skill.Title, skill.Summary, skill.Description,
 		skill.Provider, skill.Entrypoint, skill.Config, skill.Status, skill.Visibility,
 		skill.CreatedBy, skill.PriceCents, skill.Currency, skill.AccessType,
+		skill.CategoryID, skill.SubcategoryID, skill.SkillType, skill.Difficulty,
+		skill.CoverURL, skill.IconURL, skill.IsAgentReady, skill.EstimatedTimeMinutes, skill.LanguageCode,
 	).Scan(&skill.CreatedAt, &skill.UpdatedAt); err != nil {
 		return domain.Skill{}, fmt.Errorf("create skill: %w", err)
 	}
@@ -145,6 +249,9 @@ func (r *SkillRepository) Update(ctx context.Context, skill domain.Skill) (domai
 		SET slug = $2, title = $3, summary = $4, description = $5, provider = $6,
 		    entrypoint = $7, config_json = $8, status = $9, visibility = $10,
 		    price_cents = $11, currency = $12, access_type = $13,
+		    category_id = $14, subcategory_id = $15, skill_type = $16, difficulty = $17,
+		    cover_url = $18, icon_url = $19, is_agent_ready = $20,
+		    estimated_time_minutes = $21, language_code = $22,
 		    updated_at = NOW()
 		WHERE id = $1 AND deleted_at IS NULL
 		RETURNING created_by, created_at, updated_at`
@@ -152,6 +259,9 @@ func (r *SkillRepository) Update(ctx context.Context, skill domain.Skill) (domai
 		skill.ID, skill.Slug, skill.Title, skill.Summary, skill.Description,
 		skill.Provider, skill.Entrypoint, skill.Config, skill.Status, skill.Visibility,
 		skill.PriceCents, skill.Currency, skill.AccessType,
+		skill.CategoryID, skill.SubcategoryID, skill.SkillType, skill.Difficulty,
+		skill.CoverURL, skill.IconURL, skill.IsAgentReady,
+		skill.EstimatedTimeMinutes, skill.LanguageCode,
 	).Scan(&skill.CreatedBy, &skill.CreatedAt, &skill.UpdatedAt); err != nil {
 		return domain.Skill{}, fmt.Errorf("update skill: %w", err)
 	}
@@ -273,6 +383,10 @@ func scanSkillList(row scanner) (domain.Skill, error) {
 		&skill.IsFeatured, &skill.IsVerified,
 		&skill.ModerationReason, &skill.ModeratedBy, &skill.ModeratedAt,
 		&skill.CreatedAt, &skill.UpdatedAt, &skill.ModulesCount,
+		&skill.CategoryID, &skill.SubcategoryID, &skill.SkillType, &skill.Difficulty,
+		&skill.CoverURL, &skill.IconURL, &skill.IsAgentReady, &skill.RecommendedAgentID,
+		&skill.EstimatedTimeMinutes, &skill.LanguageCode,
+		&skill.SuccessRate, &skill.AvgRating, &skill.RunsCount, &skill.SavesCount, &skill.ForksCount, &skill.PublishedAt,
 	); err != nil {
 		return domain.Skill{}, err
 	}
@@ -297,6 +411,10 @@ func scanSkillDetail(row scanner) (domain.Skill, error) {
 		&skill.IsFeatured, &skill.IsVerified,
 		&skill.ModerationReason, &skill.ModeratedBy, &skill.ModeratedAt,
 		&skill.CreatedAt, &skill.UpdatedAt,
+		&skill.CategoryID, &skill.SubcategoryID, &skill.SkillType, &skill.Difficulty,
+		&skill.CoverURL, &skill.IconURL, &skill.IsAgentReady, &skill.RecommendedAgentID,
+		&skill.EstimatedTimeMinutes, &skill.LanguageCode,
+		&skill.SuccessRate, &skill.AvgRating, &skill.RunsCount, &skill.SavesCount, &skill.ForksCount, &skill.PublishedAt,
 	); err != nil {
 		return domain.Skill{}, err
 	}

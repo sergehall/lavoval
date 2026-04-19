@@ -111,8 +111,51 @@ export const profileSchema = z.object({
   twitterUrl: z.string().nullable(),
   availabilityStatus: availabilityStatusSchema.default('open'),
   isPublicProfile: z.boolean().default(true),
+  showAvatar: z.boolean().default(true),
+  showBio: z.boolean().default(true),
+  showLocation: z.boolean().default(true),
+  showSkills: z.boolean().default(true),
+  showLanguages: z.boolean().default(true),
+  showAvailabilityStatus: z.boolean().default(true),
+  showWebsiteUrl: z.boolean().default(true),
+  showLinkedinUrl: z.boolean().default(true),
+  showGithubUrl: z.boolean().default(true),
+  showTwitterUrl: z.boolean().default(true),
 });
 export type Profile = z.infer<typeof profileSchema>;
+
+export const publicProfileSkillSchema = z.object({
+  id: z.string().uuid(),
+  slug: z.string().min(2),
+  title: z.string().min(2),
+  summary: z.string().min(2),
+  skillType: z.string(),
+  difficulty: z.string(),
+  avgRating: z.number().default(0),
+  runsCount: z.number().int().default(0),
+  updatedAt: z.string(),
+});
+export type PublicProfileSkill = z.infer<typeof publicProfileSkillSchema>;
+
+export const publicProfileSchema = z.object({
+  userId: z.string().uuid(),
+  firstName: z.string().min(1),
+  lastName: z.string().min(1),
+  fullName: z.string().min(1),
+  username: z.string().nullable(),
+  avatarUrl: z.string().nullable(),
+  bio: z.string().nullable(),
+  location: z.string().nullable(),
+  skills: z.array(z.string()).nullable(),
+  languages: z.array(z.string()).nullable(),
+  websiteUrl: z.string().nullable(),
+  linkedinUrl: z.string().nullable(),
+  githubUrl: z.string().nullable(),
+  twitterUrl: z.string().nullable(),
+  availabilityStatus: availabilityStatusSchema.nullable(),
+  publicSkills: z.array(publicProfileSkillSchema),
+});
+export type PublicProfile = z.infer<typeof publicProfileSchema>;
 
 export const skillModuleSchema = z.object({
   id: z.string().uuid(),
@@ -125,6 +168,24 @@ export const skillModuleSchema = z.object({
   status: skillStatusSchema,
   createdAt: z.string(),
   updatedAt: z.string()
+});
+
+export const skillJsonSchemaSchema = z.record(z.string(), z.unknown());
+
+export const skillCurrentVersionSchema = z.object({
+  id: z.string().uuid(),
+  skillId: z.string().uuid(),
+  versionNo: z.number().int().positive(),
+  isCurrent: z.boolean(),
+  changelog: z.string().nullable().optional(),
+  contentMd: z.string(),
+  promptTemplate: z.string().nullable().optional(),
+  systemInstructions: z.string().nullable().optional(),
+  inputSchema: skillJsonSchemaSchema.nullable().optional(),
+  outputSchema: skillJsonSchemaSchema.nullable().optional(),
+  errorSchema: skillJsonSchemaSchema.nullable().optional(),
+  createdBy: z.string().uuid(),
+  createdAt: z.string(),
 });
 
 export const skillCreatorSchema = z.object({
@@ -147,12 +208,37 @@ export const skillSummarySchema = z.object({
   creator: skillCreatorSchema,
   createdAt: z.string(),
   updatedAt: z.string(),
-  modulesCount: z.number().int().nonnegative()
+  modulesCount: z.number().int().nonnegative(),
+  // marketplace fields
+  categoryId: z.string().uuid().nullable().optional(),
+  subcategoryId: z.string().uuid().nullable().optional(),
+  skillType: z.string().default('workflow'),
+  difficulty: z.string().default('middle'),
+  coverUrl: z.string().nullable().optional(),
+  iconUrl: z.string().nullable().optional(),
+  isAgentReady: z.boolean().default(false),
+  recommendedAgentId: z.string().uuid().nullable().optional(),
+  estimatedTimeMinutes: z.number().int().nullable().optional(),
+  languageCode: z.string().default('en'),
+  successRate: z.number().default(0),
+  avgRating: z.number().default(0),
+  runsCount: z.number().int().default(0),
+  savesCount: z.number().int().default(0),
+  forksCount: z.number().int().default(0),
+  publishedAt: z.string().nullable().optional(),
+  tags: z.array(z.object({
+    id: z.string().uuid(),
+    slug: z.string(),
+    name: z.string(),
+    kind: z.string(),
+    createdAt: z.string(),
+  })).optional(),
 });
 
 export const skillDetailSchema = skillSummarySchema.extend({
   description: z.string(),
-  modules: z.array(skillModuleSchema)
+  modules: z.array(skillModuleSchema),
+  currentVersion: skillCurrentVersionSchema.nullable().optional(),
 });
 
 export const skillMutationSchema = z.object({
@@ -164,7 +250,23 @@ export const skillMutationSchema = z.object({
   entrypoint: z.string().min(2),
   config: z.record(z.string(), z.unknown()),
   status: authorSkillStatusSchema,
-  visibility: z.enum(['public', 'private'])
+  visibility: z.enum(['public', 'private']),
+  // marketplace fields
+  categoryId: z.string().uuid().nullable().optional(),
+  subcategoryId: z.string().uuid().nullable().optional(),
+  skillType: z.string().optional(),
+  difficulty: z.string().optional(),
+  coverUrl: z.string().nullable().optional(),
+  isAgentReady: z.boolean().optional(),
+  estimatedTimeMinutes: z.number().int().nullable().optional(),
+  languageCode: z.string().optional(),
+  tagIds: z.array(z.string().uuid()).optional(),
+  inputSchema: skillJsonSchemaSchema.optional(),
+  outputSchema: skillJsonSchemaSchema.optional(),
+  errorSchema: skillJsonSchemaSchema.optional(),
+  promptTemplate: z.string().optional(),
+  systemInstructions: z.string().optional(),
+  changelog: z.string().optional(),
 });
 
 export const moduleMutationSchema = z.object({
@@ -360,6 +462,16 @@ export const profileUpdateSchema = z.object({
     .optional(),
   availabilityStatus: availabilityStatusSchema.optional(),
   isPublicProfile: z.boolean().optional(),
+  showAvatar: z.boolean().optional(),
+  showBio: z.boolean().optional(),
+  showLocation: z.boolean().optional(),
+  showSkills: z.boolean().optional(),
+  showLanguages: z.boolean().optional(),
+  showAvailabilityStatus: z.boolean().optional(),
+  showWebsiteUrl: z.boolean().optional(),
+  showLinkedinUrl: z.boolean().optional(),
+  showGithubUrl: z.boolean().optional(),
+  showTwitterUrl: z.boolean().optional(),
 });
 export type ProfileUpdateRequest = z.infer<typeof profileUpdateSchema>;
 
@@ -468,6 +580,149 @@ export const adminStatsSchema = z.object({
   skills: adminSkillStatsSchema,
 });
 export type AdminStats = z.infer<typeof adminStatsSchema>;
+
+// ── Marketplace enums ─────────────────────────────────────────────────────────
+
+export const skillTypeSchema = z.enum(['guide', 'workflow', 'prompt-pack', 'agent-ready', 'service']);
+export type SkillType = z.infer<typeof skillTypeSchema>;
+
+export const difficultySchema = z.enum(['junior', 'middle', 'senior']);
+export type Difficulty = z.infer<typeof difficultySchema>;
+
+// ── Catalog: categories, subcategories, tags ──────────────────────────────────
+
+export const categorySchema = z.object({
+  id: z.string().uuid(),
+  slug: z.string().min(1),
+  name: z.string().min(1),
+  description: z.string().nullable().optional(),
+  icon: z.string().nullable().optional(),
+  sortOrder: z.number().int(),
+  createdAt: z.string(),
+});
+export type Category = z.infer<typeof categorySchema>;
+
+export const subcategorySchema = z.object({
+  id: z.string().uuid(),
+  categoryId: z.string().uuid(),
+  slug: z.string().min(1),
+  name: z.string().min(1),
+  sortOrder: z.number().int(),
+  createdAt: z.string(),
+});
+export type Subcategory = z.infer<typeof subcategorySchema>;
+
+export const tagSchema = z.object({
+  id: z.string().uuid(),
+  slug: z.string().min(1),
+  name: z.string().min(1),
+  kind: z.string(),
+  createdAt: z.string(),
+});
+export type Tag = z.infer<typeof tagSchema>;
+
+// ── Agents ────────────────────────────────────────────────────────────────────
+
+export const agentSchema = z.object({
+  id: z.string().uuid(),
+  slug: z.string().min(1),
+  name: z.string().min(1),
+  provider: z.string().min(1),
+  modelName: z.string().min(1),
+  description: z.string().nullable().optional(),
+  supportsText: z.boolean(),
+  supportsCode: z.boolean(),
+  supportsTools: z.boolean(),
+  supportsWeb: z.boolean(),
+  supportsFiles: z.boolean(),
+  supportsMultimodal: z.boolean(),
+  supportsJsonOutput: z.boolean(),
+  maxContextTokens: z.number().int().nullable().optional(),
+  pricing: z.record(z.string(), z.unknown()).nullable().optional(),
+  status: z.string(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+export type Agent = z.infer<typeof agentSchema>;
+
+export const skillAgentCompatibilitySchema = z.object({
+  skillId: z.string().uuid(),
+  agentId: z.string().uuid(),
+  agent: agentSchema,
+  compatibilityScore: z.number(),
+  successRate: z.number(),
+  avgRating: z.number(),
+  runsCount: z.number().int(),
+  testedBySystem: z.boolean(),
+  testedByUsers: z.boolean(),
+  notes: z.string().nullable().optional(),
+});
+export type SkillAgentCompatibility = z.infer<typeof skillAgentCompatibilitySchema>;
+
+// ── Social: reviews, collections ──────────────────────────────────────────────
+
+export const skillReviewSchema = z.object({
+  id: z.string().uuid(),
+  skillId: z.string().uuid(),
+  userId: z.string().uuid(),
+  runId: z.string().uuid().nullable().optional(),
+  rating: z.number().int().min(1).max(5),
+  reviewText: z.string().nullable().optional(),
+  reviewer: z.object({
+    id: z.string().uuid(),
+    email: z.string().email(),
+    firstName: z.string(),
+    lastName: z.string(),
+  }),
+  createdAt: z.string(),
+});
+export type SkillReview = z.infer<typeof skillReviewSchema>;
+
+export const collectionSchema = z.object({
+  id: z.string().uuid(),
+  ownerId: z.string().uuid(),
+  title: z.string().min(1),
+  description: z.string().nullable().optional(),
+  visibility: z.enum(['public', 'private']),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+export type Collection = z.infer<typeof collectionSchema>;
+
+export const collectionInputSchema = z.object({
+  title: z.string().min(1).max(200),
+  description: z.string().max(1000).optional(),
+  visibility: z.enum(['public', 'private']).default('public'),
+});
+export type CollectionInput = z.infer<typeof collectionInputSchema>;
+
+export const createReviewSchema = z.object({
+  rating: z.number().int().min(1).max(5),
+  reviewText: z.string().max(2000).optional(),
+  runId: z.string().uuid().optional(),
+});
+export type CreateReviewInput = z.infer<typeof createReviewSchema>;
+
+export const runFeedbackSchema = z.object({
+  rating: z.number().int().min(1).max(5),
+  usefulnessScore: z.number().int().min(1).max(5).optional(),
+  wouldUseAgain: z.boolean().optional(),
+  comment: z.string().max(2000).optional(),
+});
+export type RunFeedbackInput = z.infer<typeof runFeedbackSchema>;
+
+// ── Skill filter params ───────────────────────────────────────────────────────
+
+export type SkillFilterParams = {
+  q?: string;
+  category?: string;
+  subcategory?: string;
+  tags?: string;
+  difficulty?: Difficulty;
+  skillType?: SkillType;
+  agentReady?: boolean;
+  sort?: 'popular' | 'new' | 'rating' | 'runs';
+};
 
 export const apiEnvelopeSchema = <T extends z.ZodTypeAny>(schema: T) => z.object({
   data: schema,

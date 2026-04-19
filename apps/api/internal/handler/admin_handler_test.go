@@ -96,8 +96,10 @@ func (hAdminProfileStub) SoftDeleteByUserID(_ context.Context, _ string) error {
 
 type hAdminSkillStub struct{}
 
-func (hAdminSkillStub) ListPublished(_ context.Context) ([]domain.Skill, error) { return nil, nil }
-func (hAdminSkillStub) ListAll(_ context.Context) ([]domain.Skill, error)       { return nil, nil }
+func (hAdminSkillStub) ListPublished(_ context.Context, _ domain.SkillFilter) ([]domain.Skill, error) {
+	return nil, nil
+}
+func (hAdminSkillStub) ListAll(_ context.Context) ([]domain.Skill, error) { return nil, nil }
 func (hAdminSkillStub) ListByCreatorID(_ context.Context, _ string) ([]domain.Skill, error) {
 	return nil, nil
 }
@@ -119,6 +121,16 @@ func (hAdminSkillStub) UpdatePricing(_ context.Context, _ string, _ int, _ strin
 }
 func (hAdminSkillStub) GetStats(_ context.Context) (domain.AdminSkillStats, error) {
 	return domain.AdminSkillStats{}, nil
+}
+
+type hAdminSkillVersionStub struct{}
+
+func (hAdminSkillVersionStub) FindCurrentBySkillID(_ context.Context, _ string) (*domain.SkillVersion, error) {
+	return nil, nil
+}
+
+func (hAdminSkillVersionStub) SaveCurrent(_ context.Context, version domain.SkillVersion) (domain.SkillVersion, error) {
+	return version, nil
 }
 
 type hAdminEnrollmentStub struct{}
@@ -184,6 +196,7 @@ func newTestAdminHandler() *AdminHandler {
 	)
 	skillSvc := service.NewSkillService(
 		hAdminSkillStub{},
+		hAdminSkillVersionStub{},
 		hAdminEnrollmentStub{},
 		nil,
 	)
@@ -206,6 +219,7 @@ func withClaims(r *http.Request, userID string, role domain.Role) *http.Request 
 var _ repository.UserStore = hAdminUserStub{}
 var _ repository.ProfileStore = hAdminProfileStub{}
 var _ repository.SkillStore = hAdminSkillStub{}
+var _ repository.SkillVersionStore = hAdminSkillVersionStub{}
 var _ repository.EnrollmentStore = hAdminEnrollmentStub{}
 var _ repository.ModuleStore = hAdminModuleStub{}
 

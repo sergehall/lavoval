@@ -298,9 +298,50 @@ type Profile struct {
 	TwitterURL         *string            `json:"twitterUrl"`
 	AvailabilityStatus AvailabilityStatus `json:"availabilityStatus"`
 	IsPublicProfile    bool               `json:"isPublicProfile"`
+	ShowAvatar         bool               `json:"showAvatar"`
+	ShowBio            bool               `json:"showBio"`
+	ShowLocation       bool               `json:"showLocation"`
+	ShowSkills         bool               `json:"showSkills"`
+	ShowLanguages      bool               `json:"showLanguages"`
+	ShowAvailability   bool               `json:"showAvailabilityStatus"`
+	ShowWebsiteURL     bool               `json:"showWebsiteUrl"`
+	ShowLinkedInURL    bool               `json:"showLinkedinUrl"`
+	ShowGitHubURL      bool               `json:"showGithubUrl"`
+	ShowTwitterURL     bool               `json:"showTwitterUrl"`
 	CreatedAt          time.Time          `json:"createdAt"`
 	UpdatedAt          time.Time          `json:"updatedAt"`
 	DeletedAt          *time.Time         `json:"deletedAt,omitempty"`
+}
+
+type PublicProfileSkill struct {
+	ID         string    `json:"id"`
+	Slug       string    `json:"slug"`
+	Title      string    `json:"title"`
+	Summary    string    `json:"summary"`
+	SkillType  string    `json:"skillType"`
+	Difficulty string    `json:"difficulty"`
+	AvgRating  float64   `json:"avgRating"`
+	RunsCount  int       `json:"runsCount"`
+	UpdatedAt  time.Time `json:"updatedAt"`
+}
+
+type PublicProfile struct {
+	UserID             string               `json:"userId"`
+	FirstName          string               `json:"firstName"`
+	LastName           string               `json:"lastName"`
+	FullName           string               `json:"fullName"`
+	Username           *string              `json:"username"`
+	AvatarURL          *string              `json:"avatarUrl"`
+	Bio                *string              `json:"bio"`
+	Location           *string              `json:"location"`
+	Skills             []string             `json:"skills"`
+	Languages          []string             `json:"languages"`
+	WebsiteURL         *string              `json:"websiteUrl"`
+	LinkedInURL        *string              `json:"linkedinUrl"`
+	GitHubURL          *string              `json:"githubUrl"`
+	TwitterURL         *string              `json:"twitterUrl"`
+	AvailabilityStatus *AvailabilityStatus  `json:"availabilityStatus"`
+	PublicSkills       []PublicProfileSkill `json:"publicSkills"`
 }
 
 type Skill struct {
@@ -328,6 +369,41 @@ type Skill struct {
 	ModulesCount     int             `json:"modulesCount"`
 	CreatedAt        time.Time       `json:"createdAt"`
 	UpdatedAt        time.Time       `json:"updatedAt"`
+	// marketplace fields (migration 022)
+	CategoryID           *string       `json:"categoryId,omitempty"`
+	SubcategoryID        *string       `json:"subcategoryId,omitempty"`
+	SkillType            string        `json:"skillType"`
+	Difficulty           string        `json:"difficulty"`
+	CoverURL             *string       `json:"coverUrl,omitempty"`
+	IconURL              *string       `json:"iconUrl,omitempty"`
+	IsAgentReady         bool          `json:"isAgentReady"`
+	RecommendedAgentID   *string       `json:"recommendedAgentId,omitempty"`
+	EstimatedTimeMinutes *int          `json:"estimatedTimeMinutes,omitempty"`
+	LanguageCode         string        `json:"languageCode"`
+	SuccessRate          float64       `json:"successRate"`
+	AvgRating            float64       `json:"avgRating"`
+	RunsCount            int           `json:"runsCount"`
+	SavesCount           int           `json:"savesCount"`
+	ForksCount           int           `json:"forksCount"`
+	PublishedAt          *time.Time    `json:"publishedAt,omitempty"`
+	Tags                 []Tag         `json:"tags,omitempty"`
+	CurrentVersion       *SkillVersion `json:"currentVersion,omitempty"`
+}
+
+type SkillVersion struct {
+	ID                 string         `json:"id"`
+	SkillID            string         `json:"skillId"`
+	VersionNo          int            `json:"versionNo"`
+	IsCurrent          bool           `json:"isCurrent"`
+	Changelog          *string        `json:"changelog,omitempty"`
+	ContentMD          string         `json:"contentMd"`
+	PromptTemplate     *string        `json:"promptTemplate,omitempty"`
+	SystemInstructions *string        `json:"systemInstructions,omitempty"`
+	InputSchema        map[string]any `json:"inputSchema,omitempty"`
+	OutputSchema       map[string]any `json:"outputSchema,omitempty"`
+	ErrorSchema        map[string]any `json:"errorSchema,omitempty"`
+	CreatedBy          string         `json:"createdBy"`
+	CreatedAt          time.Time      `json:"createdAt"`
 }
 
 type Creator struct {
@@ -424,7 +500,130 @@ type AdminAuditLog struct {
 	CreatedAt    time.Time `json:"createdAt"`
 }
 
-// AdminStats is the top-level admin dashboard snapshot.
+// ── Catalog ──────────────────────────────────────────────────────────────────
+
+type Category struct {
+	ID          string    `json:"id"`
+	Slug        string    `json:"slug"`
+	Name        string    `json:"name"`
+	Description *string   `json:"description,omitempty"`
+	Icon        *string   `json:"icon,omitempty"`
+	SortOrder   int       `json:"sortOrder"`
+	CreatedAt   time.Time `json:"createdAt"`
+}
+
+type Subcategory struct {
+	ID         string    `json:"id"`
+	CategoryID string    `json:"categoryId"`
+	Slug       string    `json:"slug"`
+	Name       string    `json:"name"`
+	SortOrder  int       `json:"sortOrder"`
+	CreatedAt  time.Time `json:"createdAt"`
+}
+
+type Tag struct {
+	ID        string    `json:"id"`
+	Slug      string    `json:"slug"`
+	Name      string    `json:"name"`
+	Kind      string    `json:"kind"`
+	CreatedAt time.Time `json:"createdAt"`
+}
+
+// ── Agents ───────────────────────────────────────────────────────────────────
+
+type Agent struct {
+	ID                 string         `json:"id"`
+	Slug               string         `json:"slug"`
+	Name               string         `json:"name"`
+	Provider           string         `json:"provider"`
+	ModelName          string         `json:"modelName"`
+	Description        *string        `json:"description,omitempty"`
+	SupportsText       bool           `json:"supportsText"`
+	SupportsCode       bool           `json:"supportsCode"`
+	SupportsTools      bool           `json:"supportsTools"`
+	SupportsWeb        bool           `json:"supportsWeb"`
+	SupportsFiles      bool           `json:"supportsFiles"`
+	SupportsMultimodal bool           `json:"supportsMultimodal"`
+	SupportsJSONOutput bool           `json:"supportsJsonOutput"`
+	MaxContextTokens   *int           `json:"maxContextTokens,omitempty"`
+	PricingJSON        map[string]any `json:"pricing,omitempty"`
+	Status             string         `json:"status"`
+	CreatedAt          time.Time      `json:"createdAt"`
+	UpdatedAt          time.Time      `json:"updatedAt"`
+}
+
+type SkillAgentCompatibility struct {
+	SkillID            string  `json:"skillId"`
+	AgentID            string  `json:"agentId"`
+	Agent              Agent   `json:"agent"`
+	CompatibilityScore float64 `json:"compatibilityScore"`
+	SuccessRate        float64 `json:"successRate"`
+	AvgRating          float64 `json:"avgRating"`
+	RunsCount          int     `json:"runsCount"`
+	TestedBySystem     bool    `json:"testedBySystem"`
+	TestedByUsers      bool    `json:"testedByUsers"`
+	Notes              *string `json:"notes,omitempty"`
+}
+
+// ── Social ───────────────────────────────────────────────────────────────────
+
+type SkillReview struct {
+	ID         string    `json:"id"`
+	SkillID    string    `json:"skillId"`
+	UserID     string    `json:"userId"`
+	RunID      *string   `json:"runId,omitempty"`
+	Rating     int       `json:"rating"`
+	ReviewText *string   `json:"reviewText,omitempty"`
+	Reviewer   Creator   `json:"reviewer"`
+	CreatedAt  time.Time `json:"createdAt"`
+}
+
+type SavedSkill struct {
+	UserID    string    `json:"userId"`
+	SkillID   string    `json:"skillId"`
+	CreatedAt time.Time `json:"createdAt"`
+}
+
+type Collection struct {
+	ID          string    `json:"id"`
+	OwnerID     string    `json:"ownerId"`
+	Title       string    `json:"title"`
+	Description *string   `json:"description,omitempty"`
+	Visibility  string    `json:"visibility"`
+	CreatedAt   time.Time `json:"createdAt"`
+	UpdatedAt   time.Time `json:"updatedAt"`
+}
+
+type CollectionItem struct {
+	CollectionID string    `json:"collectionId"`
+	SkillID      string    `json:"skillId"`
+	SortOrder    int       `json:"sortOrder"`
+	AddedAt      time.Time `json:"addedAt"`
+}
+
+type RunFeedback struct {
+	RunID           string  `json:"runId"`
+	UserID          string  `json:"userId"`
+	Rating          int     `json:"rating"`
+	UsefulnessScore *int    `json:"usefulnessScore,omitempty"`
+	WouldUseAgain   *bool   `json:"wouldUseAgain,omitempty"`
+	Comment         *string `json:"comment,omitempty"`
+}
+
+// ── Skill filter ─────────────────────────────────────────────────────────────
+
+type SkillFilter struct {
+	Query         string
+	CategoryID    string
+	SubcategoryID string
+	TagSlugs      []string
+	Difficulty    string
+	SkillType     string
+	IsAgentReady  *bool
+	Sort          string // popular | new | rating | runs
+}
+
+// ── AdminStats is the top-level admin dashboard snapshot.
 type AdminStats struct {
 	Users  AdminUserStats  `json:"users"`
 	Skills AdminSkillStats `json:"skills"`

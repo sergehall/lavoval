@@ -2,13 +2,18 @@ package service
 
 import (
 	"context"
+	"errors"
+	"strings"
 	"testing"
 
 	"github.com/sergehall/lavoval/apps/api/internal/domain"
 )
 
 type profileRepoStub struct {
-	profile domain.Profile
+	profile       domain.Profile
+	updateErr     error
+	updatedCalled bool
+	updatedInput  domain.Profile
 }
 
 func (s profileRepoStub) Create(_ context.Context, profile domain.Profile) (domain.Profile, error) {
@@ -16,6 +21,9 @@ func (s profileRepoStub) Create(_ context.Context, profile domain.Profile) (doma
 }
 
 func (s profileRepoStub) Update(_ context.Context, profile domain.Profile) (domain.Profile, error) {
+	if s.updateErr != nil {
+		return domain.Profile{}, s.updateErr
+	}
 	return profile, nil
 }
 
@@ -92,5 +100,115 @@ func TestProfileServiceUpdateNilBioIsAllowed(t *testing.T) {
 	}
 	if updated.Bio != nil {
 		t.Fatalf("expected nil bio, got %v", updated.Bio)
+	}
+}
+
+type profileRepoCaptureStub struct {
+	updateErr    error
+	updatedInput domain.Profile
+}
+
+func (s *profileRepoCaptureStub) Create(_ context.Context, profile domain.Profile) (domain.Profile, error) {
+	return profile, nil
+}
+
+func (s *profileRepoCaptureStub) Update(_ context.Context, profile domain.Profile) (domain.Profile, error) {
+	s.updatedInput = profile
+	if s.updateErr != nil {
+		return domain.Profile{}, s.updateErr
+	}
+	return profile, nil
+}
+
+func (s *profileRepoCaptureStub) FindByUserID(_ context.Context, _ string) (domain.Profile, error) {
+	return domain.Profile{}, nil
+}
+
+func (s *profileRepoCaptureStub) SoftDeleteByUserID(_ context.Context, _ string) error {
+	return nil
+}
+
+func TestProfileServiceUpdatePersistsMarketplaceFields(t *testing.T) {
+	username := "sergehall"
+	avatarURL := "https://avatars.githubusercontent.com/u/60080971?v=4"
+	location := "Los Angeles"
+	websiteURL := "https://sergioartg.com"
+	linkedinURL := "https://linkedin.com/in/sergehall"
+	githubURL := "https://github.com/sergehall"
+	twitterURL := "https://x.com/sergehall"
+
+	repo := &profileRepoCaptureStub{}
+	svc := NewProfileService(repo)
+
+	updated, err := svc.Update(context.Background(), "user-3", UpdateProfileInput{
+		FirstName:              "Serge",
+		LastName:               "Hall",
+		Timezone:               "America/Los_Angeles",
+		Username:               &username,
+		AvatarURL:              &avatarURL,
+		Location:               &location,
+		Skills:                 []string{"TypeScript", "Go"},
+		Languages:              []string{"en", "be"},
+		WebsiteURL:             &websiteURL,
+		LinkedInURL:            &linkedinURL,
+		GitHubURL:              &githubURL,
+		TwitterURL:             &twitterURL,
+		AvailabilityStatus:     domain.AvailabilityLimited,
+		IsPublicProfile:        true,
+		ShowAvatar:             true,
+		ShowBio:                true,
+		ShowLocation:           true,
+		ShowSkills:             true,
+		ShowLanguages:          true,
+		ShowAvailabilityStatus: true,
+		ShowWebsiteURL:         true,
+		ShowLinkedInURL:        false,
+		ShowGitHubURL:          true,
+		ShowTwitterURL:         false,
+	})
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+
+	if updated.UserID != "user-3" {
+		t.Fatalf("expected userID user-3, got %s", updated.UserID)
+	}
+	if repo.updatedInput.Username == nil || *repo.updatedInput.Username != username {
+		t.Fatalf("expected username %q, got %v", username, repo.updatedInput.Username)
+	}
+	if len(repo.updatedInput.Skills) != 2 || repo.updatedInput.Skills[0] != "TypeScript" {
+		t.Fatalf("expected skills to be forwarded, got %v", repo.updatedInput.Skills)
+	}
+	if len(repo.updatedInput.Languages) != 2 || repo.updatedInput.Languages[1] != "be" {
+		t.Fatalf("expected languages to be forwarded, got %v", repo.updatedInput.Languages)
+	}
+	if repo.updatedInput.AvailabilityStatus != domain.AvailabilityLimited {
+		t.Fatalf("expected availability status limited, got %s", repo.updatedInput.AvailabilityStatus)
+	}
+	if !repo.updatedInput.IsPublicProfile {
+		t.Fatalf("expected public profile flag to be true")
+	}
+	if !repo.updatedInput.ShowAvatar || !repo.updatedInput.ShowSkills || !repo.updatedInput.ShowWebsiteURL {
+		t.Fatalf("expected public visibility fields to be forwarded, got %+v", repo.updatedInput)
+	}
+	if repo.updatedInput.ShowLinkedInURL {
+		t.Fatalf("expected showLinkedInUrl to remain false")
+	}
+}
+
+func TestProfileServiceUpdateWrapsRepositoryError(t *testing.T) {
+	repo := &profileRepoCaptureStub{updateErr: errors.New("write failed")}
+	svc := NewProfileService(repo)
+
+	_, err := svc.Update(context.Background(), "user-4", UpdateProfileInput{
+		FirstName: "Serge",
+		LastName:  "Hall",
+		Timezone:  "UTC",
+	})
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	if !strings.Contains(err.Error(), "update profile: write failed") {
+		t.Fatalf("expected wrapped repository error, got %v", err)
 	}
 }

@@ -48,7 +48,17 @@ type UpdateProfileInput struct {
 	AvailabilityStatus domain.AvailabilityStatus `json:"availabilityStatus" validate:"omitempty,oneof=open limited closed"`
 
 	// Profile visibility in public catalogue.
-	IsPublicProfile bool `json:"isPublicProfile"`
+	IsPublicProfile        bool `json:"isPublicProfile"`
+	ShowAvatar             bool `json:"showAvatar"`
+	ShowBio                bool `json:"showBio"`
+	ShowLocation           bool `json:"showLocation"`
+	ShowSkills             bool `json:"showSkills"`
+	ShowLanguages          bool `json:"showLanguages"`
+	ShowAvailabilityStatus bool `json:"showAvailabilityStatus"`
+	ShowWebsiteURL         bool `json:"showWebsiteUrl"`
+	ShowLinkedInURL        bool `json:"showLinkedinUrl"`
+	ShowGitHubURL          bool `json:"showGithubUrl"`
+	ShowTwitterURL         bool `json:"showTwitterUrl"`
 }
 
 func NewProfileService(profiles repository.ProfileStore) *ProfileService {
@@ -86,6 +96,16 @@ func (s *ProfileService) Update(ctx context.Context, userID string, input Update
 		TwitterURL:         input.TwitterURL,
 		AvailabilityStatus: availStatus,
 		IsPublicProfile:    input.IsPublicProfile,
+		ShowAvatar:         input.ShowAvatar,
+		ShowBio:            input.ShowBio,
+		ShowLocation:       input.ShowLocation,
+		ShowSkills:         input.ShowSkills,
+		ShowLanguages:      input.ShowLanguages,
+		ShowAvailability:   input.ShowAvailabilityStatus,
+		ShowWebsiteURL:     input.ShowWebsiteURL,
+		ShowLinkedInURL:    input.ShowLinkedInURL,
+		ShowGitHubURL:      input.ShowGitHubURL,
+		ShowTwitterURL:     input.ShowTwitterURL,
 	}
 
 	updatedProfile, err := s.profiles.Update(ctx, profile)

@@ -16,7 +16,7 @@ import (
 	"github.com/sergehall/lavoval/apps/api/internal/service"
 )
 
-func NewRouter(cfg config.Config, tokens auth.TokenManager, users repository.UserStore, authService *service.AuthService, profileService *service.ProfileService, accountSecurityService *service.AccountSecurityService, skillService *service.SkillService, runtimeService *service.RuntimeService, adminService *service.AdminService, metricsHandler http.Handler) http.Handler {
+func NewRouter(cfg config.Config, tokens auth.TokenManager, users repository.UserStore, authService *service.AuthService, profileService *service.ProfileService, creatorService *service.CreatorService, accountSecurityService *service.AccountSecurityService, skillService *service.SkillService, runtimeService *service.RuntimeService, adminService *service.AdminService, catalogService *service.CatalogService, agentService *service.AgentService, socialService *service.SocialService, metricsHandler http.Handler) http.Handler {
 	validate := validator.New(validator.WithRequiredStructEnabled())
 	r := chi.NewRouter()
 	r.Use(chimiddleware.RealIP)
@@ -27,11 +27,14 @@ func NewRouter(cfg config.Config, tokens auth.TokenManager, users repository.Use
 
 	authHandler := NewAuthHandler(validate, authService)
 	meHandler := NewMeHandler(validate, profileService, accountSecurityService)
+	creatorHandler := NewCreatorHandler(creatorService)
 	skillHandler := NewSkillHandler(validate, skillService)
 	mySkillsHandler := NewMySkillsHandler(validate, skillService)
 	runtimeHandler := NewRuntimeHandler(validate, runtimeService)
 	adminHandler := NewAdminHandler(validate, adminService, skillService)
 	publicHandler := NewPublicHandler(cfg)
+	catalogHandler := NewCatalogHandler(validate, catalogService, agentService)
+	socialHandler := NewSocialHandler(validate, socialService)
 
 	r.Get("/", publicHandler.Index)
 
@@ -94,8 +97,19 @@ func NewRouter(cfg config.Config, tokens auth.TokenManager, users repository.Use
 			authRouter.With(appmiddleware.Authenticate(tokens, users)).Post("/mfa/recovery-codes/regenerate", authHandler.RegenerateMFARecoveryCodes)
 		})
 
+		// catalog
+		api.Get("/categories", catalogHandler.ListCategories)
+		api.Get("/categories/{categoryID}/subcategories", catalogHandler.ListSubcategories)
+		api.Get("/tags", catalogHandler.ListTags)
+		api.Get("/agents", catalogHandler.ListAgents)
+		api.Get("/agents/{agentSlug}", catalogHandler.GetAgent)
+		api.Get("/creators/{creatorID}", creatorHandler.GetPublicProfile)
+
+		// skills (public)
 		api.Get("/skills", skillHandler.ListPublic)
 		api.Get("/skills/{skillID}", skillHandler.FindByID)
+		api.Get("/skills/{skillID}/reviews", socialHandler.ListReviews)
+		api.Get("/skills/{skillID}/recommended-agents", catalogHandler.RecommendedAgents)
 
 		api.Group(func(private chi.Router) {
 			private.Use(appmiddleware.Authenticate(tokens, users))
@@ -110,6 +124,18 @@ func NewRouter(cfg config.Config, tokens auth.TokenManager, users repository.Use
 			private.Get("/runtime/runs", runtimeHandler.List)
 			private.Get("/runtime/runs/{runID}", runtimeHandler.Get)
 			private.Post("/runtime/run", runtimeHandler.Run)
+			// social (auth-protected)
+			private.Post("/skills/{skillID}/reviews", socialHandler.CreateReview)
+			private.Post("/skills/{skillID}/save", socialHandler.SaveSkill)
+			private.Delete("/skills/{skillID}/save", socialHandler.UnsaveSkill)
+			private.Post("/runtime/runs/{runID}/feedback", socialHandler.CreateRunFeedback)
+			// collections
+			private.Get("/me/collections", socialHandler.ListCollections)
+			private.Post("/me/collections", socialHandler.CreateCollection)
+			private.Patch("/me/collections/{collectionID}", socialHandler.UpdateCollection)
+			private.Delete("/me/collections/{collectionID}", socialHandler.DeleteCollection)
+			private.Post("/me/collections/{collectionID}/items", socialHandler.AddCollectionItem)
+			private.Delete("/me/collections/{collectionID}/items/{skillID}", socialHandler.RemoveCollectionItem)
 		})
 
 		api.Route("/admin", func(admin chi.Router) {
