@@ -1990,6 +1990,30 @@ select.input {
   color: inherit;
 }
 
+.run-detail-page__meta {
+  row-gap: 8px;
+}
+
+.run-detail-page__meta span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.run-detail-page__json {
+  margin: 0;
+  max-width: 100%;
+  overflow-x: hidden;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  padding: 16px 18px;
+  border-radius: var(--radius-sm);
+  background: rgba(23, 32, 42, 0.06);
+  color: var(--text);
+  font-size: 0.95rem;
+  line-height: 1.6;
+}
+
 @media (max-width: 1060px) {
   .site-header {
     gap: 18px;

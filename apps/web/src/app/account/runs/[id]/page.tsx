@@ -14,7 +14,7 @@ export default async function RunDetailPage({ params }: { params: Promise<{ id: 
   );
 
   return (
-    <div className="stack stack--lg">
+    <div className="stack stack--lg run-detail-page">
       <div className="section-heading">
         <div className="stack stack--sm">
           <h1>Run details</h1>
@@ -28,7 +28,7 @@ export default async function RunDetailPage({ params }: { params: Promise<{ id: 
       <Card>
         <div className="stack stack--sm">
           <h2>{run.skill.title}</h2>
-          <div className="inline-actions muted">
+          <div className="inline-actions muted run-detail-page__meta">
             <span>Slug: {run.skill.slug}</span>
             <span>Entrypoint: {run.skill.entrypoint}</span>
           </div>
@@ -36,7 +36,7 @@ export default async function RunDetailPage({ params }: { params: Promise<{ id: 
       </Card>
 
       <Card>
-        <div className="inline-actions muted">
+        <div className="inline-actions muted run-detail-page__meta">
           <span>Run ID: {run.id}</span>
           <span>Skill ID: {run.skillId}</span>
           <span>Created {formatDate(run.createdAt)}</span>
@@ -47,14 +47,14 @@ export default async function RunDetailPage({ params }: { params: Promise<{ id: 
       <Card>
         <div className="stack stack--sm">
           <h2>Input</h2>
-          <pre>{prettyJSON(run.input)}</pre>
+          <pre className="run-detail-page__json">{prettyJSON(run.input)}</pre>
         </div>
       </Card>
 
       <Card>
         <div className="stack stack--sm">
           <h2>Output</h2>
-          <pre>{prettyJSON(run.output)}</pre>
+          <pre className="run-detail-page__json">{prettyJSON(run.output)}</pre>
         </div>
       </Card>
 
@@ -68,7 +68,7 @@ export default async function RunDetailPage({ params }: { params: Promise<{ id: 
       ) : null}
 
       <Card>
-        <div className="inline-actions muted">
+        <div className="inline-actions muted run-detail-page__meta">
           <span>Started: {run.startedAt ? formatDate(run.startedAt) : 'not recorded'}</span>
           <span>Finished: {run.finishedAt ? formatDate(run.finishedAt) : 'not recorded'}</span>
         </div>
