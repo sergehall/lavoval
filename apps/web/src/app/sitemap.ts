@@ -13,7 +13,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   ];
 
   try {
-    const { data: skills } = await fetchSkills();
+    const result = await fetchSkills();
+    const skills = result?.data ?? [];
     const publicSkillRoutes: MetadataRoute.Sitemap = skills
       .filter((skill) => skill.status === 'published' && skill.visibility === 'public')
       .map((skill) => ({

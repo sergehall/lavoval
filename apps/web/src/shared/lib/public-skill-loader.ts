@@ -21,7 +21,7 @@ export async function loadPublicSkills(timeoutMs = PUBLIC_SKILLS_TIMEOUT_MS) {
 
   try {
     const response = await Promise.race([fetchSkills(), timeoutPromise]);
-    return response.data;
+    return response?.data ?? [];
   } catch {
     return [];
   }

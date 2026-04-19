@@ -13,10 +13,22 @@ import type {
   AdminUserUpdateRequest,
   AccountSecuritySummary,
   AuthResponse,
+  Category,
+  Subcategory,
+  Tag,
+  Agent,
+  SkillAgentCompatibility,
+  SkillReview,
+  Collection,
+  CollectionInput,
+  CreateReviewInput,
+  RunFeedbackInput,
+  SkillFilterParams,
   EnrollmentAssignRequest,
   EnrollmentDetail,
   EnrollmentUpdateRequest,
   ModuleMutationRequest,
+  PublicProfile,
   GitHubOAuthCompleteRequest,
   GoogleOAuthCompleteRequest,
   MFACompleteSignInRequest,
@@ -38,6 +50,7 @@ import type {
   SkillSummary,
   VerifyEmailRequest,
 } from '@lavoval/contracts';
+export type { Category, Subcategory, Tag, Agent, SkillAgentCompatibility, SkillReview, Collection };
 import type { RuntimeRunRequest, SkillRun } from '@lavoval/contracts/runtime';
 import { env } from '@/shared/config/env';
 import {
@@ -82,6 +95,35 @@ const apiClient = createApiClient({
   baseUrl: env.apiUrl,
   fetchFn: fetch,
 });
+
+async function fetchPublicJson<T>(path: string, init?: RequestInit): Promise<T> {
+  const response = await fetch(`${env.apiUrl}${path}`, {
+    ...init,
+    headers: {
+      Accept: 'application/json',
+      ...(init?.headers ?? {}),
+    },
+    cache: 'no-store',
+  });
+
+  let payload: unknown = null;
+  try {
+    payload = await response.json();
+  } catch {
+    payload = null;
+  }
+
+  if (!response.ok) {
+    const errorPayload = payload as { error?: { code?: string; message?: string } } | null;
+    throw new ApiError(
+      errorPayload?.error?.message ?? `Request failed with status ${response.status}`,
+      response.status,
+      errorPayload?.error?.code,
+    );
+  }
+
+  return payload as T;
+}
 
 async function fetchAdminJson<T>(token: string, path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${env.apiUrl}${path}`, {
@@ -290,9 +332,149 @@ export async function updateProfile(token: string, payload: ProfileUpdateRequest
   }
 }
 
-export async function fetchSkills(token?: string) {
+export async function fetchPublicCreatorProfile(creatorID: string) {
   try {
-    return await apiClient.skills.list(token ? { token } : undefined);
+    return await fetchPublicJson<{ data: PublicProfile }>(`/api/v1/creators/${creatorID}`);
+  } catch (error) {
+    mapApiError(error);
+  }
+}
+
+export async function fetchSkills(filter?: SkillFilterParams, token?: string) {
+  const params: Record<string, string | number | undefined> = {};
+  if (filter?.q) params.q = filter.q;
+  if (filter?.category) params.category = filter.category;
+  if (filter?.subcategory) params.subcategory = filter.subcategory;
+  if (filter?.tags) params.tags = filter.tags;
+  if (filter?.difficulty) params.difficulty = filter.difficulty;
+  if (filter?.skillType) params.skillType = filter.skillType;
+  if (filter?.sort) params.sort = filter.sort;
+  if (filter?.agentReady != null) params.agentReady = String(filter.agentReady);
+
+  const path = withSearchParams('/api/v1/skills', params);
+
+  try {
+    return await fetchPublicJson<{ data: SkillSummary[] }>(path);
+  } catch (error) {
+    mapApiError(error);
+  }
+}
+
+export async function fetchCategories() {
+  try {
+    return await fetchPublicJson<Category[]>('/api/v1/categories');
+  } catch (error) {
+    mapApiError(error);
+  }
+}
+
+export async function fetchSubcategories(categoryID: string) {
+  try {
+    return await fetchPublicJson<Subcategory[]>(`/api/v1/categories/${categoryID}/subcategories`);
+  } catch (error) {
+    mapApiError(error);
+  }
+}
+
+export async function fetchTags() {
+  try {
+    return await fetchPublicJson<Tag[]>('/api/v1/tags');
+  } catch (error) {
+    mapApiError(error);
+  }
+}
+
+export async function fetchAgents() {
+  try {
+    return await fetchPublicJson<Agent[]>('/api/v1/agents');
+  } catch (error) {
+    mapApiError(error);
+  }
+}
+
+export async function fetchAgentBySlug(slug: string) {
+  try {
+    return await fetchPublicJson<Agent>(`/api/v1/agents/${slug}`);
+  } catch (error) {
+    mapApiError(error);
+  }
+}
+
+export async function fetchSkillReviews(skillID: string) {
+  try {
+    return await fetchPublicJson<SkillReview[]>(`/api/v1/skills/${skillID}/reviews`);
+  } catch (error) {
+    mapApiError(error);
+  }
+}
+
+export async function fetchRecommendedAgents(skillID: string) {
+  try {
+    return await fetchPublicJson<SkillAgentCompatibility[]>(
+      `/api/v1/skills/${skillID}/recommended-agents`,
+    );
+  } catch (error) {
+    mapApiError(error);
+  }
+}
+
+export async function fetchMyCollections(token: string) {
+  try {
+    return await fetchAdminJson<Collection[]>(token, '/api/v1/me/collections');
+  } catch (error) {
+    mapApiError(error);
+  }
+}
+
+export async function createCollection(token: string, payload: CollectionInput) {
+  try {
+    return await fetchAdminJson<Collection>(token, '/api/v1/me/collections', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+  } catch (error) {
+    mapApiError(error);
+  }
+}
+
+export async function saveSkill(token: string, skillID: string) {
+  try {
+    return await fetchAdminJson<void>(token, `/api/v1/skills/${skillID}/save`, { method: 'POST' });
+  } catch (error) {
+    mapApiError(error);
+  }
+}
+
+export async function unsaveSkill(token: string, skillID: string) {
+  try {
+    return await fetchAdminJson<void>(token, `/api/v1/skills/${skillID}/save`, {
+      method: 'DELETE',
+    });
+  } catch (error) {
+    mapApiError(error);
+  }
+}
+
+export async function createReview(token: string, skillID: string, payload: CreateReviewInput) {
+  try {
+    return await fetchAdminJson<SkillReview>(token, `/api/v1/skills/${skillID}/reviews`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+  } catch (error) {
+    mapApiError(error);
+  }
+}
+
+export async function submitRunFeedback(token: string, runID: string, payload: RunFeedbackInput) {
+  try {
+    return await fetchAdminJson<void>(token, `/api/v1/runtime/runs/${runID}/feedback`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
   } catch (error) {
     mapApiError(error);
   }

@@ -1,4 +1,4 @@
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import type { SkillSummary } from '@lavoval/registry';
 import { SkillsCatalog } from './skills-catalog';
 
@@ -16,6 +16,11 @@ vi.mock('next/link', () => ({
       {children}
     </a>
   ),
+}));
+
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({ push: vi.fn() }),
+  usePathname: () => '/skills',
 }));
 
 function makeSkill(overrides: Partial<SkillSummary> = {}): SkillSummary {
@@ -37,67 +42,79 @@ function makeSkill(overrides: Partial<SkillSummary> = {}): SkillSummary {
   };
 }
 
+const defaultProps = {
+  categories: [],
+  tags: [],
+  activeFilter: {},
+};
+
 describe('SkillsCatalog', () => {
-  it('renders all skills when no query is set', () => {
+  it('renders all skills', () => {
     const skills = [
       makeSkill({ id: '1', title: 'Clean Architecture' }),
       makeSkill({ id: '2', title: 'Test-Driven Development' }),
     ];
 
-    render(<SkillsCatalog skills={skills} />);
+    render(<SkillsCatalog skills={skills} {...defaultProps} />);
 
     expect(screen.getByText('Clean Architecture')).toBeInTheDocument();
     expect(screen.getByText('Test-Driven Development')).toBeInTheDocument();
-    expect(screen.getByText('2 matches')).toBeInTheDocument();
   });
 
-  it('filters skills by title query', () => {
+  it('shows skill count in results header', () => {
     const skills = [
       makeSkill({ id: '1', title: 'Clean Architecture' }),
       makeSkill({ id: '2', title: 'Test-Driven Development' }),
     ];
 
-    render(<SkillsCatalog skills={skills} />);
+    render(<SkillsCatalog skills={skills} {...defaultProps} />);
 
-    fireEvent.change(screen.getByRole('textbox', { name: /search skills/i }), {
-      target: { value: 'clean' },
-    });
-
-    expect(screen.getByText('Clean Architecture')).toBeInTheDocument();
-    expect(screen.queryByText('Test-Driven Development')).not.toBeInTheDocument();
-    expect(screen.getByText('1 matches')).toBeInTheDocument();
+    expect(screen.getByText('2 skills')).toBeInTheDocument();
   });
 
-  it('shows empty state when no skills match the query', () => {
+  it('shows singular skill count', () => {
+    const skills = [makeSkill({ id: '1' })];
+
+    render(<SkillsCatalog skills={skills} {...defaultProps} />);
+
+    expect(screen.getByText('1 skill')).toBeInTheDocument();
+  });
+
+  it('shows empty state when no skills and no filters', () => {
+    render(<SkillsCatalog skills={[]} {...defaultProps} />);
+
+    expect(screen.getByText(/No published skills yet/)).toBeInTheDocument();
+  });
+
+  it('shows filtered empty state when activeFilter has values', () => {
+    render(
+      <SkillsCatalog
+        skills={[]}
+        categories={[]}
+        tags={[]}
+        activeFilter={{ difficulty: 'senior' }}
+      />,
+    );
+
+    expect(screen.getByText(/No skills matched your filters/)).toBeInTheDocument();
+  });
+
+  it('shows search query in sidebar counter', () => {
     const skills = [makeSkill({ id: '1', title: 'Clean Architecture' })];
 
-    render(<SkillsCatalog skills={skills} />);
+    render(
+      <SkillsCatalog skills={skills} categories={[]} tags={[]} activeFilter={{ q: 'clean' }} />,
+    );
 
-    fireEvent.change(screen.getByRole('textbox', { name: /search skills/i }), {
-      target: { value: 'nonexistent-keyword-xyz' },
-    });
-
-    expect(screen.getByText('No matches')).toBeInTheDocument();
-    expect(screen.queryByText('Clean Architecture')).not.toBeInTheDocument();
+    expect(screen.getByText(/matching/)).toBeInTheDocument();
   });
 
-  it('renders with an initial query pre-applied', () => {
-    const skills = [
-      makeSkill({ id: '1', title: 'Clean Architecture' }),
-      makeSkill({ id: '2', title: 'Test-Driven Development' }),
-    ];
+  it('renders View skill links for each skill', () => {
+    const skills = [makeSkill({ id: 'abc', title: 'Clean Architecture' })];
 
-    render(<SkillsCatalog skills={skills} initialQuery="clean" />);
+    render(<SkillsCatalog skills={skills} {...defaultProps} />);
 
-    expect(screen.getByText('Clean Architecture')).toBeInTheDocument();
-    expect(screen.queryByText('Test-Driven Development')).not.toBeInTheDocument();
-  });
-
-  it('shows skills count in the header when no query', () => {
-    const skills = [makeSkill({ id: '1' }), makeSkill({ id: '2' }), makeSkill({ id: '3' })];
-
-    render(<SkillsCatalog skills={skills} />);
-
-    expect(screen.getByText('3 public skill offers')).toBeInTheDocument();
+    const link = screen.getByRole('link', { name: /view skill/i });
+    expect(link).toHaveAttribute('href', '/skills/abc');
   });
 });

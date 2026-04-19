@@ -3,11 +3,20 @@ import { Badge } from '@/shared/ui/badge';
 import { Card } from '@/shared/ui/card';
 import { SkillEditorForm } from '@/features/admin/skill-editor-form';
 import { createOwnSkillAction } from '@/features/skills/actions';
-import { fetchMySkills, withValidSession } from '@/shared/api/server-client';
+import {
+  fetchCategories,
+  fetchMySkills,
+  fetchTags,
+  withValidSession,
+} from '@/shared/api/server-client';
 import { formatDate } from '@/shared/lib/utils';
 
 export default async function MySkillsPage() {
-  const { data: skills } = await withValidSession((session) => fetchMySkills(session.accessToken));
+  const [{ data: skills }, categories, tags] = await Promise.all([
+    withValidSession((session) => fetchMySkills(session.accessToken)),
+    fetchCategories(),
+    fetchTags(),
+  ]);
 
   return (
     <div className="stack stack--lg">
@@ -17,7 +26,12 @@ export default async function MySkillsPage() {
             <h2>Create a new skill offer</h2>
             <Badge tone="warning">Private until you publish</Badge>
           </div>
-          <SkillEditorForm action={createOwnSkillAction} submitLabel="Create offer draft" />
+          <SkillEditorForm
+            action={createOwnSkillAction}
+            categories={categories ?? []}
+            tags={tags ?? []}
+            submitLabel="Create offer draft"
+          />
         </div>
       </Card>
       <Card>

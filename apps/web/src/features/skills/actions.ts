@@ -10,6 +10,39 @@ import {
   updateMySkill,
 } from '@/shared/api/server-client';
 
+function parseJsonObjectField(formData: FormData, field: string) {
+  const raw = String(formData.get(field) ?? '').trim();
+  if (!raw) {
+    return undefined;
+  }
+
+  return JSON.parse(raw) as Record<string, unknown>;
+}
+
+function parseMarketplaceFields(formData: FormData) {
+  const tagIds = formData.getAll('tagIds').map(String).filter(Boolean);
+  const estimatedRaw = formData.get('estimatedTimeMinutes');
+  const estimatedTimeMinutes = estimatedRaw ? Number(estimatedRaw) : undefined;
+  const isAgentReady = formData.get('isAgentReady') === 'true';
+
+  return {
+    categoryId: (formData.get('categoryId') as string) || undefined,
+    skillType: (formData.get('skillType') as string) || undefined,
+    difficulty: (formData.get('difficulty') as string) || undefined,
+    languageCode: (formData.get('languageCode') as string) || undefined,
+    isAgentReady,
+    estimatedTimeMinutes:
+      estimatedTimeMinutes && !isNaN(estimatedTimeMinutes) ? estimatedTimeMinutes : undefined,
+    tagIds: tagIds.length > 0 ? tagIds : undefined,
+    inputSchema: parseJsonObjectField(formData, 'inputSchema'),
+    outputSchema: parseJsonObjectField(formData, 'outputSchema'),
+    errorSchema: parseJsonObjectField(formData, 'errorSchema'),
+    promptTemplate: String(formData.get('promptTemplate') ?? ''),
+    systemInstructions: String(formData.get('systemInstructions') ?? ''),
+    changelog: String(formData.get('changelog') ?? ''),
+  };
+}
+
 export async function createOwnSkillAction(formData: FormData) {
   const session = await requireSession();
   const payload = skillMutationSchema.parse({
@@ -22,6 +55,7 @@ export async function createOwnSkillAction(formData: FormData) {
     config: parseSkillConfig(formData.get('config')),
     status: formData.get('status'),
     visibility: formData.get('visibility'),
+    ...parseMarketplaceFields(formData),
   });
 
   await createMySkill(session.accessToken, payload);
@@ -42,6 +76,7 @@ export async function updateOwnSkillAction(skillID: string, formData: FormData) 
     config: parseSkillConfig(formData.get('config')),
     status: formData.get('status'),
     visibility: formData.get('visibility'),
+    ...parseMarketplaceFields(formData),
   });
 
   await updateMySkill(session.accessToken, skillID, payload);

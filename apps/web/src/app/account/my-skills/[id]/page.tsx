@@ -1,13 +1,21 @@
 import { Card } from '@/shared/ui/card';
 import { SkillEditorForm } from '@/features/admin/skill-editor-form';
 import { deleteOwnSkillAction, updateOwnSkillAction } from '@/features/skills/actions';
-import { fetchMySkillById, withValidSession } from '@/shared/api/server-client';
+import {
+  fetchCategories,
+  fetchMySkillById,
+  fetchTags,
+  withValidSession,
+} from '@/shared/api/server-client';
 
 export default async function MySkillEditPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const { data: skill } = await withValidSession((session) =>
-    fetchMySkillById(session.accessToken, id),
-  );
+
+  const [{ data: skill }, categories, tags] = await Promise.all([
+    withValidSession((session) => fetchMySkillById(session.accessToken, id)),
+    fetchCategories(),
+    fetchTags(),
+  ]);
 
   return (
     <div className="stack stack--lg">
@@ -21,6 +29,8 @@ export default async function MySkillEditPage({ params }: { params: Promise<{ id
       <Card>
         <SkillEditorForm
           skill={skill}
+          categories={categories ?? []}
+          tags={tags ?? []}
           action={updateOwnSkillAction.bind(null, skill.id)}
           archiveAction={deleteOwnSkillAction.bind(null, skill.id)}
           submitLabel="Save offer"

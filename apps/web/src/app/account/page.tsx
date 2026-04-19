@@ -10,11 +10,12 @@ import {
 
 export default async function AccountDashboardPage() {
   const { profile, skills, mySkills } = await withValidSession(async (session) => {
-    const [{ data: profile }, { data: skills }, { data: mySkills }] = await Promise.all([
+    const [{ data: profile }, skillsResult, { data: mySkills }] = await Promise.all([
       fetchProfile(session.accessToken),
-      fetchSkills(session.accessToken),
+      fetchSkills(),
       fetchMySkills(session.accessToken),
     ]);
+    const skills = skillsResult?.data ?? [];
 
     return { profile, skills, mySkills };
   });
