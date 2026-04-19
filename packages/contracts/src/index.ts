@@ -62,7 +62,8 @@ export const sessionUserSchema = z.object({
   email: z.string().email(),
   role: roleSchema,
   firstName: z.string().optional(),
-  lastName: z.string().optional()
+  lastName: z.string().optional(),
+  avatarUrl: z.string().nullable().optional(),
 });
 export type SessionUser = z.infer<typeof sessionUserSchema>;
 

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import type { SessionUser } from '@lavoval/contracts';
 import { logoutAction } from '@/features/auth/actions';
 import { canAccessAdmin, roleBadgeLabel } from '@/shared/lib/rbac';
@@ -62,7 +63,19 @@ export function AuthenticatedEntryBar({ user }: { user: SessionUser }) {
         aria-haspopup="menu"
         aria-expanded={isOpen}
       >
-        <span className="account-trigger__avatar">{initial}</span>
+        <span className="account-trigger__avatar">
+          {user.avatarUrl ? (
+            <Image
+              src={user.avatarUrl}
+              alt={displayName}
+              width={40}
+              height={40}
+              className="account-trigger__avatar-image"
+            />
+          ) : (
+            initial
+          )}
+        </span>
         <span className="account-trigger__identity">
           <span className="account-trigger__headline">
             <span className="account-trigger__name">{displayName}</span>

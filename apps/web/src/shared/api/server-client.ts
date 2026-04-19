@@ -976,6 +976,7 @@ export async function getValidatedSession() {
         role: profile.role,
         firstName: profile.firstName,
         lastName: profile.lastName,
+        avatarUrl: profile.avatarUrl,
       },
     };
   } catch (error) {
