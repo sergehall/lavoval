@@ -262,24 +262,28 @@ export default async function PublicSkillDetailPage({
       {/* Modules */}
       {skill.modules.length > 0 && (
         <Card>
-          <div className="stack stack--md">
-            <div className="section-heading">
-              <h2>Steps & content</h2>
-              <span className="muted">{skill.modules.length} items</span>
+          <details className="skill-contract">
+            <summary className="skill-contract__summary">
+              <div className="section-heading">
+                <h2>Steps & content</h2>
+                <Badge tone="neutral">{skill.modules.length} items</Badge>
+              </div>
+            </summary>
+            <div className="stack stack--md skill-contract__body">
+              <div className="data-list">
+                {skill.modules.map((module) => (
+                  <article key={module.id} className="data-list__item">
+                    <div className="inline-actions">
+                      <Badge>{String(module.position + 1).padStart(2, '0')}</Badge>
+                      <h3>{module.title}</h3>
+                    </div>
+                    <p>{module.summary}</p>
+                    <SkillMarkdown content={module.content} />
+                  </article>
+                ))}
+              </div>
             </div>
-            <div className="data-list">
-              {skill.modules.map((module) => (
-                <article key={module.id} className="data-list__item">
-                  <div className="inline-actions">
-                    <Badge>{String(module.position + 1).padStart(2, '0')}</Badge>
-                    <h3>{module.title}</h3>
-                  </div>
-                  <p>{module.summary}</p>
-                  <SkillMarkdown content={module.content} />
-                </article>
-              ))}
-            </div>
-          </div>
+          </details>
         </Card>
       )}
 
