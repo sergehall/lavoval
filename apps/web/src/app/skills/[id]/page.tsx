@@ -56,11 +56,16 @@ function StarRating({ rating }: { rating: number }) {
 
 export default async function PublicSkillDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams?: Promise<{ runError?: string; runMessage?: string }>;
 }) {
   const { id } = await params;
+  const resolvedSearchParams = searchParams ? await searchParams : undefined;
   const session = await getValidatedSession();
+  const runError = resolvedSearchParams?.runError;
+  const runMessage = resolvedSearchParams?.runMessage;
 
   let skill: SkillDetail | null = null;
   let reviews: SkillReview[] = [];
@@ -301,10 +306,20 @@ export default async function PublicSkillDetailPage({
       {/* Run */}
       <Card>
         {session ? (
-          <RunSkillForm
-            action={runSkillAction.bind(null, skill.id)}
-            entrypoint={skill.entrypoint}
-          />
+          <div className="stack stack--md">
+            {runError ? (
+              <div className="empty-state stack stack--sm" style={{ padding: '1rem' }}>
+                <Badge tone="warning">Run failed</Badge>
+                <p className="muted" style={{ margin: 0 }}>
+                  {runMessage || 'We could not execute this skill right now. Please try again.'}
+                </p>
+              </div>
+            ) : null}
+            <RunSkillForm
+              action={runSkillAction.bind(null, skill.id)}
+              entrypoint={skill.entrypoint}
+            />
+          </div>
         ) : (
           <div className="stack stack--md">
             <h2>Sign in to run this skill</h2>
