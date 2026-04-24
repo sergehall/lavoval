@@ -44,11 +44,11 @@ throwaway prototype.
 
 ### Data
 
-- `users`
-- `profiles`
-- `skills`
-- `skill_modules`
-- `user_skill_enrollments`
+- `lavoval_users`
+- `lavoval_profiles`
+- `lavoval_skills`
+- `lavoval_skill_modules`
+- `lavoval_user_skill_enrollments`
 
 ### Tooling
 
@@ -128,7 +128,7 @@ Goal: add the missing product capability first.
 
 - Keep the Go backend in a single app boundary while runtime is introduced
 - Add runtime execution as new modules inside the current Go backend
-- Add `skill_runs`
+- Add `lavoval_skill_runs`
 - Add mock executors
 - Add runtime API
 - Add runtime UI and run history
@@ -180,18 +180,18 @@ Current progress:
 
 ### Keep from v1
 
-- `users`
-- `profiles`
-- `skills`
-- `skill_modules`
+- `lavoval_users`
+- `lavoval_profiles`
+- `lavoval_skills`
+- `lavoval_skill_modules`
 
 ### Add in v2
 
-- `skill_runs`
+- `lavoval_skill_runs`
 
-### Extend `skills` gradually
+### Extend `lavoval_skills` gradually
 
-The current `skills` table is useful and should be evolved, not replaced immediately.
+The current `lavoval_skills` table is useful and should be evolved, not replaced immediately.
 
 Expected additions:
 
@@ -204,7 +204,7 @@ This allows runtime execution without discarding the existing marketplace and au
 
 ## V1/V2 Compatibility Notes
 
-- `skills` stay the main top-level product entity
+- `lavoval_skills` stay the main top-level product entity
 - `modules` remain useful in `v2` as structured skill content
 - existing auth and RBAC remain valid
 - existing public/account/admin zones remain valid
@@ -222,7 +222,7 @@ These tasks are ordered to maximize product progress while minimizing churn.
 
 ### 2. `feat(db): add skill_runs table`
 
-- Create migration for `skill_runs`
+- Create migration for `lavoval_skill_runs`
 - Include statuses, input/output payloads, timestamps, and error storage
 - Keep the schema compatible with in-process execution
 
@@ -305,6 +305,6 @@ Early `v2` is successful when:
 - admin can create a runtime-capable skill
 - a user can open a skill and run it
 - the run is executed in-process through an executor registry
-- the run is saved in `skill_runs`
+- the run is saved in `lavoval_skill_runs`
 - the result is visible in the UI
 - the app still preserves the `v1` marketplace and admin foundation
