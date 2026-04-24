@@ -1,4 +1,4 @@
-INSERT INTO users (id, email, password_hash, role, status)
+INSERT INTO lavoval_users (id, email, password_hash, role, status)
 VALUES (
   'ce43b778-b766-46ae-b619-1bd2a2ddf7eb',
   'user@lavoval.local',
@@ -8,7 +8,7 @@ VALUES (
 )
 ON CONFLICT (email) DO NOTHING;
 
-INSERT INTO profiles (user_id, first_name, last_name, bio, timezone)
+INSERT INTO lavoval_profiles (user_id, first_name, last_name, bio, timezone)
 VALUES (
   'ce43b778-b766-46ae-b619-1bd2a2ddf7eb',
   'Demo',
@@ -18,7 +18,7 @@ VALUES (
 )
 ON CONFLICT (user_id) DO NOTHING;
 
-INSERT INTO skills (id, slug, title, summary, description, status, visibility, created_by)
+INSERT INTO lavoval_skills (id, slug, title, summary, description, status, visibility, created_by)
 VALUES (
   '5f9fd5c8-dc0a-4e38-aad4-fa4e3d0eecb8',
   'platform-design-foundations',
@@ -27,11 +27,11 @@ VALUES (
   'A practical skill for architects and senior engineers who need to define maintainable foundations, explicit contracts, and scalable domain boundaries.',
   'published',
   'public',
-  '93af53e2-0c31-4a38-a5fa-bc1c3ff6fb7f'
+  '2403431b-d38d-41fc-b1ab-729266934f6e'
 )
 ON CONFLICT (slug) DO NOTHING;
 
-INSERT INTO skill_modules (id, skill_id, slug, title, summary, content, position, status)
+INSERT INTO lavoval_skill_modules (id, skill_id, slug, title, summary, content, position, status)
 VALUES
   (
     'e02e8215-54bb-4069-a4bb-16b322580918',
@@ -55,6 +55,6 @@ VALUES
   )
 ON CONFLICT (skill_id, slug) DO NOTHING;
 
-INSERT INTO user_skill_enrollments (user_id, skill_id, status, progress_percent)
-VALUES ('ce43b778-b766-46ae-b619-1bd2a2ddf7eb', '5f9fd5c8-dc0a-4e38-aad4-fa4e3d0eecb8', 'in_progress', 35)
+INSERT INTO lavoval_user_skill_enrollments (user_id, skill_id, status, progress_percent)
+VALUES ('2403431b-d38d-41fc-b1ab-729266934f6e', '5f9fd5c8-dc0a-4e38-aad4-fa4e3d0eecb8', 'in_progress', 35)
 ON CONFLICT (user_id, skill_id) DO NOTHING;
