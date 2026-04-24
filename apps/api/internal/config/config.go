@@ -264,7 +264,7 @@ func Load() (Config, error) {
 		AppEnv:                          getEnv("APP_ENV", "development"),
 		AppName:                         getEnv("APP_NAME", "Lavoval"),
 		AppURL:                          getEnv("APP_URL", "http://localhost:3000"),
-		HTTPAddr:                        getEnv("BACKEND_HTTP_ADDR", ":8080"),
+		HTTPAddr:                        resolveHTTPAddr(),
 		DatabaseURL:                     getEnv("DATABASE_URL", "postgres://codex:codex@localhost:5432/lavoval?sslmode=disable"),
 		JWTIssuer:                       getEnv("JWT_ISSUER", "lavoval"),
 		JWTAudience:                     getEnv("JWT_AUDIENCE", "lavoval-web"),
@@ -330,6 +330,19 @@ func Load() (Config, error) {
 	}
 
 	return cfg, nil
+}
+
+// resolveHTTPAddr returns the address the HTTP server should bind to.
+// Prefers BACKEND_HTTP_ADDR; falls back to :PORT (Render injects PORT);
+// defaults to :8080 for local development.
+func resolveHTTPAddr() string {
+	if addr := os.Getenv("BACKEND_HTTP_ADDR"); addr != "" {
+		return addr
+	}
+	if port := os.Getenv("PORT"); port != "" {
+		return ":" + port
+	}
+	return ":8080"
 }
 
 func getEnv(key string, fallback string) string {

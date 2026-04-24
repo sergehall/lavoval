@@ -1,0 +1,97 @@
+services:
+  - type: web
+    name: lavoval-api
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    region: oregon
+    plan: free
+    preDeployCommand: LAVOVAL_ENV_PROFILE=production bash scripts/db-migrate.sh
+    envVars:
+      # ── Database ────────────────────────────────────────────────────────────
+      - key: DATABASE_URL
+        sync: false                  # set in Render dashboard (Heroku Postgres URL)
+
+      # ── App ─────────────────────────────────────────────────────────────────
+      - key: APP_ENV
+        value: production
+      - key: APP_NAME
+        value: Lavoval
+      - key: APP_URL
+        value: https://lavoval.com
+
+      # ── JWT ─────────────────────────────────────────────────────────────────
+      - key: JWT_ISSUER
+        value: lavoval
+      - key: JWT_AUDIENCE
+        value: lavoval-web
+      - key: JWT_SECRET
+        sync: false
+      - key: JWT_ACCESS_TTL
+        value: 15m
+      - key: JWT_REFRESH_TTL
+        value: 720h
+
+      # ── Cookies ─────────────────────────────────────────────────────────────
+      - key: COOKIE_SECURE
+        value: "true"
+      - key: COOKIE_DOMAIN
+        value: lavoval.com
+
+      # ── OAuth ───────────────────────────────────────────────────────────────
+      - key: GOOGLE_OAUTH_CLIENT_ID
+        sync: false
+      - key: GOOGLE_OAUTH_CLIENT_SECRET
+        sync: false
+      - key: GITHUB_OAUTH_CLIENT_ID
+        sync: false
+      - key: GITHUB_OAUTH_CLIENT_SECRET
+        sync: false
+
+      # ── SMTP ─────────────────────────────────────────────────────────────────
+      - key: SMTP_HOST
+        value: smtp.gmail.com
+      - key: SMTP_PORT
+        value: "587"
+      - key: SMTP_USERNAME
+        sync: false
+      - key: SMTP_PASSWORD
+        sync: false
+      - key: SMTP_FROM_EMAIL
+        sync: false
+      - key: SMTP_FROM_NAME
+        value: Lavoval
+      - key: SMTP_REQUIRE_TLS
+        value: "true"
+      - key: SMTP_USE_SSL
+        value: "true"
+
+      # ── Mail worker ──────────────────────────────────────────────────────────
+      - key: MAIL_WORKER_COUNT
+        value: "2"
+      - key: MAIL_MAX_ATTEMPTS
+        value: "5"
+      - key: MAIL_RETRY_BASE_DELAY
+        value: 2s
+      - key: MAIL_POLL_INTERVAL
+        value: 1s
+      - key: MAIL_LEASE_TTL
+        value: 45s
+
+      # ── MFA ──────────────────────────────────────────────────────────────────
+      - key: MFA_TOTP_PERIOD
+        value: 30s
+      - key: MFA_TOTP_ISSUER
+        value: Lavoval
+      - key: MFA_SIGN_IN_CHALLENGE_TTL
+        value: 10m
+      - key: MFA_SECRET_KEY
+        sync: false
+
+      # ── Auth TTLs ────────────────────────────────────────────────────────────
+      - key: EMAIL_VERIFICATION_TTL
+        value: 24h
+      - key: PASSWORD_RESET_TTL
+        value: 30m
+      - key: OAUTH_STATE_TTL
+        value: 10m
