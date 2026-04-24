@@ -19,7 +19,7 @@ func NewOAuthStateRepository(pool *pgxpool.Pool) *OAuthStateRepository {
 
 func (r *OAuthStateRepository) Create(ctx context.Context, state domain.OAuthState) (domain.OAuthState, error) {
 	query := `
-		INSERT INTO oauth_states (id, provider, state_hash, expires_at, consumed_at)
+		INSERT INTO lavoval_oauth_states (id, provider, state_hash, expires_at, consumed_at)
 		VALUES ($1, $2, $3, $4, $5)
 		RETURNING created_at`
 
@@ -38,7 +38,7 @@ func (r *OAuthStateRepository) FindByStateHash(
 ) (domain.OAuthState, error) {
 	query := `
 		SELECT id, provider, state_hash, expires_at, consumed_at, created_at
-		FROM oauth_states
+		FROM lavoval_oauth_states
 		WHERE provider = $1 AND state_hash = $2`
 
 	var state domain.OAuthState
@@ -58,7 +58,7 @@ func (r *OAuthStateRepository) FindByStateHash(
 
 func (r *OAuthStateRepository) Consume(ctx context.Context, id string) error {
 	query := `
-		UPDATE oauth_states
+		UPDATE lavoval_oauth_states
 		SET consumed_at = NOW()
 		WHERE id = $1 AND consumed_at IS NULL`
 

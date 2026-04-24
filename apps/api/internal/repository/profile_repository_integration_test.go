@@ -88,7 +88,7 @@ func TestProfileRepositoryUpdatePersistsEditableFields(t *testing.T) {
 		t.Fatalf("expected location %q, got %v", location, stored.Location)
 	}
 	if len(stored.Skills) != 3 || stored.Skills[2] != "Next.js" {
-		t.Fatalf("expected skills to persist, got %v", stored.Skills)
+		t.Fatalf("expected lavoval_skills to persist, got %v", stored.Skills)
 	}
 	if len(stored.Languages) != 2 || stored.Languages[1] != "be" {
 		t.Fatalf("expected languages to persist, got %v", stored.Languages)
@@ -152,7 +152,7 @@ func seedProfileFixture(t *testing.T, ctx context.Context, pool *pgxpool.Pool, u
 
 	_, err := pool.Exec(
 		ctx,
-		`INSERT INTO users (id, email, password_hash, role, status)
+		`INSERT INTO lavoval_users (id, email, password_hash, role, status)
 		 VALUES ($1, $2, $3, $4, $5)`,
 		userID,
 		userID+"@example.com",
@@ -167,7 +167,7 @@ func seedProfileFixture(t *testing.T, ctx context.Context, pool *pgxpool.Pool, u
 	var createdAt time.Time
 	if err := pool.QueryRow(
 		ctx,
-		`INSERT INTO profiles (user_id, first_name, last_name, bio, timezone)
+		`INSERT INTO lavoval_profiles (user_id, first_name, last_name, bio, timezone)
 		 VALUES ($1, $2, $3, $4, $5)
 		 RETURNING created_at`,
 		userID,
@@ -180,7 +180,7 @@ func seedProfileFixture(t *testing.T, ctx context.Context, pool *pgxpool.Pool, u
 	}
 
 	t.Cleanup(func() {
-		if _, cleanupErr := pool.Exec(context.Background(), `DELETE FROM users WHERE id = $1`, userID); cleanupErr != nil {
+		if _, cleanupErr := pool.Exec(context.Background(), `DELETE FROM lavoval_users WHERE id = $1`, userID); cleanupErr != nil {
 			t.Fatalf("expected cleanup to delete seeded user, got %v", cleanupErr)
 		}
 	})

@@ -37,7 +37,7 @@ func scanModule(row interface {
 func (r *ModuleRepository) ListBySkillID(ctx context.Context, skillID string) ([]domain.Module, error) {
 	query := `
 		SELECT ` + moduleColumns + `
-		FROM skill_modules
+		FROM lavoval_skill_modules
 		WHERE skill_id = $1 AND deleted_at IS NULL
 		ORDER BY position ASC`
 
@@ -62,7 +62,7 @@ func (r *ModuleRepository) ListBySkillID(ctx context.Context, skillID string) ([
 func (r *ModuleRepository) FindByID(ctx context.Context, id string) (domain.Module, error) {
 	query := `
 		SELECT ` + moduleColumns + `
-		FROM skill_modules
+		FROM lavoval_skill_modules
 		WHERE id = $1 AND deleted_at IS NULL`
 
 	m, err := scanModule(r.pool.QueryRow(ctx, query, id))
@@ -77,13 +77,13 @@ func (r *ModuleRepository) FindByID(ctx context.Context, id string) (domain.Modu
 // The UNIQUE(skill_id, slug) constraint prevents duplicate slugs per skill.
 func (r *ModuleRepository) Create(ctx context.Context, module domain.Module) (domain.Module, error) {
 	query := `
-		INSERT INTO skill_modules (id, skill_id, slug, title, summary, content, position, status)
+		INSERT INTO lavoval_skill_modules (id, skill_id, slug, title, summary, content, position, status)
 		VALUES (
 			$1, $2, $3, $4, $5, $6,
 			CASE WHEN $7::int >= 0
 				THEN $7::int
 				ELSE COALESCE(
-					(SELECT MAX(position) + 1 FROM skill_modules WHERE skill_id = $2 AND deleted_at IS NULL),
+					(SELECT MAX(position) + 1 FROM lavoval_skill_modules WHERE skill_id = $2 AND deleted_at IS NULL),
 					0
 				)
 			END,
@@ -104,7 +104,7 @@ func (r *ModuleRepository) Create(ctx context.Context, module domain.Module) (do
 // Update saves all editable module fields.  All values are bound parameters.
 func (r *ModuleRepository) Update(ctx context.Context, module domain.Module) (domain.Module, error) {
 	query := `
-		UPDATE skill_modules
+		UPDATE lavoval_skill_modules
 		SET slug       = $2,
 		    title      = $3,
 		    summary    = $4,
@@ -128,7 +128,7 @@ func (r *ModuleRepository) Update(ctx context.Context, module domain.Module) (do
 // SoftDelete marks a module as deleted without removing the row.
 func (r *ModuleRepository) SoftDelete(ctx context.Context, id string) error {
 	_, err := r.pool.Exec(ctx,
-		`UPDATE skill_modules SET deleted_at = NOW(), status = 'archived', updated_at = NOW() WHERE id = $1`,
+		`UPDATE lavoval_skill_modules SET deleted_at = NOW(), status = 'archived', updated_at = NOW() WHERE id = $1`,
 		id,
 	)
 	if err != nil {

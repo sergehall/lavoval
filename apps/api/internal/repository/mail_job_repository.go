@@ -23,7 +23,7 @@ func NewMailJobRepository(pool *pgxpool.Pool) *MailJobRepository {
 func (r *MailJobRepository) Enqueue(ctx context.Context, job domain.MailJob) (domain.MailJob, bool, error) {
 	query := `
 		WITH inserted AS (
-			INSERT INTO mail_jobs (
+			INSERT INTO lavoval_mail_jobs (
 				id, message_type, recipient_email, idempotency_key, payload, status, attempts, max_attempts, next_attempt_at
 			)
 			VALUES ($1, $2, $3, $9, $4, $5, $6, $7, $8)
@@ -70,7 +70,7 @@ func (r *MailJobRepository) Enqueue(ctx context.Context, job domain.MailJob) (do
 				created_at,
 				updated_at,
 				TRUE AS deduplicated
-			FROM mail_jobs
+			FROM lavoval_mail_jobs
 			WHERE idempotency_key = $9
 			  AND $9 IS NOT NULL
 			  AND status IN ('queued', 'retrying', 'processing')
@@ -126,7 +126,7 @@ func (r *MailJobRepository) ClaimNext(ctx context.Context, leaseDuration time.Du
 	query := `
 		WITH candidate AS (
 			SELECT id
-			FROM mail_jobs
+			FROM lavoval_mail_jobs
 			WHERE (
 				status IN ('queued', 'retrying') AND next_attempt_at <= NOW()
 			) OR (
@@ -136,7 +136,7 @@ func (r *MailJobRepository) ClaimNext(ctx context.Context, leaseDuration time.Du
 			FOR UPDATE SKIP LOCKED
 			LIMIT 1
 		)
-		UPDATE mail_jobs m
+		UPDATE lavoval_mail_jobs m
 		SET
 			status = 'processing',
 			attempts = m.attempts + 1,
@@ -197,7 +197,7 @@ func (r *MailJobRepository) ClaimNext(ctx context.Context, leaseDuration time.Du
 
 func (r *MailJobRepository) MarkSent(ctx context.Context, jobID string, provider string, providerMessageID string) error {
 	query := `
-		UPDATE mail_jobs
+		UPDATE lavoval_mail_jobs
 		SET
 			status = 'sent',
 			provider = $2,
@@ -217,7 +217,7 @@ func (r *MailJobRepository) MarkSent(ctx context.Context, jobID string, provider
 
 func (r *MailJobRepository) MarkRetry(ctx context.Context, jobID string, lastError string, errorCode string, nextAttemptAt time.Time) error {
 	query := `
-		UPDATE mail_jobs
+		UPDATE lavoval_mail_jobs
 		SET
 			status = 'retrying',
 			leased_until = NULL,
@@ -235,7 +235,7 @@ func (r *MailJobRepository) MarkRetry(ctx context.Context, jobID string, lastErr
 
 func (r *MailJobRepository) MarkDeadLetter(ctx context.Context, jobID string, lastError string, errorCode string) error {
 	query := `
-		UPDATE mail_jobs
+		UPDATE lavoval_mail_jobs
 		SET
 			status = 'dead_letter',
 			leased_until = NULL,
@@ -252,7 +252,7 @@ func (r *MailJobRepository) MarkDeadLetter(ctx context.Context, jobID string, la
 }
 
 func (r *MailJobRepository) CountByStatus(ctx context.Context) (map[domain.MailJobStatus]int64, error) {
-	rows, err := r.pool.Query(ctx, `SELECT status, COUNT(*) FROM mail_jobs GROUP BY status`)
+	rows, err := r.pool.Query(ctx, `SELECT status, COUNT(*) FROM lavoval_mail_jobs GROUP BY status`)
 	if err != nil {
 		return nil, fmt.Errorf("count mail jobs by status: %w", err)
 	}
@@ -293,7 +293,7 @@ func (r *MailJobRepository) OperationalSnapshot(ctx context.Context) (domain.Mai
 		DeadLettersByErrorCode: map[string]int64{},
 	}
 
-	rows, err := r.pool.Query(ctx, `SELECT status, COUNT(*) FROM mail_jobs GROUP BY status`)
+	rows, err := r.pool.Query(ctx, `SELECT status, COUNT(*) FROM lavoval_mail_jobs GROUP BY status`)
 	if err != nil {
 		return domain.MailOperationalSnapshot{}, fmt.Errorf("count mail jobs by status: %w", err)
 	}
@@ -313,7 +313,7 @@ func (r *MailJobRepository) OperationalSnapshot(ctx context.Context) (domain.Mai
 
 	err = r.pool.QueryRow(ctx, `
 		SELECT COALESCE(MAX(EXTRACT(EPOCH FROM (NOW() - next_attempt_at))), 0)
-		FROM mail_jobs
+		FROM lavoval_mail_jobs
 		WHERE status IN ('queued', 'retrying') AND next_attempt_at <= NOW()
 	`).Scan(&snapshot.OldestReadyAgeSeconds)
 	if err != nil {
@@ -322,7 +322,7 @@ func (r *MailJobRepository) OperationalSnapshot(ctx context.Context) (domain.Mai
 
 	deadRows, err := r.pool.Query(ctx, `
 		SELECT COALESCE(last_error_code, 'unknown') AS error_code, COUNT(*)
-		FROM mail_jobs
+		FROM lavoval_mail_jobs
 		WHERE status = 'dead_letter'
 		GROUP BY COALESCE(last_error_code, 'unknown')
 	`)
@@ -356,7 +356,7 @@ func (r *MailJobRepository) ListDeadLetters(ctx context.Context, filter domain.M
 		SELECT id, message_type, recipient_email, idempotency_key, payload, status, attempts, max_attempts,
 		       next_attempt_at, leased_until, last_error, last_error_code, provider, provider_message_id,
 		       sent_at, dead_lettered_at, created_at, updated_at
-		FROM mail_jobs
+		FROM lavoval_mail_jobs
 		WHERE status = 'dead_letter'
 	`
 	args := make([]any, 0, 5)
@@ -397,7 +397,7 @@ func (r *MailJobRepository) ListDeadLetters(ctx context.Context, filter domain.M
 
 func (r *MailJobRepository) RequeueDeadLetter(ctx context.Context, jobID string) (domain.MailJob, error) {
 	query := `
-		UPDATE mail_jobs
+		UPDATE lavoval_mail_jobs
 		SET
 			status = 'queued',
 			leased_until = NULL,
@@ -444,7 +444,7 @@ func (r *MailJobRepository) FindByID(ctx context.Context, jobID string) (domain.
 		SELECT id, message_type, recipient_email, idempotency_key, payload, status, attempts, max_attempts,
 		       next_attempt_at, leased_until, last_error, last_error_code, provider, provider_message_id,
 		       sent_at, dead_lettered_at, created_at, updated_at
-		FROM mail_jobs
+		FROM lavoval_mail_jobs
 		WHERE id = $1
 	`, jobID)
 
@@ -483,7 +483,7 @@ func (r *MailJobRepository) CountTerminalBefore(ctx context.Context, before time
 	var count int64
 	if err := r.pool.QueryRow(ctx, `
 		SELECT COUNT(*)
-		FROM mail_jobs
+		FROM lavoval_mail_jobs
 		WHERE status IN ('sent', 'dead_letter')
 		  AND COALESCE(sent_at, dead_lettered_at, updated_at) < $1
 	`, before).Scan(&count); err != nil {
@@ -500,13 +500,13 @@ func (r *MailJobRepository) DeleteTerminalBefore(ctx context.Context, before tim
 	tag, err := r.pool.Exec(ctx, `
 		WITH doomed AS (
 			SELECT id
-			FROM mail_jobs
+			FROM lavoval_mail_jobs
 			WHERE status IN ('sent', 'dead_letter')
 			  AND COALESCE(sent_at, dead_lettered_at, updated_at) < $1
 			ORDER BY COALESCE(sent_at, dead_lettered_at, updated_at) ASC
 			LIMIT $2
 		)
-		DELETE FROM mail_jobs
+		DELETE FROM lavoval_mail_jobs
 		WHERE id IN (SELECT id FROM doomed)
 	`, before, limit)
 	if err != nil {

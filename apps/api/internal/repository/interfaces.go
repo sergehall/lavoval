@@ -161,7 +161,7 @@ type AdminAuditLogStore interface {
 	ListByEntity(ctx context.Context, entityType, entityID string, limit int) ([]domain.AdminAuditLog, error)
 }
 
-// SkillAccessStore tracks explicit user access grants for paid / invite-only skills.
+// SkillAccessStore tracks explicit user access grants for paid / invite-only lavoval_skills.
 type SkillAccessStore interface {
 	Create(context.Context, domain.SkillAccess) (domain.SkillAccess, error)
 	FindBySkillAndUser(ctx context.Context, skillID, userID string) (*domain.SkillAccess, error)

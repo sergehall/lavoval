@@ -9,7 +9,7 @@ import (
 	"github.com/sergehall/lavoval/apps/api/internal/domain"
 )
 
-// userCols is the canonical SELECT column list for the users table.
+// userCols is the canonical SELECT column list for the lavoval_users table.
 // All query helpers must scan exactly these columns in this order.
 const userCols = `id, email, password_hash, role, status, email_verified_at,
 	mfa_enabled, mfa_totp_secret_encrypted, mfa_pending_totp_secret_encrypted, mfa_enrolled_at,
@@ -44,7 +44,7 @@ func NewUserRepository(pool *pgxpool.Pool) *UserRepository {
 
 func (r *UserRepository) Create(ctx context.Context, user domain.User) (domain.User, error) {
 	query := `
-		INSERT INTO users (id, email, password_hash, role, status, email_verified_at)
+		INSERT INTO lavoval_users (id, email, password_hash, role, status, email_verified_at)
 		VALUES ($1, $2, $3, $4, $5, $6)
 		RETURNING ` + userCols
 	row := r.pool.QueryRow(ctx, query, user.ID, user.Email, user.PasswordHash, user.Role, user.Status, user.EmailVerifiedAt)
@@ -56,7 +56,7 @@ func (r *UserRepository) Create(ctx context.Context, user domain.User) (domain.U
 }
 
 func (r *UserRepository) FindByEmail(ctx context.Context, email string) (domain.User, error) {
-	query := `SELECT ` + userCols + ` FROM users WHERE email = $1 AND deleted_at IS NULL`
+	query := `SELECT ` + userCols + ` FROM lavoval_users WHERE email = $1 AND deleted_at IS NULL`
 	user, err := scanUser(r.pool.QueryRow(ctx, query, email))
 	if err != nil {
 		return domain.User{}, fmt.Errorf("find user by email: %w", err)
@@ -66,7 +66,7 @@ func (r *UserRepository) FindByEmail(ctx context.Context, email string) (domain.
 
 func (r *UserRepository) BumpSessionVersion(ctx context.Context, id string) (domain.User, error) {
 	query := `
-		UPDATE users
+		UPDATE lavoval_users
 		SET session_version = session_version + 1, updated_at = NOW()
 		WHERE id = $1 AND deleted_at IS NULL
 		RETURNING ` + userCols
@@ -78,7 +78,7 @@ func (r *UserRepository) BumpSessionVersion(ctx context.Context, id string) (dom
 }
 
 func (r *UserRepository) FindByID(ctx context.Context, id string) (domain.User, error) {
-	query := `SELECT ` + userCols + ` FROM users WHERE id = $1 AND deleted_at IS NULL`
+	query := `SELECT ` + userCols + ` FROM lavoval_users WHERE id = $1 AND deleted_at IS NULL`
 	user, err := scanUser(r.pool.QueryRow(ctx, query, id))
 	if err != nil {
 		return domain.User{}, fmt.Errorf("find user by id: %w", err)
@@ -88,7 +88,7 @@ func (r *UserRepository) FindByID(ctx context.Context, id string) (domain.User, 
 
 func (r *UserRepository) MarkEmailVerified(ctx context.Context, userID string) (domain.User, error) {
 	query := `
-		UPDATE users SET email_verified_at = NOW(), updated_at = NOW()
+		UPDATE lavoval_users SET email_verified_at = NOW(), updated_at = NOW()
 		WHERE id = $1 AND deleted_at IS NULL
 		RETURNING ` + userCols
 	user, err := scanUser(r.pool.QueryRow(ctx, query, userID))
@@ -100,7 +100,7 @@ func (r *UserRepository) MarkEmailVerified(ctx context.Context, userID string) (
 
 func (r *UserRepository) UpdatePasswordHash(ctx context.Context, userID string, passwordHash string) (domain.User, error) {
 	query := `
-		UPDATE users SET password_hash = $2, updated_at = NOW()
+		UPDATE lavoval_users SET password_hash = $2, updated_at = NOW()
 		WHERE id = $1 AND deleted_at IS NULL
 		RETURNING ` + userCols
 	user, err := scanUser(r.pool.QueryRow(ctx, query, userID, passwordHash))
@@ -113,7 +113,7 @@ func (r *UserRepository) UpdatePasswordHash(ctx context.Context, userID string, 
 // UpdateRoleAndStatus is kept for backward compatibility; it does not touch moderation fields.
 func (r *UserRepository) UpdateRoleAndStatus(ctx context.Context, id string, role domain.Role, status domain.AccountStatus) (domain.User, error) {
 	query := `
-		UPDATE users SET role = $2, status = $3, updated_at = NOW()
+		UPDATE lavoval_users SET role = $2, status = $3, updated_at = NOW()
 		WHERE id = $1 AND deleted_at IS NULL
 		RETURNING ` + userCols
 	user, err := scanUser(r.pool.QueryRow(ctx, query, id, role, status))
@@ -127,7 +127,7 @@ func (r *UserRepository) UpdateRoleAndStatus(ctx context.Context, id string, rol
 // (suspension_reason / block_reason, timestamps, actor ID) based on the target status.
 func (r *UserRepository) UpdateRoleStatusModeration(ctx context.Context, id, actorID string, role domain.Role, status domain.AccountStatus, reason *string) (domain.User, error) {
 	query := `
-		UPDATE users
+		UPDATE lavoval_users
 		SET
 			role       = $2,
 			status     = $3,
@@ -157,7 +157,7 @@ func (r *UserRepository) GetStats(ctx context.Context) (domain.AdminUserStats, e
 			COUNT(*) FILTER (WHERE status = 'blocked')                AS blocked,
 			COUNT(*) FILTER (WHERE created_at >= NOW() - INTERVAL '7 days')  AS new_last_7d,
 			COUNT(*) FILTER (WHERE created_at >= NOW() - INTERVAL '30 days') AS new_last_30d
-		FROM users
+		FROM lavoval_users
 		WHERE deleted_at IS NULL`
 
 	var s domain.AdminUserStats
@@ -171,7 +171,7 @@ func (r *UserRepository) GetStats(ctx context.Context) (domain.AdminUserStats, e
 
 func (r *UserRepository) StartTOTPEnrollment(ctx context.Context, id string, pendingSecretEncrypted string) (domain.User, error) {
 	query := `
-		UPDATE users SET mfa_pending_totp_secret_encrypted = $2, updated_at = NOW()
+		UPDATE lavoval_users SET mfa_pending_totp_secret_encrypted = $2, updated_at = NOW()
 		WHERE id = $1 AND deleted_at IS NULL
 		RETURNING ` + userCols
 	user, err := scanUser(r.pool.QueryRow(ctx, query, id, pendingSecretEncrypted))
@@ -183,7 +183,7 @@ func (r *UserRepository) StartTOTPEnrollment(ctx context.Context, id string, pen
 
 func (r *UserRepository) CancelTOTPEnrollment(ctx context.Context, id string) (domain.User, error) {
 	query := `
-		UPDATE users SET mfa_pending_totp_secret_encrypted = NULL, updated_at = NOW()
+		UPDATE lavoval_users SET mfa_pending_totp_secret_encrypted = NULL, updated_at = NOW()
 		WHERE id = $1 AND deleted_at IS NULL
 		RETURNING ` + userCols
 	user, err := scanUser(r.pool.QueryRow(ctx, query, id))
@@ -195,7 +195,7 @@ func (r *UserRepository) CancelTOTPEnrollment(ctx context.Context, id string) (d
 
 func (r *UserRepository) EnableTOTP(ctx context.Context, id string, secretEncrypted string) (domain.User, error) {
 	query := `
-		UPDATE users
+		UPDATE lavoval_users
 		SET
 			mfa_enabled                    = TRUE,
 			mfa_totp_secret_encrypted      = $2,
@@ -213,7 +213,7 @@ func (r *UserRepository) EnableTOTP(ctx context.Context, id string, secretEncryp
 
 func (r *UserRepository) DisableTOTP(ctx context.Context, id string) (domain.User, error) {
 	query := `
-		UPDATE users
+		UPDATE lavoval_users
 		SET
 			mfa_enabled                       = FALSE,
 			mfa_totp_secret_encrypted         = NULL,
@@ -230,28 +230,28 @@ func (r *UserRepository) DisableTOTP(ctx context.Context, id string) (domain.Use
 }
 
 func (r *UserRepository) List(ctx context.Context) ([]domain.User, error) {
-	query := `SELECT ` + userCols + ` FROM users WHERE deleted_at IS NULL ORDER BY created_at DESC`
+	query := `SELECT ` + userCols + ` FROM lavoval_users WHERE deleted_at IS NULL ORDER BY created_at DESC`
 
 	rows, err := r.pool.Query(ctx, query)
 	if err != nil {
-		return nil, fmt.Errorf("list users: %w", err)
+		return nil, fmt.Errorf("list lavoval_users: %w", err)
 	}
 	defer rows.Close()
 
-	users := make([]domain.User, 0)
+	lavoval_users := make([]domain.User, 0)
 	for rows.Next() {
 		user, err := scanUser(rows)
 		if err != nil {
 			return nil, fmt.Errorf("scan user: %w", err)
 		}
-		users = append(users, user)
+		lavoval_users = append(lavoval_users, user)
 	}
-	return users, rows.Err()
+	return lavoval_users, rows.Err()
 }
 
 func (r *UserRepository) SoftDelete(ctx context.Context, id string) error {
 	if _, err := r.pool.Exec(ctx,
-		`UPDATE users SET deleted_at = NOW(), updated_at = NOW() WHERE id = $1 AND deleted_at IS NULL`, id,
+		`UPDATE lavoval_users SET deleted_at = NOW(), updated_at = NOW() WHERE id = $1 AND deleted_at IS NULL`, id,
 	); err != nil {
 		return fmt.Errorf("soft delete user: %w", err)
 	}

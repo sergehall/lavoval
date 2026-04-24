@@ -19,7 +19,7 @@ func NewAdminAuditLogRepository(pool *pgxpool.Pool) *AdminAuditLogRepository {
 
 func (r *AdminAuditLogRepository) Create(ctx context.Context, entry domain.AdminAuditLog) (domain.AdminAuditLog, error) {
 	query := `
-		INSERT INTO admin_audit_logs (id, entity_type, entity_id, action, old_value_json, new_value_json, reason, actor_id)
+		INSERT INTO lavoval_admin_audit_logs (id, entity_type, entity_id, action, old_value_json, new_value_json, reason, actor_id)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 		RETURNING created_at`
 	if err := r.pool.QueryRow(ctx, query,
@@ -37,7 +37,7 @@ func (r *AdminAuditLogRepository) ListByEntity(ctx context.Context, entityType, 
 	}
 	query := `
 		SELECT id, entity_type, entity_id, action, old_value_json, new_value_json, reason, actor_id, created_at
-		FROM admin_audit_logs
+		FROM lavoval_admin_audit_logs
 		WHERE entity_type = $1 AND entity_id = $2::uuid
 		ORDER BY created_at DESC
 		LIMIT $3`

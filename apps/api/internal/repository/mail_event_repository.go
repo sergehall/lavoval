@@ -21,7 +21,7 @@ func NewMailEventRepository(pool *pgxpool.Pool) *MailEventRepository {
 
 func (r *MailEventRepository) Append(ctx context.Context, event domain.MailEvent) (domain.MailEvent, error) {
 	query := `
-		INSERT INTO mail_events (
+		INSERT INTO lavoval_mail_events (
 			id, job_id, event_type, message_type, provider, provider_message_id,
 			recipient_email, error_code, attempt, metadata
 		)
@@ -75,7 +75,7 @@ func (r *MailEventRepository) CountBefore(ctx context.Context, before time.Time)
 	var count int64
 	if err := r.pool.QueryRow(ctx, `
 		SELECT COUNT(*)
-		FROM mail_events
+		FROM lavoval_mail_events
 		WHERE created_at < $1
 	`, before).Scan(&count); err != nil {
 		return 0, fmt.Errorf("count purgeable mail events: %w", err)
@@ -91,12 +91,12 @@ func (r *MailEventRepository) DeleteBefore(ctx context.Context, before time.Time
 	tag, err := r.pool.Exec(ctx, `
 		WITH doomed AS (
 			SELECT id
-			FROM mail_events
+			FROM lavoval_mail_events
 			WHERE created_at < $1
 			ORDER BY created_at ASC
 			LIMIT $2
 		)
-		DELETE FROM mail_events
+		DELETE FROM lavoval_mail_events
 		WHERE id IN (SELECT id FROM doomed)
 	`, before, limit)
 	if err != nil {
@@ -115,7 +115,7 @@ func buildMailEventListQuery(baseCondition string, filter domain.MailEventFilter
 	query := `
 		SELECT id, job_id, event_type, message_type, provider, provider_message_id,
 		       recipient_email, error_code, attempt, metadata, created_at
-		FROM mail_events
+		FROM lavoval_mail_events
 	`
 
 	conditions := make([]string, 0, 6)

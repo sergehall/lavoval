@@ -21,7 +21,7 @@ func NewEnrollmentRepository(pool *pgxpool.Pool) *EnrollmentRepository {
 func (r *EnrollmentRepository) ListByUserID(ctx context.Context, userID string) ([]domain.Enrollment, error) {
 	query := `
 		SELECT id, user_id, skill_id, status, progress_percent, assigned_at, completed_at
-		FROM user_skill_enrollments
+		FROM lavoval_user_skill_enrollments
 		WHERE user_id = $1
 		ORDER BY assigned_at DESC`
 	rows, err := r.pool.Query(ctx, query, userID)
@@ -50,9 +50,9 @@ func (r *EnrollmentRepository) ListAll(ctx context.Context) ([]domain.Enrollment
 			u.email    AS user_email,
 			s.title    AS skill_title,
 			s.slug     AS skill_slug
-		FROM user_skill_enrollments e
-		JOIN users  u ON u.id = e.user_id
-		JOIN skills s ON s.id = e.skill_id
+		FROM lavoval_user_skill_enrollments e
+		JOIN lavoval_users  u ON u.id = e.user_id
+		JOIN lavoval_skills s ON s.id = e.skill_id
 		ORDER BY e.assigned_at DESC`
 
 	rows, err := r.pool.Query(ctx, query)
@@ -79,7 +79,7 @@ func (r *EnrollmentRepository) ListAll(ctx context.Context) ([]domain.Enrollment
 // The UNIQUE constraint on (user_id, skill_id) prevents duplicate assignments.
 func (r *EnrollmentRepository) Create(ctx context.Context, userID, skillID string) (domain.Enrollment, error) {
 	query := `
-		INSERT INTO user_skill_enrollments (id, user_id, skill_id, status, progress_percent)
+		INSERT INTO lavoval_user_skill_enrollments (id, user_id, skill_id, status, progress_percent)
 		VALUES ($1, $2, $3, 'assigned', 0)
 		RETURNING id, user_id, skill_id, status, progress_percent, assigned_at, completed_at`
 
@@ -96,7 +96,7 @@ func (r *EnrollmentRepository) Create(ctx context.Context, userID, skillID strin
 // Sets completed_at automatically when status transitions to 'completed'.
 func (r *EnrollmentRepository) UpdateStatus(ctx context.Context, id string, status domain.EnrollmentStatus, progress int) (domain.Enrollment, error) {
 	query := `
-		UPDATE user_skill_enrollments
+		UPDATE lavoval_user_skill_enrollments
 		SET
 			status           = $2,
 			progress_percent = $3,

@@ -1,4 +1,4 @@
-CREATE TABLE IF NOT EXISTS mail_suppressions (
+CREATE TABLE IF NOT EXISTS lavoval_mail_suppressions (
   id UUID PRIMARY KEY,
   kind TEXT NOT NULL CHECK (kind IN ('email', 'domain')),
   value CITEXT NOT NULL,
@@ -6,5 +6,5 @@ CREATE TABLE IF NOT EXISTS mail_suppressions (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE UNIQUE INDEX IF NOT EXISTS idx_mail_suppressions_kind_value
-  ON mail_suppressions(kind, value);
+CREATE UNIQUE INDEX IF NOT EXISTS lavoval_idx_mail_suppressions_kind_value
+  ON lavoval_mail_suppressions(kind, value);

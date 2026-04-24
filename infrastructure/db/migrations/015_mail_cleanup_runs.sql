@@ -1,4 +1,4 @@
-CREATE TABLE IF NOT EXISTS mail_cleanup_runs (
+CREATE TABLE IF NOT EXISTS lavoval_mail_cleanup_runs (
     id UUID PRIMARY KEY,
     mode TEXT NOT NULL CHECK (mode IN ('apply', 'dry_run', 'manual')),
     status TEXT NOT NULL CHECK (status IN ('success', 'failed')),
@@ -12,8 +12,8 @@ CREATE TABLE IF NOT EXISTS mail_cleanup_runs (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX IF NOT EXISTS idx_mail_cleanup_runs_created_at
-    ON mail_cleanup_runs (created_at DESC);
+CREATE INDEX IF NOT EXISTS lavoval_idx_mail_cleanup_runs_created_at
+    ON lavoval_mail_cleanup_runs (created_at DESC);
 
-CREATE INDEX IF NOT EXISTS idx_mail_cleanup_runs_status_created_at
-    ON mail_cleanup_runs (status, created_at DESC);
+CREATE INDEX IF NOT EXISTS lavoval_idx_mail_cleanup_runs_status_created_at
+    ON lavoval_mail_cleanup_runs (status, created_at DESC);

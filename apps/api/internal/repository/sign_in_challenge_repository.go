@@ -19,7 +19,7 @@ func NewSignInChallengeRepository(pool *pgxpool.Pool) *SignInChallengeRepository
 
 func (r *SignInChallengeRepository) Create(ctx context.Context, challenge domain.AuthSignInChallenge) (domain.AuthSignInChallenge, error) {
 	if err := r.pool.QueryRow(ctx, `
-		INSERT INTO auth_sign_in_challenges (id, user_id, expires_at)
+		INSERT INTO lavoval_auth_sign_in_challenges (id, user_id, expires_at)
 		VALUES ($1, $2, $3)
 		RETURNING created_at
 	`, challenge.ID, challenge.UserID, challenge.ExpiresAt).Scan(&challenge.CreatedAt); err != nil {
@@ -33,7 +33,7 @@ func (r *SignInChallengeRepository) FindByID(ctx context.Context, id string) (do
 	var challenge domain.AuthSignInChallenge
 	if err := r.pool.QueryRow(ctx, `
 		SELECT id, user_id, expires_at, consumed_at, created_at
-		FROM auth_sign_in_challenges
+		FROM lavoval_auth_sign_in_challenges
 		WHERE id = $1
 	`, id).Scan(
 		&challenge.ID,
@@ -50,7 +50,7 @@ func (r *SignInChallengeRepository) FindByID(ctx context.Context, id string) (do
 
 func (r *SignInChallengeRepository) Consume(ctx context.Context, id string, userID string) error {
 	result, err := r.pool.Exec(ctx, `
-		UPDATE auth_sign_in_challenges
+		UPDATE lavoval_auth_sign_in_challenges
 		SET consumed_at = NOW()
 		WHERE id = $1 AND user_id = $2 AND consumed_at IS NULL
 	`, id, userID)
@@ -65,7 +65,7 @@ func (r *SignInChallengeRepository) Consume(ctx context.Context, id string, user
 
 func (r *SignInChallengeRepository) RevokeActiveByUserID(ctx context.Context, userID string) error {
 	if _, err := r.pool.Exec(ctx, `
-		UPDATE auth_sign_in_challenges
+		UPDATE lavoval_auth_sign_in_challenges
 		SET consumed_at = NOW()
 		WHERE user_id = $1 AND consumed_at IS NULL
 	`, userID); err != nil {

@@ -28,7 +28,7 @@ func (r *SkillVersionRepository) FindCurrentBySkillID(ctx context.Context, skill
 			prompt_template, system_instructions,
 			input_schema_json, output_schema_json, error_schema_json,
 			created_by, created_at
-		FROM skill_versions
+		FROM lavoval_skill_versions
 		WHERE skill_id = $1 AND is_current = true
 		ORDER BY version_no DESC
 		LIMIT 1`
@@ -51,15 +51,15 @@ func (r *SkillVersionRepository) SaveCurrent(ctx context.Context, version domain
 	const query = `
 		WITH current_version AS (
 			SELECT COALESCE(MAX(version_no), 0) AS max_version
-			FROM skill_versions
+			FROM lavoval_skill_versions
 			WHERE skill_id = $1
 		),
 		clear_current AS (
-			UPDATE skill_versions
+			UPDATE lavoval_skill_versions
 			SET is_current = false
 			WHERE skill_id = $1 AND is_current = true
 		)
-		INSERT INTO skill_versions (
+		INSERT INTO lavoval_skill_versions (
 			id, skill_id, version_no, is_current, changelog, content_md,
 			prompt_template, system_instructions,
 			input_schema_json, output_schema_json, error_schema_json,

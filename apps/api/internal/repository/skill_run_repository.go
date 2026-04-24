@@ -23,7 +23,7 @@ func (r *SkillRunRepository) Create(ctx context.Context, run domain.SkillRun) (d
 	run.Output = normalizeJSONMap(run.Output)
 
 	query := `
-		INSERT INTO skill_runs (
+		INSERT INTO lavoval_skill_runs (
 			id, skill_id, user_id, status, input_json, output_json, error_message, started_at, finished_at
 		)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
@@ -53,7 +53,7 @@ func (r *SkillRunRepository) Update(ctx context.Context, run domain.SkillRun) (d
 	run.Output = normalizeJSONMap(run.Output)
 
 	query := `
-		UPDATE skill_runs
+		UPDATE lavoval_skill_runs
 		SET status = $2,
 		    input_json = $3,
 		    output_json = $4,
@@ -86,10 +86,10 @@ func (r *SkillRunRepository) FindByID(ctx context.Context, id string) (domain.Sk
 		       s.id, s.slug, s.title, s.entrypoint,
 		       u.id, u.email, p.first_name, p.last_name,
 		       r.status, r.input_json, r.output_json, r.error_message, r.started_at, r.finished_at, r.created_at
-		FROM skill_runs r
-		INNER JOIN skills s ON s.id = r.skill_id
-		INNER JOIN users u ON u.id = s.created_by
-		INNER JOIN profiles p ON p.user_id = u.id AND p.deleted_at IS NULL
+		FROM lavoval_skill_runs r
+		INNER JOIN lavoval_skills s ON s.id = r.skill_id
+		INNER JOIN lavoval_users u ON u.id = s.created_by
+		INNER JOIN lavoval_profiles p ON p.user_id = u.id AND p.deleted_at IS NULL
 		WHERE r.id = $1`
 
 	row := r.pool.QueryRow(ctx, query, id)
@@ -196,10 +196,10 @@ func (r *SkillRunRepository) list(ctx context.Context, clause string, args ...an
 		       s.id, s.slug, s.title, s.entrypoint,
 		       u.id, u.email, p.first_name, p.last_name,
 		       r.status, r.input_json, r.output_json, r.error_message, r.started_at, r.finished_at, r.created_at
-		FROM skill_runs r
-		INNER JOIN skills s ON s.id = r.skill_id
-		INNER JOIN users u ON u.id = s.created_by
-		INNER JOIN profiles p ON p.user_id = u.id AND p.deleted_at IS NULL
+		FROM lavoval_skill_runs r
+		INNER JOIN lavoval_skills s ON s.id = r.skill_id
+		INNER JOIN lavoval_users u ON u.id = s.created_by
+		INNER JOIN lavoval_profiles p ON p.user_id = u.id AND p.deleted_at IS NULL
 		` + clause + `
 		ORDER BY r.created_at DESC`
 

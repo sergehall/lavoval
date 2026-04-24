@@ -19,7 +19,7 @@ func NewOAuthIdentityRepository(pool *pgxpool.Pool) *OAuthIdentityRepository {
 
 func (r *OAuthIdentityRepository) Create(ctx context.Context, identity domain.OAuthIdentity) (domain.OAuthIdentity, error) {
 	query := `
-		INSERT INTO oauth_identities (id, user_id, provider, provider_user_id, email)
+		INSERT INTO lavoval_oauth_identities (id, user_id, provider, provider_user_id, email)
 		VALUES ($1, $2, $3, $4, $5)
 		RETURNING created_at, updated_at`
 
@@ -45,7 +45,7 @@ func (r *OAuthIdentityRepository) FindByProviderSubject(
 ) (domain.OAuthIdentity, error) {
 	query := `
 		SELECT id, user_id, provider, provider_user_id, email, created_at, updated_at
-		FROM oauth_identities
+		FROM lavoval_oauth_identities
 		WHERE provider = $1 AND provider_user_id = $2`
 
 	var identity domain.OAuthIdentity
@@ -67,7 +67,7 @@ func (r *OAuthIdentityRepository) FindByProviderSubject(
 func (r *OAuthIdentityRepository) ListByUserID(ctx context.Context, userID string) ([]domain.OAuthIdentity, error) {
 	query := `
 		SELECT id, user_id, provider, provider_user_id, email, created_at, updated_at
-		FROM oauth_identities
+		FROM lavoval_oauth_identities
 		WHERE user_id = $1
 		ORDER BY created_at ASC`
 

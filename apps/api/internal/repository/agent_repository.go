@@ -25,9 +25,9 @@ const agentCols = `
 	pricing_json, status, created_at, updated_at`
 
 func (r *AgentRepository) List(ctx context.Context) ([]domain.Agent, error) {
-	rows, err := r.pool.Query(ctx, `SELECT `+agentCols+` FROM agents WHERE status = 'active' ORDER BY name ASC`)
+	rows, err := r.pool.Query(ctx, `SELECT `+agentCols+` FROM lavoval_agents WHERE status = 'active' ORDER BY name ASC`)
 	if err != nil {
-		return nil, fmt.Errorf("list agents: %w", err)
+		return nil, fmt.Errorf("list lavoval_agents: %w", err)
 	}
 	defer rows.Close()
 
@@ -43,12 +43,12 @@ func (r *AgentRepository) List(ctx context.Context) ([]domain.Agent, error) {
 }
 
 func (r *AgentRepository) FindByID(ctx context.Context, id string) (domain.Agent, error) {
-	row := r.pool.QueryRow(ctx, `SELECT `+agentCols+` FROM agents WHERE id = $1`, id)
+	row := r.pool.QueryRow(ctx, `SELECT `+agentCols+` FROM lavoval_agents WHERE id = $1`, id)
 	return scanAgent(row)
 }
 
 func (r *AgentRepository) FindBySlug(ctx context.Context, slug string) (domain.Agent, error) {
-	row := r.pool.QueryRow(ctx, `SELECT `+agentCols+` FROM agents WHERE slug = $1`, slug)
+	row := r.pool.QueryRow(ctx, `SELECT `+agentCols+` FROM lavoval_agents WHERE slug = $1`, slug)
 	return scanAgent(row)
 }
 
@@ -62,12 +62,12 @@ func (r *AgentRepository) ListRecommendedForSkill(ctx context.Context, skillID s
 			a.supports_text, a.supports_code, a.supports_tools, a.supports_web, a.supports_files,
 			a.supports_multimodal, a.supports_json_output, a.max_context_tokens,
 			a.pricing_json, a.status, a.created_at, a.updated_at
-		FROM skill_agent_compatibility sac
-		INNER JOIN agents a ON a.id = sac.agent_id
+		FROM lavoval_skill_agent_compatibility sac
+		INNER JOIN lavoval_agents a ON a.id = sac.agent_id
 		WHERE sac.skill_id = $1 AND a.status = 'active'
 		ORDER BY sac.compatibility_score DESC, sac.avg_rating DESC`, skillID)
 	if err != nil {
-		return nil, fmt.Errorf("list recommended agents: %w", err)
+		return nil, fmt.Errorf("list recommended lavoval_agents: %w", err)
 	}
 	defer rows.Close()
 

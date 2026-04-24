@@ -1,4 +1,4 @@
-CREATE TABLE IF NOT EXISTS mail_jobs (
+CREATE TABLE IF NOT EXISTS lavoval_mail_jobs (
   id UUID PRIMARY KEY,
   message_type TEXT NOT NULL,
   recipient_email CITEXT NOT NULL,
@@ -17,8 +17,8 @@ CREATE TABLE IF NOT EXISTS mail_jobs (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX IF NOT EXISTS idx_mail_jobs_dispatch_ready
-  ON mail_jobs(status, next_attempt_at, leased_until, created_at);
+CREATE INDEX IF NOT EXISTS lavoval_idx_mail_jobs_dispatch_ready
+  ON lavoval_mail_jobs(status, next_attempt_at, leased_until, created_at);
 
-CREATE INDEX IF NOT EXISTS idx_mail_jobs_recipient_created
-  ON mail_jobs(recipient_email, created_at DESC);
+CREATE INDEX IF NOT EXISTS lavoval_idx_mail_jobs_recipient_created
+  ON lavoval_mail_jobs(recipient_email, created_at DESC);

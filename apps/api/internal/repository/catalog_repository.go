@@ -20,10 +20,10 @@ func NewCatalogRepository(pool *pgxpool.Pool) *CatalogRepository {
 func (r *CatalogRepository) ListCategories(ctx context.Context) ([]domain.Category, error) {
 	rows, err := r.pool.Query(ctx, `
 		SELECT id, slug, name, description, icon, sort_order, created_at
-		FROM categories
+		FROM lavoval_categories
 		ORDER BY sort_order ASC, name ASC`)
 	if err != nil {
-		return nil, fmt.Errorf("list categories: %w", err)
+		return nil, fmt.Errorf("list lavoval_categories: %w", err)
 	}
 	defer rows.Close()
 
@@ -41,11 +41,11 @@ func (r *CatalogRepository) ListCategories(ctx context.Context) ([]domain.Catego
 func (r *CatalogRepository) ListSubcategories(ctx context.Context, categoryID string) ([]domain.Subcategory, error) {
 	rows, err := r.pool.Query(ctx, `
 		SELECT id, category_id, slug, name, sort_order, created_at
-		FROM subcategories
+		FROM lavoval_subcategories
 		WHERE category_id = $1
 		ORDER BY sort_order ASC, name ASC`, categoryID)
 	if err != nil {
-		return nil, fmt.Errorf("list subcategories: %w", err)
+		return nil, fmt.Errorf("list lavoval_subcategories: %w", err)
 	}
 	defer rows.Close()
 
@@ -63,10 +63,10 @@ func (r *CatalogRepository) ListSubcategories(ctx context.Context, categoryID st
 func (r *CatalogRepository) ListAllSubcategories(ctx context.Context) ([]domain.Subcategory, error) {
 	rows, err := r.pool.Query(ctx, `
 		SELECT id, category_id, slug, name, sort_order, created_at
-		FROM subcategories
+		FROM lavoval_subcategories
 		ORDER BY sort_order ASC, name ASC`)
 	if err != nil {
-		return nil, fmt.Errorf("list all subcategories: %w", err)
+		return nil, fmt.Errorf("list all lavoval_subcategories: %w", err)
 	}
 	defer rows.Close()
 
@@ -84,10 +84,10 @@ func (r *CatalogRepository) ListAllSubcategories(ctx context.Context) ([]domain.
 func (r *CatalogRepository) ListTags(ctx context.Context) ([]domain.Tag, error) {
 	rows, err := r.pool.Query(ctx, `
 		SELECT id, slug, name, kind, created_at
-		FROM tags
+		FROM lavoval_tags
 		ORDER BY kind ASC, name ASC`)
 	if err != nil {
-		return nil, fmt.Errorf("list tags: %w", err)
+		return nil, fmt.Errorf("list lavoval_tags: %w", err)
 	}
 	defer rows.Close()
 
@@ -105,12 +105,12 @@ func (r *CatalogRepository) ListTags(ctx context.Context) ([]domain.Tag, error) 
 func (r *CatalogRepository) ListTagsForSkill(ctx context.Context, skillID string) ([]domain.Tag, error) {
 	rows, err := r.pool.Query(ctx, `
 		SELECT t.id, t.slug, t.name, t.kind, t.created_at
-		FROM tags t
-		INNER JOIN skill_tag_links stl ON stl.tag_id = t.id
+		FROM lavoval_tags t
+		INNER JOIN lavoval_skill_tag_links stl ON stl.tag_id = t.id
 		WHERE stl.skill_id = $1
 		ORDER BY t.kind ASC, t.name ASC`, skillID)
 	if err != nil {
-		return nil, fmt.Errorf("list tags for skill: %w", err)
+		return nil, fmt.Errorf("list lavoval_tags for skill: %w", err)
 	}
 	defer rows.Close()
 
@@ -132,13 +132,13 @@ func (r *CatalogRepository) SetSkillTags(ctx context.Context, skillID string, ta
 	}
 	defer tx.Rollback(ctx) //nolint:errcheck
 
-	if _, err := tx.Exec(ctx, `DELETE FROM skill_tag_links WHERE skill_id = $1`, skillID); err != nil {
-		return fmt.Errorf("clear skill tags: %w", err)
+	if _, err := tx.Exec(ctx, `DELETE FROM lavoval_skill_tag_links WHERE skill_id = $1`, skillID); err != nil {
+		return fmt.Errorf("clear skill lavoval_tags: %w", err)
 	}
 
 	for _, tagID := range tagIDs {
 		if _, err := tx.Exec(ctx,
-			`INSERT INTO skill_tag_links (skill_id, tag_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
+			`INSERT INTO lavoval_skill_tag_links (skill_id, tag_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
 			skillID, tagID,
 		); err != nil {
 			return fmt.Errorf("insert skill tag: %w", err)
@@ -154,10 +154,10 @@ func (r *CatalogRepository) FindTagsBySlug(ctx context.Context, slugs []string) 
 	}
 	rows, err := r.pool.Query(ctx, `
 		SELECT id, slug, name, kind, created_at
-		FROM tags
+		FROM lavoval_tags
 		WHERE slug = ANY($1)`, slugs)
 	if err != nil {
-		return nil, fmt.Errorf("find tags by slug: %w", err)
+		return nil, fmt.Errorf("find lavoval_tags by slug: %w", err)
 	}
 	defer rows.Close()
 

@@ -21,7 +21,7 @@ func NewSkillAccessRepository(pool *pgxpool.Pool) *SkillAccessRepository {
 
 func (r *SkillAccessRepository) Create(ctx context.Context, access domain.SkillAccess) (domain.SkillAccess, error) {
 	query := `
-		INSERT INTO skill_access (id, skill_id, user_id, access_type, granted_by, expires_at)
+		INSERT INTO lavoval_skill_access (id, skill_id, user_id, access_type, granted_by, expires_at)
 		VALUES ($1, $2, $3, $4, $5, $6)
 		ON CONFLICT (skill_id, user_id) DO UPDATE
 		  SET access_type = EXCLUDED.access_type,
@@ -40,7 +40,7 @@ func (r *SkillAccessRepository) Create(ctx context.Context, access domain.SkillA
 func (r *SkillAccessRepository) FindBySkillAndUser(ctx context.Context, skillID, userID string) (*domain.SkillAccess, error) {
 	query := `
 		SELECT id, skill_id, user_id, access_type, granted_by, expires_at, created_at
-		FROM skill_access
+		FROM lavoval_skill_access
 		WHERE skill_id = $1 AND user_id = $2`
 
 	var a domain.SkillAccess
@@ -67,7 +67,7 @@ func (r *SkillAccessRepository) ListByUserID(ctx context.Context, userID string)
 func (r *SkillAccessRepository) list(ctx context.Context, where string, arg any) ([]domain.SkillAccess, error) {
 	query := `
 		SELECT id, skill_id, user_id, access_type, granted_by, expires_at, created_at
-		FROM skill_access ` + where + ` ORDER BY created_at DESC`
+		FROM lavoval_skill_access ` + where + ` ORDER BY created_at DESC`
 
 	rows, err := r.pool.Query(ctx, query, arg)
 	if err != nil {

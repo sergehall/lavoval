@@ -1,9 +1,9 @@
--- Extend profiles with marketplace identity fields.
+-- Extend lavoval_profiles with marketplace identity fields.
 -- All constraints serve as a DB-level defence-in-depth layer:
 -- the application layer (Go validator + Zod) is the primary guard,
 -- but these CHECK constraints prevent bad data even if bypassed.
 
-ALTER TABLE profiles
+ALTER TABLE lavoval_profiles
   -- Public username / slug: alphanumeric, dash, underscore, 3-30 chars.
   ADD COLUMN IF NOT EXISTS username TEXT
     CONSTRAINT profiles_username_format
@@ -20,9 +20,9 @@ ALTER TABLE profiles
       CHECK (location IS NULL OR (length(location) >= 2 AND length(location) <= 100)),
 
   -- Skills tag array: max 20 items, each item 1-50 chars.
-  ADD COLUMN IF NOT EXISTS skills TEXT[]
+  ADD COLUMN IF NOT EXISTS lavoval_skills TEXT[]
     CONSTRAINT profiles_skills_count
-      CHECK (skills IS NULL OR array_length(skills, 1) <= 20),
+      CHECK (lavoval_skills IS NULL OR array_length(lavoval_skills, 1) <= 20),
 
   -- Language codes (e.g. "en", "ru"): max 10 items.
   ADD COLUMN IF NOT EXISTS languages TEXT[]
@@ -55,6 +55,6 @@ ALTER TABLE profiles
   ADD COLUMN IF NOT EXISTS is_public_profile BOOLEAN NOT NULL DEFAULT true;
 
 -- Unique index on username (partial: only non-deleted rows).
-CREATE UNIQUE INDEX IF NOT EXISTS idx_profiles_username
-  ON profiles (username)
+CREATE UNIQUE INDEX IF NOT EXISTS lavoval_idx_profiles_username
+  ON lavoval_profiles (username)
   WHERE username IS NOT NULL AND deleted_at IS NULL;

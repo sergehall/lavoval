@@ -1,4 +1,4 @@
-INSERT INTO users (id, email, password_hash, role, status)
+INSERT INTO lavoval_users (id, email, password_hash, role, status)
 VALUES (
   '93af53e2-0c31-4a38-a5fa-bc1c3ff6fb7f',
   'admin@lavoval.local',
@@ -8,7 +8,7 @@ VALUES (
 )
 ON CONFLICT (email) DO NOTHING;
 
-INSERT INTO profiles (user_id, first_name, last_name, bio, timezone)
+INSERT INTO lavoval_profiles (user_id, first_name, last_name, bio, timezone)
 VALUES (
   '93af53e2-0c31-4a38-a5fa-bc1c3ff6fb7f',
   'Platform',

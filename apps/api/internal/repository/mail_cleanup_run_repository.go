@@ -19,7 +19,7 @@ func NewMailCleanupRunRepository(pool *pgxpool.Pool) *MailCleanupRunRepository {
 
 func (r *MailCleanupRunRepository) Create(ctx context.Context, item domain.MailCleanupRun) (domain.MailCleanupRun, error) {
 	if err := r.pool.QueryRow(ctx, `
-		INSERT INTO mail_cleanup_runs (
+		INSERT INTO lavoval_mail_cleanup_runs (
 			id, mode, status, dry_run, candidate_jobs, candidate_events,
 			deleted_jobs, deleted_events, error_message, duration_ms
 		)
@@ -51,7 +51,7 @@ func (r *MailCleanupRunRepository) ListRecent(ctx context.Context, limit int) ([
 	rows, err := r.pool.Query(ctx, `
 		SELECT id, mode, status, dry_run, candidate_jobs, candidate_events,
 		       deleted_jobs, deleted_events, error_message, duration_ms, created_at
-		FROM mail_cleanup_runs
+		FROM lavoval_mail_cleanup_runs
 		ORDER BY created_at DESC
 		LIMIT $1
 	`, limit)

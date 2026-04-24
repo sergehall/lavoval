@@ -1,6 +1,6 @@
--- agents registry and skill-agent compatibility
+-- lavoval_agents registry and skill-agent compatibility
 
-create table agents (
+create table lavoval_agents (
   id uuid primary key default gen_random_uuid(),
   slug text not null unique,
   name text not null,
@@ -25,9 +25,9 @@ create table agents (
   updated_at timestamptz not null default now()
 );
 
-create table skill_agent_compatibility (
-  skill_id uuid not null references skills(id) on delete cascade,
-  agent_id uuid not null references agents(id) on delete cascade,
+create table lavoval_skill_agent_compatibility (
+  skill_id uuid not null references lavoval_skills(id) on delete cascade,
+  agent_id uuid not null references lavoval_agents(id) on delete cascade,
 
   compatibility_score numeric(5,2) not null default 0,
   success_rate numeric(5,2) not null default 0,
@@ -44,15 +44,15 @@ create table skill_agent_compatibility (
   primary key (skill_id, agent_id)
 );
 
-create index idx_skill_agent_compat_agent_id on skill_agent_compatibility(agent_id);
+create index lavoval_idx_skill_agent_compat_agent_id on lavoval_skill_agent_compatibility(agent_id);
 
--- add FK from skills to agents (recommended_agent_id added in 022)
-alter table skills
+-- add FK from lavoval_skills to lavoval_agents (recommended_agent_id added in 022)
+alter table lavoval_skills
   add constraint fk_skills_recommended_agent
-  foreign key (recommended_agent_id) references agents(id) on delete set null;
+  foreign key (recommended_agent_id) references lavoval_agents(id) on delete set null;
 
--- seed well-known agents
-insert into agents (slug, name, provider, model_name, description,
+-- seed well-known lavoval_agents
+insert into lavoval_agents (slug, name, provider, model_name, description,
   supports_code, supports_tools, supports_json_output, max_context_tokens) values
   ('claude-opus-4',    'Claude Opus 4',       'anthropic', 'claude-opus-4-5',            'Most capable Anthropic model for complex reasoning',   true, true, true, 200000),
   ('claude-sonnet-4',  'Claude Sonnet 4.6',   'anthropic', 'claude-sonnet-4-6',          'Balanced Anthropic model — fast and capable',          true, true, true, 200000),

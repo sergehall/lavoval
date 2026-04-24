@@ -1,4 +1,4 @@
-CREATE TABLE IF NOT EXISTS oauth_states (
+CREATE TABLE IF NOT EXISTS lavoval_oauth_states (
   id UUID PRIMARY KEY,
   provider TEXT NOT NULL CHECK (provider IN ('google', 'github')),
   state_hash TEXT NOT NULL UNIQUE,
@@ -7,12 +7,12 @@ CREATE TABLE IF NOT EXISTS oauth_states (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX IF NOT EXISTS idx_oauth_states_provider_expires_at
-  ON oauth_states (provider, expires_at);
+CREATE INDEX IF NOT EXISTS lavoval_idx_oauth_states_provider_expires_at
+  ON lavoval_oauth_states (provider, expires_at);
 
-CREATE TABLE IF NOT EXISTS oauth_identities (
+CREATE TABLE IF NOT EXISTS lavoval_oauth_identities (
   id UUID PRIMARY KEY,
-  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  user_id UUID NOT NULL REFERENCES lavoval_users(id) ON DELETE CASCADE,
   provider TEXT NOT NULL CHECK (provider IN ('google', 'github')),
   provider_user_id TEXT NOT NULL,
   email CITEXT NOT NULL,
@@ -22,5 +22,5 @@ CREATE TABLE IF NOT EXISTS oauth_identities (
   UNIQUE (user_id, provider)
 );
 
-CREATE INDEX IF NOT EXISTS idx_oauth_identities_user_id
-  ON oauth_identities (user_id);
+CREATE INDEX IF NOT EXISTS lavoval_idx_oauth_identities_user_id
+  ON lavoval_oauth_identities (user_id);

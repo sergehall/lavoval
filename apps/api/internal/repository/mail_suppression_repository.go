@@ -21,7 +21,7 @@ func NewMailSuppressionRepository(pool *pgxpool.Pool) *MailSuppressionRepository
 
 func (r *MailSuppressionRepository) Create(ctx context.Context, item domain.MailSuppression) (domain.MailSuppression, error) {
 	if err := r.pool.QueryRow(ctx, `
-		INSERT INTO mail_suppressions (id, kind, value, reason)
+		INSERT INTO lavoval_mail_suppressions (id, kind, value, reason)
 		VALUES ($1, $2, $3, $4)
 		RETURNING created_at
 	`, item.ID, item.Kind, normalizeSuppressionValue(item.Kind, item.Value), item.Reason).Scan(&item.CreatedAt); err != nil {
@@ -32,7 +32,7 @@ func (r *MailSuppressionRepository) Create(ctx context.Context, item domain.Mail
 }
 
 func (r *MailSuppressionRepository) Delete(ctx context.Context, id string) error {
-	if _, err := r.pool.Exec(ctx, `DELETE FROM mail_suppressions WHERE id = $1`, id); err != nil {
+	if _, err := r.pool.Exec(ctx, `DELETE FROM lavoval_mail_suppressions WHERE id = $1`, id); err != nil {
 		return fmt.Errorf("delete mail suppression: %w", err)
 	}
 	return nil
@@ -41,7 +41,7 @@ func (r *MailSuppressionRepository) Delete(ctx context.Context, id string) error
 func (r *MailSuppressionRepository) List(ctx context.Context) ([]domain.MailSuppression, error) {
 	rows, err := r.pool.Query(ctx, `
 		SELECT id, kind, value, reason, created_at
-		FROM mail_suppressions
+		FROM lavoval_mail_suppressions
 		ORDER BY created_at DESC
 	`)
 	if err != nil {
@@ -72,7 +72,7 @@ func (r *MailSuppressionRepository) FindMatch(ctx context.Context, recipient str
 
 	row := r.pool.QueryRow(ctx, `
 		SELECT id, kind, value, reason, created_at
-		FROM mail_suppressions
+		FROM lavoval_mail_suppressions
 		WHERE (kind = 'email' AND value = $1)
 		   OR (kind = 'domain' AND value = $2)
 		ORDER BY created_at DESC

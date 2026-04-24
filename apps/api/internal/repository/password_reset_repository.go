@@ -19,7 +19,7 @@ func NewPasswordResetRepository(pool *pgxpool.Pool) *PasswordResetRepository {
 
 func (r *PasswordResetRepository) Create(ctx context.Context, token domain.PasswordResetToken) (domain.PasswordResetToken, error) {
 	query := `
-		INSERT INTO password_reset_tokens (id, user_id, token_hash, expires_at)
+		INSERT INTO lavoval_password_reset_tokens (id, user_id, token_hash, expires_at)
 		VALUES ($1, $2, $3, $4)
 		RETURNING created_at`
 
@@ -33,7 +33,7 @@ func (r *PasswordResetRepository) Create(ctx context.Context, token domain.Passw
 func (r *PasswordResetRepository) FindByTokenHash(ctx context.Context, tokenHash string) (domain.PasswordResetToken, error) {
 	query := `
 		SELECT id, user_id, token_hash, expires_at, consumed_at, created_at
-		FROM password_reset_tokens
+		FROM lavoval_password_reset_tokens
 		WHERE token_hash = $1`
 
 	var token domain.PasswordResetToken
@@ -53,7 +53,7 @@ func (r *PasswordResetRepository) FindByTokenHash(ctx context.Context, tokenHash
 
 func (r *PasswordResetRepository) Consume(ctx context.Context, tokenID string, userID string) error {
 	query := `
-		UPDATE password_reset_tokens
+		UPDATE lavoval_password_reset_tokens
 		SET consumed_at = NOW()
 		WHERE id = $1 AND user_id = $2 AND consumed_at IS NULL`
 
@@ -69,7 +69,7 @@ func (r *PasswordResetRepository) Consume(ctx context.Context, tokenID string, u
 
 func (r *PasswordResetRepository) RevokeActiveByUserID(ctx context.Context, userID string) error {
 	query := `
-		UPDATE password_reset_tokens
+		UPDATE lavoval_password_reset_tokens
 		SET consumed_at = NOW()
 		WHERE user_id = $1 AND consumed_at IS NULL`
 

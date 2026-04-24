@@ -23,9 +23,9 @@ func (r *SocialRepository) ListReviews(ctx context.Context, skillID string) ([]d
 	rows, err := r.pool.Query(ctx, `
 		SELECT sr.id, sr.skill_id, sr.user_id, sr.run_id, sr.rating, sr.review_text, sr.created_at,
 		       u.id, u.email, p.first_name, p.last_name
-		FROM skill_reviews sr
-		INNER JOIN users u ON u.id = sr.user_id
-		INNER JOIN profiles p ON p.user_id = u.id AND p.deleted_at IS NULL
+		FROM lavoval_skill_reviews sr
+		INNER JOIN lavoval_users u ON u.id = sr.user_id
+		INNER JOIN lavoval_profiles p ON p.user_id = u.id AND p.deleted_at IS NULL
 		WHERE sr.skill_id = $1
 		ORDER BY sr.created_at DESC`, skillID)
 	if err != nil {
@@ -49,7 +49,7 @@ func (r *SocialRepository) ListReviews(ctx context.Context, skillID string) ([]d
 
 func (r *SocialRepository) CreateReview(ctx context.Context, rv domain.SkillReview) (domain.SkillReview, error) {
 	_, err := r.pool.Exec(ctx, `
-		INSERT INTO skill_reviews (id, skill_id, user_id, run_id, rating, review_text)
+		INSERT INTO lavoval_skill_reviews (id, skill_id, user_id, run_id, rating, review_text)
 		VALUES ($1, $2, $3, $4, $5, $6)
 		ON CONFLICT (skill_id, user_id) DO UPDATE
 		  SET rating = EXCLUDED.rating, review_text = EXCLUDED.review_text`,
@@ -60,30 +60,30 @@ func (r *SocialRepository) CreateReview(ctx context.Context, rv domain.SkillRevi
 	return rv, nil
 }
 
-// ── Saved skills ─────────────────────────────────────────────────────────────
+// ── Saved lavoval_skills ─────────────────────────────────────────────────────────────
 
 func (r *SocialRepository) SaveSkill(ctx context.Context, userID, skillID string) error {
 	_, err := r.pool.Exec(ctx, `
-		INSERT INTO saved_skills (user_id, skill_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
+		INSERT INTO lavoval_saved_skills (user_id, skill_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
 		userID, skillID)
 	return err
 }
 
 func (r *SocialRepository) UnsaveSkill(ctx context.Context, userID, skillID string) error {
-	_, err := r.pool.Exec(ctx, `DELETE FROM saved_skills WHERE user_id = $1 AND skill_id = $2`, userID, skillID)
+	_, err := r.pool.Exec(ctx, `DELETE FROM lavoval_saved_skills WHERE user_id = $1 AND skill_id = $2`, userID, skillID)
 	return err
 }
 
 func (r *SocialRepository) IsSaved(ctx context.Context, userID, skillID string) (bool, error) {
 	var exists bool
 	err := r.pool.QueryRow(ctx, `
-		SELECT EXISTS(SELECT 1 FROM saved_skills WHERE user_id = $1 AND skill_id = $2)`,
+		SELECT EXISTS(SELECT 1 FROM lavoval_saved_skills WHERE user_id = $1 AND skill_id = $2)`,
 		userID, skillID).Scan(&exists)
 	return exists, err
 }
 
 func (r *SocialRepository) ListSavedSkillIDs(ctx context.Context, userID string) ([]string, error) {
-	rows, err := r.pool.Query(ctx, `SELECT skill_id FROM saved_skills WHERE user_id = $1 ORDER BY created_at DESC`, userID)
+	rows, err := r.pool.Query(ctx, `SELECT skill_id FROM lavoval_saved_skills WHERE user_id = $1 ORDER BY created_at DESC`, userID)
 	if err != nil {
 		return nil, fmt.Errorf("list saved skill ids: %w", err)
 	}
@@ -105,11 +105,11 @@ func (r *SocialRepository) ListSavedSkillIDs(ctx context.Context, userID string)
 func (r *SocialRepository) ListCollections(ctx context.Context, ownerID string) ([]domain.Collection, error) {
 	rows, err := r.pool.Query(ctx, `
 		SELECT id, owner_id, title, description, visibility, created_at, updated_at
-		FROM collections
+		FROM lavoval_collections
 		WHERE owner_id = $1
 		ORDER BY updated_at DESC`, ownerID)
 	if err != nil {
-		return nil, fmt.Errorf("list collections: %w", err)
+		return nil, fmt.Errorf("list lavoval_collections: %w", err)
 	}
 	defer rows.Close()
 
@@ -128,7 +128,7 @@ func (r *SocialRepository) FindCollection(ctx context.Context, id string) (domai
 	var c domain.Collection
 	err := r.pool.QueryRow(ctx, `
 		SELECT id, owner_id, title, description, visibility, created_at, updated_at
-		FROM collections WHERE id = $1`, id).
+		FROM lavoval_collections WHERE id = $1`, id).
 		Scan(&c.ID, &c.OwnerID, &c.Title, &c.Description, &c.Visibility, &c.CreatedAt, &c.UpdatedAt)
 	if err != nil {
 		return domain.Collection{}, fmt.Errorf("find collection: %w", err)
@@ -138,7 +138,7 @@ func (r *SocialRepository) FindCollection(ctx context.Context, id string) (domai
 
 func (r *SocialRepository) CreateCollection(ctx context.Context, c domain.Collection) (domain.Collection, error) {
 	err := r.pool.QueryRow(ctx, `
-		INSERT INTO collections (id, owner_id, title, description, visibility)
+		INSERT INTO lavoval_collections (id, owner_id, title, description, visibility)
 		VALUES ($1, $2, $3, $4, $5)
 		RETURNING created_at, updated_at`,
 		c.ID, c.OwnerID, c.Title, c.Description, c.Visibility,
@@ -151,7 +151,7 @@ func (r *SocialRepository) CreateCollection(ctx context.Context, c domain.Collec
 
 func (r *SocialRepository) UpdateCollection(ctx context.Context, c domain.Collection) (domain.Collection, error) {
 	err := r.pool.QueryRow(ctx, `
-		UPDATE collections SET title = $2, description = $3, visibility = $4, updated_at = NOW()
+		UPDATE lavoval_collections SET title = $2, description = $3, visibility = $4, updated_at = NOW()
 		WHERE id = $1 AND owner_id = $5
 		RETURNING updated_at`,
 		c.ID, c.Title, c.Description, c.Visibility, c.OwnerID,
@@ -163,34 +163,34 @@ func (r *SocialRepository) UpdateCollection(ctx context.Context, c domain.Collec
 }
 
 func (r *SocialRepository) DeleteCollection(ctx context.Context, id, ownerID string) error {
-	_, err := r.pool.Exec(ctx, `DELETE FROM collections WHERE id = $1 AND owner_id = $2`, id, ownerID)
+	_, err := r.pool.Exec(ctx, `DELETE FROM lavoval_collections WHERE id = $1 AND owner_id = $2`, id, ownerID)
 	return err
 }
 
 func (r *SocialRepository) AddCollectionItem(ctx context.Context, collectionID, skillID, ownerID string) error {
 	// verify ownership first
 	var exists bool
-	if err := r.pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM collections WHERE id = $1 AND owner_id = $2)`, collectionID, ownerID).Scan(&exists); err != nil {
+	if err := r.pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM lavoval_collections WHERE id = $1 AND owner_id = $2)`, collectionID, ownerID).Scan(&exists); err != nil {
 		return err
 	}
 	if !exists {
 		return fmt.Errorf("collection not found")
 	}
 	_, err := r.pool.Exec(ctx, `
-		INSERT INTO collection_items (collection_id, skill_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
+		INSERT INTO lavoval_collection_items (collection_id, skill_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
 		collectionID, skillID)
 	return err
 }
 
 func (r *SocialRepository) RemoveCollectionItem(ctx context.Context, collectionID, skillID, ownerID string) error {
 	var exists bool
-	if err := r.pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM collections WHERE id = $1 AND owner_id = $2)`, collectionID, ownerID).Scan(&exists); err != nil {
+	if err := r.pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM lavoval_collections WHERE id = $1 AND owner_id = $2)`, collectionID, ownerID).Scan(&exists); err != nil {
 		return err
 	}
 	if !exists {
 		return fmt.Errorf("collection not found")
 	}
-	_, err := r.pool.Exec(ctx, `DELETE FROM collection_items WHERE collection_id = $1 AND skill_id = $2`, collectionID, skillID)
+	_, err := r.pool.Exec(ctx, `DELETE FROM lavoval_collection_items WHERE collection_id = $1 AND skill_id = $2`, collectionID, skillID)
 	return err
 }
 
@@ -198,7 +198,7 @@ func (r *SocialRepository) RemoveCollectionItem(ctx context.Context, collectionI
 
 func (r *SocialRepository) CreateRunFeedback(ctx context.Context, fb domain.RunFeedback) error {
 	_, err := r.pool.Exec(ctx, `
-		INSERT INTO run_feedback (run_id, user_id, rating, usefulness_score, would_use_again, comment)
+		INSERT INTO lavoval_run_feedback (run_id, user_id, rating, usefulness_score, would_use_again, comment)
 		VALUES ($1, $2, $3, $4, $5, $6)
 		ON CONFLICT (run_id) DO UPDATE
 		  SET rating = EXCLUDED.rating,

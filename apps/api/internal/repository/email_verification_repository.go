@@ -19,7 +19,7 @@ func NewEmailVerificationRepository(pool *pgxpool.Pool) *EmailVerificationReposi
 
 func (r *EmailVerificationRepository) Create(ctx context.Context, token domain.EmailVerificationToken) (domain.EmailVerificationToken, error) {
 	query := `
-		INSERT INTO email_verification_tokens (id, user_id, token_hash, expires_at)
+		INSERT INTO lavoval_email_verification_tokens (id, user_id, token_hash, expires_at)
 		VALUES ($1, $2, $3, $4)
 		RETURNING created_at`
 
@@ -33,7 +33,7 @@ func (r *EmailVerificationRepository) Create(ctx context.Context, token domain.E
 func (r *EmailVerificationRepository) FindByTokenHash(ctx context.Context, tokenHash string) (domain.EmailVerificationToken, error) {
 	query := `
 		SELECT id, user_id, token_hash, expires_at, consumed_at, created_at
-		FROM email_verification_tokens
+		FROM lavoval_email_verification_tokens
 		WHERE token_hash = $1`
 
 	var token domain.EmailVerificationToken
@@ -53,7 +53,7 @@ func (r *EmailVerificationRepository) FindByTokenHash(ctx context.Context, token
 
 func (r *EmailVerificationRepository) Consume(ctx context.Context, tokenID string, userID string) error {
 	query := `
-		UPDATE email_verification_tokens
+		UPDATE lavoval_email_verification_tokens
 		SET consumed_at = NOW()
 		WHERE id = $1 AND user_id = $2 AND consumed_at IS NULL`
 
@@ -69,7 +69,7 @@ func (r *EmailVerificationRepository) Consume(ctx context.Context, tokenID strin
 
 func (r *EmailVerificationRepository) RevokeActiveByUserID(ctx context.Context, userID string) error {
 	query := `
-		UPDATE email_verification_tokens
+		UPDATE lavoval_email_verification_tokens
 		SET consumed_at = NOW()
 		WHERE user_id = $1 AND consumed_at IS NULL`
 

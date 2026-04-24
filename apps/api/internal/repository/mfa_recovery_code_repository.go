@@ -24,13 +24,13 @@ func (r *MFARecoveryCodeRepository) ReplaceForUser(ctx context.Context, userID s
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
-	if _, err := tx.Exec(ctx, `UPDATE mfa_recovery_codes SET consumed_at = NOW() WHERE user_id = $1 AND consumed_at IS NULL`, userID); err != nil {
+	if _, err := tx.Exec(ctx, `UPDATE lavoval_mfa_recovery_codes SET consumed_at = NOW() WHERE user_id = $1 AND consumed_at IS NULL`, userID); err != nil {
 		return fmt.Errorf("revoke active recovery codes: %w", err)
 	}
 
 	for _, code := range codes {
 		if _, err := tx.Exec(ctx,
-			`INSERT INTO mfa_recovery_codes (id, user_id, code_hash) VALUES ($1, $2, $3)`,
+			`INSERT INTO lavoval_mfa_recovery_codes (id, user_id, code_hash) VALUES ($1, $2, $3)`,
 			code.ID, code.UserID, code.CodeHash,
 		); err != nil {
 			return fmt.Errorf("insert recovery code: %w", err)
@@ -48,7 +48,7 @@ func (r *MFARecoveryCodeRepository) FindActiveByCodeHash(ctx context.Context, us
 	var code domain.MFARecoveryCode
 	if err := r.pool.QueryRow(ctx, `
 		SELECT id, user_id, code_hash, consumed_at, created_at
-		FROM mfa_recovery_codes
+		FROM lavoval_mfa_recovery_codes
 		WHERE user_id = $1 AND code_hash = $2 AND consumed_at IS NULL
 	`, userID, codeHash).Scan(
 		&code.ID,
@@ -65,7 +65,7 @@ func (r *MFARecoveryCodeRepository) FindActiveByCodeHash(ctx context.Context, us
 
 func (r *MFARecoveryCodeRepository) Consume(ctx context.Context, id string, userID string) error {
 	result, err := r.pool.Exec(ctx, `
-		UPDATE mfa_recovery_codes
+		UPDATE lavoval_mfa_recovery_codes
 		SET consumed_at = NOW()
 		WHERE id = $1 AND user_id = $2 AND consumed_at IS NULL
 	`, id, userID)
@@ -80,7 +80,7 @@ func (r *MFARecoveryCodeRepository) Consume(ctx context.Context, id string, user
 
 func (r *MFARecoveryCodeRepository) RevokeActiveByUserID(ctx context.Context, userID string) error {
 	if _, err := r.pool.Exec(ctx, `
-		UPDATE mfa_recovery_codes
+		UPDATE lavoval_mfa_recovery_codes
 		SET consumed_at = NOW()
 		WHERE user_id = $1 AND consumed_at IS NULL
 	`, userID); err != nil {

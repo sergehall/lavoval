@@ -22,7 +22,7 @@ func NewProfileRepository(pool *pgxpool.Pool) *ProfileRepository {
 // parameters, so no SQL injection is possible regardless of input content.
 func (r *ProfileRepository) Create(ctx context.Context, profile domain.Profile) (domain.Profile, error) {
 	query := `
-		INSERT INTO profiles (user_id, first_name, last_name, bio, timezone)
+		INSERT INTO lavoval_profiles (user_id, first_name, last_name, bio, timezone)
 		VALUES ($1, $2, $3, $4, $5)
 		RETURNING created_at, updated_at, availability_status, is_public_profile,
 			show_avatar, show_bio, show_location, show_skills, show_languages,
@@ -60,7 +60,7 @@ func (r *ProfileRepository) Create(ctx context.Context, profile domain.Profile) 
 // as a bound parameter ($N); the query text itself never contains user data.
 func (r *ProfileRepository) Update(ctx context.Context, profile domain.Profile) (domain.Profile, error) {
 	query := `
-		UPDATE profiles
+		UPDATE lavoval_profiles
 		SET
 			first_name          = $2,
 			last_name           = $3,
@@ -69,7 +69,7 @@ func (r *ProfileRepository) Update(ctx context.Context, profile domain.Profile) 
 			username            = $6,
 			avatar_url          = $7,
 			location            = $8,
-			skills              = $9,
+			lavoval_skills              = $9,
 			languages           = $10,
 			website_url         = $11,
 			linkedin_url        = $12,
@@ -142,7 +142,7 @@ func (r *ProfileRepository) FindByUserID(ctx context.Context, userID string) (do
 			p.username,
 			p.avatar_url,
 			p.location,
-			p.skills,
+			p.lavoval_skills,
 			p.languages,
 			p.website_url,
 			p.linkedin_url,
@@ -163,8 +163,8 @@ func (r *ProfileRepository) FindByUserID(ctx context.Context, userID string) (do
 			p.created_at,
 			p.updated_at,
 			p.deleted_at
-		FROM profiles p
-		JOIN users u ON u.id = p.user_id
+		FROM lavoval_profiles p
+		JOIN lavoval_users u ON u.id = p.user_id
 		WHERE p.user_id = $1 AND p.deleted_at IS NULL`
 
 	var profile domain.Profile
@@ -207,7 +207,7 @@ func (r *ProfileRepository) FindByUserID(ctx context.Context, userID string) (do
 
 func (r *ProfileRepository) SoftDeleteByUserID(ctx context.Context, userID string) error {
 	query := `
-		UPDATE profiles
+		UPDATE lavoval_profiles
 		SET deleted_at = NOW(), updated_at = NOW()
 		WHERE user_id = $1 AND deleted_at IS NULL`
 

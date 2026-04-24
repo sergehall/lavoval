@@ -89,8 +89,8 @@ func (r *SkillRepository) ListPublished(ctx context.Context, filter domain.Skill
 	tagJoin := ""
 	if len(filter.TagSlugs) > 0 {
 		tagJoin = fmt.Sprintf(`
-			INNER JOIN skill_tag_links stl ON stl.skill_id = s.id
-			INNER JOIN tags t ON t.id = stl.tag_id AND t.slug = ANY($%d)`, argIdx)
+			INNER JOIN lavoval_skill_tag_links stl ON stl.skill_id = s.id
+			INNER JOIN lavoval_tags t ON t.id = stl.tag_id AND t.slug = ANY($%d)`, argIdx)
 		args = append(args, filter.TagSlugs)
 		argIdx++
 	}
@@ -109,10 +109,10 @@ func (r *SkillRepository) ListPublished(ctx context.Context, filter domain.Skill
 
 	query := `
 		SELECT ` + skillListCols + `
-		FROM skills s
-		INNER JOIN users u ON u.id = s.created_by
-		INNER JOIN profiles p ON p.user_id = u.id AND p.deleted_at IS NULL
-		LEFT JOIN skill_modules m ON m.skill_id = s.id AND m.deleted_at IS NULL
+		FROM lavoval_skills s
+		INNER JOIN lavoval_users u ON u.id = s.created_by
+		INNER JOIN lavoval_profiles p ON p.user_id = u.id AND p.deleted_at IS NULL
+		LEFT JOIN lavoval_skill_modules m ON m.skill_id = s.id AND m.deleted_at IS NULL
 		` + tagJoin + `
 		` + whereClause + `
 		GROUP BY s.id, u.email, p.first_name, p.last_name
@@ -120,19 +120,19 @@ func (r *SkillRepository) ListPublished(ctx context.Context, filter domain.Skill
 
 	rows, err := r.pool.Query(ctx, query, args...)
 	if err != nil {
-		return nil, fmt.Errorf("list published skills: %w", err)
+		return nil, fmt.Errorf("list published lavoval_skills: %w", err)
 	}
 	defer rows.Close()
 
-	skills := make([]domain.Skill, 0)
+	lavoval_skills := make([]domain.Skill, 0)
 	for rows.Next() {
 		skill, err := scanSkillList(rows)
 		if err != nil {
 			return nil, fmt.Errorf("scan skill: %w", err)
 		}
-		skills = append(skills, skill)
+		lavoval_skills = append(lavoval_skills, skill)
 	}
-	return skills, rows.Err()
+	return lavoval_skills, rows.Err()
 }
 
 func (r *SkillRepository) ListAll(ctx context.Context) ([]domain.Skill, error) {
@@ -146,37 +146,37 @@ func (r *SkillRepository) ListByCreatorID(ctx context.Context, creatorID string)
 func (r *SkillRepository) list(ctx context.Context, clause string, args ...any) ([]domain.Skill, error) {
 	query := `
 		SELECT ` + skillListCols + `
-		FROM skills s
-		INNER JOIN users u ON u.id = s.created_by
-		INNER JOIN profiles p ON p.user_id = u.id AND p.deleted_at IS NULL
-		LEFT JOIN skill_modules m ON m.skill_id = s.id AND m.deleted_at IS NULL
+		FROM lavoval_skills s
+		INNER JOIN lavoval_users u ON u.id = s.created_by
+		INNER JOIN lavoval_profiles p ON p.user_id = u.id AND p.deleted_at IS NULL
+		LEFT JOIN lavoval_skill_modules m ON m.skill_id = s.id AND m.deleted_at IS NULL
 		` + clause + `
 		GROUP BY s.id, u.email, p.first_name, p.last_name
 		ORDER BY s.updated_at DESC`
 
 	rows, err := r.pool.Query(ctx, query, args...)
 	if err != nil {
-		return nil, fmt.Errorf("list skills: %w", err)
+		return nil, fmt.Errorf("list lavoval_skills: %w", err)
 	}
 	defer rows.Close()
 
-	skills := make([]domain.Skill, 0)
+	lavoval_skills := make([]domain.Skill, 0)
 	for rows.Next() {
 		skill, err := scanSkillList(rows)
 		if err != nil {
 			return nil, fmt.Errorf("scan skill: %w", err)
 		}
-		skills = append(skills, skill)
+		lavoval_skills = append(lavoval_skills, skill)
 	}
-	return skills, rows.Err()
+	return lavoval_skills, rows.Err()
 }
 
 func (r *SkillRepository) FindByID(ctx context.Context, id string) (domain.Skill, error) {
 	query := `
 		SELECT ` + skillDetailCols + `
-		FROM skills s
-		INNER JOIN users u ON u.id = s.created_by
-		INNER JOIN profiles p ON p.user_id = u.id AND p.deleted_at IS NULL
+		FROM lavoval_skills s
+		INNER JOIN lavoval_users u ON u.id = s.created_by
+		INNER JOIN lavoval_profiles p ON p.user_id = u.id AND p.deleted_at IS NULL
 		WHERE s.id = $1 AND s.deleted_at IS NULL`
 
 	skill, err := scanSkillDetail(r.pool.QueryRow(ctx, query, id))
@@ -196,7 +196,7 @@ func (r *SkillRepository) FindByID(ctx context.Context, id string) (domain.Skill
 func (r *SkillRepository) findModules(ctx context.Context, skillID string) ([]domain.Module, error) {
 	query := `
 		SELECT id, skill_id, slug, title, summary, content, position, status, created_at, updated_at
-		FROM skill_modules
+		FROM lavoval_skill_modules
 		WHERE skill_id = $1 AND deleted_at IS NULL
 		ORDER BY position ASC`
 
@@ -219,7 +219,7 @@ func (r *SkillRepository) findModules(ctx context.Context, skillID string) ([]do
 
 func (r *SkillRepository) Create(ctx context.Context, skill domain.Skill) (domain.Skill, error) {
 	query := `
-		INSERT INTO skills (
+		INSERT INTO lavoval_skills (
 			id, slug, title, summary, description, provider, entrypoint, config_json,
 			status, visibility, created_by, price_cents, currency, access_type,
 			category_id, subcategory_id, skill_type, difficulty, cover_url, icon_url,
@@ -245,7 +245,7 @@ func (r *SkillRepository) Create(ctx context.Context, skill domain.Skill) (domai
 
 func (r *SkillRepository) Update(ctx context.Context, skill domain.Skill) (domain.Skill, error) {
 	query := `
-		UPDATE skills
+		UPDATE lavoval_skills
 		SET slug = $2, title = $3, summary = $4, description = $5, provider = $6,
 		    entrypoint = $7, config_json = $8, status = $9, visibility = $10,
 		    price_cents = $11, currency = $12, access_type = $13,
@@ -271,7 +271,7 @@ func (r *SkillRepository) Update(ctx context.Context, skill domain.Skill) (domai
 // UpdateGovernance sets the moderation status, reason, and featured/verified flags.
 func (r *SkillRepository) UpdateGovernance(ctx context.Context, id, actorID string, status domain.SkillStatus, reason *string, featured, verified bool) (domain.Skill, error) {
 	query := `
-		UPDATE skills
+		UPDATE lavoval_skills
 		SET status            = $2,
 		    moderation_reason = $3,
 		    moderated_by      = $4::uuid,
@@ -312,7 +312,7 @@ func (r *SkillRepository) UpdateGovernance(ctx context.Context, id, actorID stri
 // UpdatePricing updates price_cents, currency, and access_type for a skill.
 func (r *SkillRepository) UpdatePricing(ctx context.Context, id string, priceCents int, currency string, accessType domain.SkillAccessType) (domain.Skill, error) {
 	query := `
-		UPDATE skills
+		UPDATE lavoval_skills
 		SET price_cents = $2, currency = $3, access_type = $4, updated_at = NOW()
 		WHERE id = $1 AND deleted_at IS NULL
 		RETURNING created_at, updated_at, created_by`
@@ -345,7 +345,7 @@ func (r *SkillRepository) GetStats(ctx context.Context) (domain.AdminSkillStats,
 			COUNT(*) FILTER (WHERE access_type = 'free')                     AS free,
 			COUNT(*) FILTER (WHERE access_type = 'paid')                     AS paid,
 			COUNT(*) FILTER (WHERE created_at >= NOW() - INTERVAL '7 days')  AS new_last_7d
-		FROM skills
+		FROM lavoval_skills
 		WHERE deleted_at IS NULL`
 
 	var s domain.AdminSkillStats
@@ -358,11 +358,11 @@ func (r *SkillRepository) GetStats(ctx context.Context) (domain.AdminSkillStats,
 }
 
 func (r *SkillRepository) SoftDelete(ctx context.Context, id string) error {
-	_, err := r.pool.Exec(ctx, `UPDATE skills SET deleted_at = NOW(), status = 'archived', updated_at = NOW() WHERE id = $1`, id)
+	_, err := r.pool.Exec(ctx, `UPDATE lavoval_skills SET deleted_at = NOW(), status = 'archived', updated_at = NOW() WHERE id = $1`, id)
 	if err != nil {
 		return fmt.Errorf("soft delete skill: %w", err)
 	}
-	_, err = r.pool.Exec(ctx, `UPDATE skill_modules SET deleted_at = NOW(), updated_at = NOW(), status = 'archived' WHERE skill_id = $1`, id)
+	_, err = r.pool.Exec(ctx, `UPDATE lavoval_skill_modules SET deleted_at = NOW(), updated_at = NOW(), status = 'archived' WHERE skill_id = $1`, id)
 	if err != nil {
 		return fmt.Errorf("soft delete modules: %w", err)
 	}

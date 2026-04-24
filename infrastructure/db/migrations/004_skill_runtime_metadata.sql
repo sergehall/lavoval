@@ -1,4 +1,4 @@
-ALTER TABLE skills
+ALTER TABLE lavoval_skills
   ADD COLUMN IF NOT EXISTS provider TEXT NOT NULL DEFAULT 'internal',
   ADD COLUMN IF NOT EXISTS entrypoint TEXT NOT NULL DEFAULT 'echo',
   ADD COLUMN IF NOT EXISTS config_json JSONB NOT NULL DEFAULT '{}'::jsonb;
