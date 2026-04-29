@@ -10,6 +10,26 @@ import {
 import { signInHref } from '@/shared/lib/auth-navigation';
 import { canAccessAdmin } from '@/shared/lib/rbac';
 
+const contentSecurityPolicy = [
+  "default-src 'self'",
+  "base-uri 'self'",
+  "connect-src 'self' http://localhost:* http://127.0.0.1:* https://api.lavoval.com ws://localhost:* ws://127.0.0.1:*",
+  "font-src 'self' data:",
+  "form-action 'self'",
+  "frame-ancestors 'none'",
+  "img-src 'self' data: blob: https://avatars.githubusercontent.com",
+  "object-src 'none'",
+  "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+  "style-src 'self' 'unsafe-inline'",
+].join('; ');
+
+function applySecurityHeaders(response: NextResponse) {
+  response.headers.set('Content-Security-Policy', contentSecurityPolicy);
+  response.headers.set('X-Content-Type-Options', 'nosniff');
+  response.headers.set('X-Frame-Options', 'DENY');
+  return response;
+}
+
 function clearAuthCookies(response: NextResponse) {
   for (const name of [ACCESS_COOKIE, REFRESH_COOKIE, SESSION_COOKIE]) {
     response.cookies.delete(name);
@@ -23,7 +43,7 @@ export function proxy(request: NextRequest) {
   if (pathname.startsWith('/account') && !role) {
     const response = NextResponse.redirect(new URL(signInHref, request.url));
     clearAuthCookies(response);
-    return response;
+    return applySecurityHeaders(response);
   }
 
   if (pathname.startsWith('/admin') && !canAccessAdmin(role)) {
@@ -31,12 +51,12 @@ export function proxy(request: NextRequest) {
     if (!role) {
       clearAuthCookies(response);
     }
-    return response;
+    return applySecurityHeaders(response);
   }
 
-  return NextResponse.next();
+  return applySecurityHeaders(NextResponse.next());
 }
 
 export const config = {
-  matcher: ['/account/:path*', '/admin/:path*'],
+  matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],
 };

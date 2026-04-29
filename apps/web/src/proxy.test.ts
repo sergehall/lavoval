@@ -14,13 +14,14 @@ function createAccessToken(overrides: Partial<{ role: string; exp: number }> = {
 }
 
 const { nextMock, redirectMock } = vi.hoisted(() => ({
-  nextMock: vi.fn(() => ({ type: 'next' })),
+  nextMock: vi.fn(() => ({ type: 'next', headers: new Headers() })),
   redirectMock: vi.fn((url: URL) => {
     const deleted: string[] = [];
 
     return {
       type: 'redirect',
       url: url.toString(),
+      headers: new Headers(),
       cookies: {
         delete: vi.fn((name: string) => {
           deleted.push(name);
@@ -38,7 +39,7 @@ vi.mock('next/server', () => ({
   },
 }));
 
-import { proxy } from './proxy';
+import { config, proxy } from './proxy';
 
 function createRequest(pathname: string, accessToken?: string) {
   return {
@@ -61,11 +62,15 @@ describe('proxy auth gating', () => {
     const expiredToken = createAccessToken({ exp: Math.floor(Date.now() / 1000) - 60 });
 
     const response = proxy(createRequest('/account', expiredToken) as never) as unknown as {
+      headers: Headers;
       url: string;
       deleted: string[];
     };
 
     expect(response.url).toBe('https://lavoval.com/?auth=sign-in');
+    expect(response.headers.get('X-Content-Type-Options')).toBe('nosniff');
+    expect(response.headers.get('X-Frame-Options')).toBe('DENY');
+    expect(response.headers.get('Content-Security-Policy')).toContain("frame-ancestors 'none'");
     expect(response.deleted).toEqual(
       expect.arrayContaining(['csl_access_token', 'csl_refresh_token', 'csl_session']),
     );
@@ -75,20 +80,32 @@ describe('proxy auth gating', () => {
     const userToken = createAccessToken({ role: 'user' });
 
     const response = proxy(createRequest('/admin', userToken) as never) as unknown as {
+      headers: Headers;
       url: string;
       deleted: string[];
     };
 
     expect(response.url).toBe('https://lavoval.com/account');
+    expect(response.headers.get('Content-Security-Policy')).toContain("default-src 'self'");
     expect(response.deleted).toEqual([]);
   });
 
   it('allows valid admin access through', () => {
     const adminToken = createAccessToken();
 
-    const response = proxy(createRequest('/admin', adminToken) as never);
+    const response = proxy(createRequest('/admin', adminToken) as never) as unknown as {
+      headers: Headers;
+      type: string;
+    };
 
-    expect(response).toEqual({ type: 'next' });
+    expect(response.type).toBe('next');
+    expect(response.headers.get('X-Content-Type-Options')).toBe('nosniff');
+    expect(response.headers.get('X-Frame-Options')).toBe('DENY');
+    expect(response.headers.get('Content-Security-Policy')).toContain("frame-ancestors 'none'");
     expect(nextMock).toHaveBeenCalled();
+  });
+
+  it('matches public routes so security headers are present outside gated areas', () => {
+    expect(config.matcher).toEqual(['/((?!_next/static|_next/image|favicon.ico).*)']);
   });
 });
