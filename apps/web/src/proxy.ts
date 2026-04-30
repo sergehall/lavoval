@@ -10,20 +10,28 @@ import {
 import { signInHref } from '@/shared/lib/auth-navigation';
 import { canAccessAdmin } from '@/shared/lib/rbac';
 
-const contentSecurityPolicy = [
-  "default-src 'self'",
-  "base-uri 'self'",
-  "connect-src 'self' http://localhost:* http://127.0.0.1:* https://api.lavoval.com ws://localhost:* ws://127.0.0.1:*",
-  "font-src 'self' data:",
-  "form-action 'self'",
-  "frame-ancestors 'none'",
-  "img-src 'self' data: blob: https://avatars.githubusercontent.com",
-  "object-src 'none'",
-  "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
-  "style-src 'self' 'unsafe-inline'",
-].join('; ');
+function createNonce() {
+  return Buffer.from(crypto.randomUUID()).toString('base64');
+}
 
-function applySecurityHeaders(response: NextResponse) {
+function createContentSecurityPolicy(nonce: string) {
+  const devScriptSource = process.env.NODE_ENV === 'production' ? '' : " 'unsafe-eval'";
+
+  return [
+    "default-src 'self'",
+    "base-uri 'self'",
+    "connect-src 'self' http://localhost:* http://127.0.0.1:* https://api.lavoval.com ws://localhost:* ws://127.0.0.1:*",
+    "font-src 'self' data:",
+    "form-action 'self'",
+    "frame-ancestors 'none'",
+    "img-src 'self' data: blob: https://avatars.githubusercontent.com",
+    "object-src 'none'",
+    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'${devScriptSource}`,
+    `style-src 'self' 'nonce-${nonce}'`,
+  ].join('; ');
+}
+
+function applySecurityHeaders(response: NextResponse, contentSecurityPolicy: string) {
   response.headers.set('Content-Security-Policy', contentSecurityPolicy);
   response.headers.set('X-Content-Type-Options', 'nosniff');
   response.headers.set('X-Frame-Options', 'DENY');
@@ -39,11 +47,16 @@ function clearAuthCookies(response: NextResponse) {
 export function proxy(request: NextRequest) {
   const role = getRoleFromAccessToken(request.cookies.get(ACCESS_COOKIE)?.value) as Role | null;
   const { pathname } = request.nextUrl;
+  const nonce = createNonce();
+  const contentSecurityPolicy = createContentSecurityPolicy(nonce);
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set('x-nonce', nonce);
+  requestHeaders.set('Content-Security-Policy', contentSecurityPolicy);
 
   if (pathname.startsWith('/account') && !role) {
     const response = NextResponse.redirect(new URL(signInHref, request.url));
     clearAuthCookies(response);
-    return applySecurityHeaders(response);
+    return applySecurityHeaders(response, contentSecurityPolicy);
   }
 
   if (pathname.startsWith('/admin') && !canAccessAdmin(role)) {
@@ -51,10 +64,17 @@ export function proxy(request: NextRequest) {
     if (!role) {
       clearAuthCookies(response);
     }
-    return applySecurityHeaders(response);
+    return applySecurityHeaders(response, contentSecurityPolicy);
   }
 
-  return applySecurityHeaders(NextResponse.next());
+  return applySecurityHeaders(
+    NextResponse.next({
+      request: {
+        headers: requestHeaders,
+      },
+    }),
+    contentSecurityPolicy,
+  );
 }
 
 export const config = {
