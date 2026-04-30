@@ -66,6 +66,15 @@ function expectNonceBasedScriptPolicy(contentSecurityPolicy: string | null) {
   expect(contentSecurityPolicy?.match(/script-src[^;]*/)?.[0]).not.toContain('data:');
 }
 
+function expectProductionOnlySecureSources(contentSecurityPolicy: string | null) {
+  const connectSource = contentSecurityPolicy?.match(/connect-src[^;]*/)?.[0];
+
+  expect(connectSource).toBe("connect-src 'self' https://api.lavoval.com");
+  expect(contentSecurityPolicy).not.toContain('http://');
+  expect(contentSecurityPolicy).not.toContain('ws://');
+  expect(contentSecurityPolicy).not.toContain("'unsafe-eval'");
+}
+
 describe('proxy auth gating', () => {
   it('redirects expired account access to sign-in and clears auth cookies', () => {
     const expiredToken = createAccessToken({ exp: Math.floor(Date.now() / 1000) - 60 });
@@ -80,6 +89,7 @@ describe('proxy auth gating', () => {
     expect(response.headers.get('X-Content-Type-Options')).toBe('nosniff');
     expect(response.headers.get('X-Frame-Options')).toBe('DENY');
     expectNonceBasedScriptPolicy(response.headers.get('Content-Security-Policy'));
+    expectProductionOnlySecureSources(response.headers.get('Content-Security-Policy'));
     expect(response.deleted).toEqual(
       expect.arrayContaining(['csl_access_token', 'csl_refresh_token', 'csl_session']),
     );
@@ -111,6 +121,7 @@ describe('proxy auth gating', () => {
     expect(response.headers.get('X-Content-Type-Options')).toBe('nosniff');
     expect(response.headers.get('X-Frame-Options')).toBe('DENY');
     expectNonceBasedScriptPolicy(response.headers.get('Content-Security-Policy'));
+    expectProductionOnlySecureSources(response.headers.get('Content-Security-Policy'));
     expect(nextMock).toHaveBeenCalled();
   });
 
@@ -130,6 +141,7 @@ describe('proxy auth gating', () => {
     expect(nonce).toBeTruthy();
     expect(contentSecurityPolicy).toContain(`'nonce-${nonce}'`);
     expectNonceBasedScriptPolicy(contentSecurityPolicy);
+    expectProductionOnlySecureSources(contentSecurityPolicy);
   });
 
   it('matches public routes so security headers are present outside gated areas', () => {

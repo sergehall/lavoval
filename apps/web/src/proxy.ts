@@ -15,12 +15,20 @@ function createNonce() {
 }
 
 function createContentSecurityPolicy(nonce: string) {
-  const devScriptSource = process.env.NODE_ENV === 'production' ? '' : " 'unsafe-eval'";
+  const isDevelopment = process.env.NODE_ENV === 'development';
+  const connectSource = [
+    "'self'",
+    'https://api.lavoval.com',
+    ...(isDevelopment
+      ? ['http://localhost:*', 'http://127.0.0.1:*', 'ws://localhost:*', 'ws://127.0.0.1:*']
+      : []),
+  ].join(' ');
+  const devScriptSource = isDevelopment ? " 'unsafe-eval'" : '';
 
   return [
     "default-src 'self'",
     "base-uri 'self'",
-    "connect-src 'self' http://localhost:* http://127.0.0.1:* https://api.lavoval.com ws://localhost:* ws://127.0.0.1:*",
+    `connect-src ${connectSource}`,
     "font-src 'self' data:",
     "form-action 'self'",
     "frame-ancestors 'none'",
