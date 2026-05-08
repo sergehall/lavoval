@@ -29,6 +29,14 @@ type Config struct {
 	MFATOTPIssuer                   string
 	MFASecretKey                    string
 	MFASignInChallengeTTL           time.Duration
+	LoginIPRateLimitEnabled         bool
+	LoginIPRateLimitWindow          time.Duration
+	LoginIPRateLimitMaxAttempts     int
+	LoginIPRateLimitSlowAfter       int
+	LoginIPRateLimitBaseDelay       time.Duration
+	LoginIPRateLimitMaxDelay        time.Duration
+	LoginIPRateLimitBlockDuration   time.Duration
+	LoginIPRateLimitStateTTL        time.Duration
 	OAuthStateTTL                   time.Duration
 	GoogleOAuthClientID             string
 	GoogleOAuthSecret               string
@@ -133,6 +141,46 @@ func Load() (Config, error) {
 	mfaSignInChallengeTTL, err := time.ParseDuration(getEnv("MFA_SIGN_IN_CHALLENGE_TTL", "10m"))
 	if err != nil {
 		return Config{}, fmt.Errorf("parse MFA_SIGN_IN_CHALLENGE_TTL: %w", err)
+	}
+
+	authLoginIPRateLimitEnabled, err := strconv.ParseBool(getEnv("AUTH_LOGIN_IP_RATE_LIMIT_ENABLED", "true"))
+	if err != nil {
+		return Config{}, fmt.Errorf("parse AUTH_LOGIN_IP_RATE_LIMIT_ENABLED: %w", err)
+	}
+
+	authLoginIPRateLimitWindow, err := time.ParseDuration(getEnv("AUTH_LOGIN_IP_RATE_LIMIT_WINDOW", "10m"))
+	if err != nil {
+		return Config{}, fmt.Errorf("parse AUTH_LOGIN_IP_RATE_LIMIT_WINDOW: %w", err)
+	}
+
+	authLoginIPRateLimitMaxAttempts, err := strconv.Atoi(getEnv("AUTH_LOGIN_IP_RATE_LIMIT_MAX_ATTEMPTS", "8"))
+	if err != nil {
+		return Config{}, fmt.Errorf("parse AUTH_LOGIN_IP_RATE_LIMIT_MAX_ATTEMPTS: %w", err)
+	}
+
+	authLoginIPRateLimitSlowAfter, err := strconv.Atoi(getEnv("AUTH_LOGIN_IP_RATE_LIMIT_SLOW_AFTER", "3"))
+	if err != nil {
+		return Config{}, fmt.Errorf("parse AUTH_LOGIN_IP_RATE_LIMIT_SLOW_AFTER: %w", err)
+	}
+
+	authLoginIPRateLimitBaseDelay, err := time.ParseDuration(getEnv("AUTH_LOGIN_IP_RATE_LIMIT_BASE_DELAY", "500ms"))
+	if err != nil {
+		return Config{}, fmt.Errorf("parse AUTH_LOGIN_IP_RATE_LIMIT_BASE_DELAY: %w", err)
+	}
+
+	authLoginIPRateLimitMaxDelay, err := time.ParseDuration(getEnv("AUTH_LOGIN_IP_RATE_LIMIT_MAX_DELAY", "4s"))
+	if err != nil {
+		return Config{}, fmt.Errorf("parse AUTH_LOGIN_IP_RATE_LIMIT_MAX_DELAY: %w", err)
+	}
+
+	authLoginIPRateLimitBlockDuration, err := time.ParseDuration(getEnv("AUTH_LOGIN_IP_RATE_LIMIT_BLOCK_DURATION", "15m"))
+	if err != nil {
+		return Config{}, fmt.Errorf("parse AUTH_LOGIN_IP_RATE_LIMIT_BLOCK_DURATION: %w", err)
+	}
+
+	authLoginIPRateLimitStateTTL, err := time.ParseDuration(getEnv("AUTH_LOGIN_IP_RATE_LIMIT_STATE_TTL", "30m"))
+	if err != nil {
+		return Config{}, fmt.Errorf("parse AUTH_LOGIN_IP_RATE_LIMIT_STATE_TTL: %w", err)
 	}
 
 	oauthStateTTL, err := time.ParseDuration(getEnv("OAUTH_STATE_TTL", "10m"))
@@ -280,6 +328,14 @@ func Load() (Config, error) {
 		MFATOTPIssuer:                   getEnv("MFA_TOTP_ISSUER", getEnv("APP_NAME", "Lavoval")),
 		MFASecretKey:                    getEnv("MFA_SECRET_KEY", ""),
 		MFASignInChallengeTTL:           mfaSignInChallengeTTL,
+		LoginIPRateLimitEnabled:         authLoginIPRateLimitEnabled,
+		LoginIPRateLimitWindow:          authLoginIPRateLimitWindow,
+		LoginIPRateLimitMaxAttempts:     authLoginIPRateLimitMaxAttempts,
+		LoginIPRateLimitSlowAfter:       authLoginIPRateLimitSlowAfter,
+		LoginIPRateLimitBaseDelay:       authLoginIPRateLimitBaseDelay,
+		LoginIPRateLimitMaxDelay:        authLoginIPRateLimitMaxDelay,
+		LoginIPRateLimitBlockDuration:   authLoginIPRateLimitBlockDuration,
+		LoginIPRateLimitStateTTL:        authLoginIPRateLimitStateTTL,
 		OAuthStateTTL:                   oauthStateTTL,
 		GoogleOAuthClientID:             getEnv("GOOGLE_OAUTH_CLIENT_ID", ""),
 		GoogleOAuthSecret:               getEnv("GOOGLE_OAUTH_CLIENT_SECRET", ""),
@@ -375,6 +431,20 @@ func (c Config) Validate() error {
 	}
 	if c.EmailVerificationTTL <= 0 || c.PasswordResetTTL <= 0 {
 		problems = append(problems, "EMAIL_VERIFICATION_TTL and PASSWORD_RESET_TTL must be greater than zero")
+	}
+	if c.LoginIPRateLimitEnabled {
+		if c.LoginIPRateLimitWindow <= 0 || c.LoginIPRateLimitBaseDelay <= 0 || c.LoginIPRateLimitMaxDelay <= 0 || c.LoginIPRateLimitBlockDuration <= 0 || c.LoginIPRateLimitStateTTL <= 0 {
+			problems = append(problems, "AUTH_LOGIN_IP_RATE_LIMIT_WINDOW, AUTH_LOGIN_IP_RATE_LIMIT_BASE_DELAY, AUTH_LOGIN_IP_RATE_LIMIT_MAX_DELAY, AUTH_LOGIN_IP_RATE_LIMIT_BLOCK_DURATION, and AUTH_LOGIN_IP_RATE_LIMIT_STATE_TTL must be greater than zero")
+		}
+		if c.LoginIPRateLimitMaxAttempts <= 0 {
+			problems = append(problems, "AUTH_LOGIN_IP_RATE_LIMIT_MAX_ATTEMPTS must be greater than zero")
+		}
+		if c.LoginIPRateLimitSlowAfter < 0 {
+			problems = append(problems, "AUTH_LOGIN_IP_RATE_LIMIT_SLOW_AFTER must not be negative")
+		}
+		if c.LoginIPRateLimitSlowAfter > c.LoginIPRateLimitMaxAttempts {
+			problems = append(problems, "AUTH_LOGIN_IP_RATE_LIMIT_SLOW_AFTER must be less than or equal to AUTH_LOGIN_IP_RATE_LIMIT_MAX_ATTEMPTS")
+		}
 	}
 	if c.MailSendTimeout <= 0 || c.MailLeaseTTL <= 0 || c.MailPollInterval <= 0 {
 		problems = append(problems, "MAIL_SEND_TIMEOUT, MAIL_LEASE_TTL, and MAIL_POLL_INTERVAL must be greater than zero")

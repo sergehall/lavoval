@@ -103,9 +103,7 @@ export default function ContactPage() {
                     <strong>{channel.title}</strong>
                     <p className="muted">{channel.note}</p>
                     <div className="toolbar">
-                      <ContactEmailAction variant="secondary">
-                        {channel.actionLabel}
-                      </ContactEmailAction>
+                      <ContactEmailAction>{channel.actionLabel}</ContactEmailAction>
                     </div>
                   </div>
                 </div>

@@ -56,6 +56,30 @@ func TestHealthFlagsReflectSelectedMailProvider(t *testing.T) {
 	}
 }
 
+func TestLoadEnablesLoginIPRateLimitByDefault(t *testing.T) {
+	t.Setenv("APP_ENV", "development")
+	t.Setenv("JWT_SECRET", "0123456789abcdef0123456789abcdef")
+	t.Setenv("MAIL_PROVIDER", "noop")
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("load config: %v", err)
+	}
+
+	if !cfg.LoginIPRateLimitEnabled {
+		t.Fatal("expected login IP rate limiting to be enabled by default")
+	}
+	if cfg.LoginIPRateLimitWindow != 10*time.Minute {
+		t.Fatalf("expected 10m login IP window, got %s", cfg.LoginIPRateLimitWindow)
+	}
+	if cfg.LoginIPRateLimitMaxAttempts != 8 {
+		t.Fatalf("expected 8 login attempts, got %d", cfg.LoginIPRateLimitMaxAttempts)
+	}
+	if cfg.LoginIPRateLimitSlowAfter != 3 {
+		t.Fatalf("expected slowdown after 3 attempts, got %d", cfg.LoginIPRateLimitSlowAfter)
+	}
+}
+
 func validProductionConfig() Config {
 	return Config{
 		AppEnv:               "production",

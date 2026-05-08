@@ -78,7 +78,16 @@ func NewRouter(cfg config.Config, tokens auth.TokenManager, users repository.Use
 	r.Route("/api/v1", func(api chi.Router) {
 		api.Route("/auth", func(authRouter chi.Router) {
 			authRouter.Post("/register", authHandler.Register)
-			authRouter.Post("/login", authHandler.Login)
+			authRouter.With(appmiddleware.LoginIPThrottle(appmiddleware.LoginIPThrottleConfig{
+				Enabled:       cfg.LoginIPRateLimitEnabled,
+				Window:        cfg.LoginIPRateLimitWindow,
+				MaxAttempts:   cfg.LoginIPRateLimitMaxAttempts,
+				SlowAfter:     cfg.LoginIPRateLimitSlowAfter,
+				BaseDelay:     cfg.LoginIPRateLimitBaseDelay,
+				MaxDelay:      cfg.LoginIPRateLimitMaxDelay,
+				BlockDuration: cfg.LoginIPRateLimitBlockDuration,
+				StateTTL:      cfg.LoginIPRateLimitStateTTL,
+			})).Post("/login", authHandler.Login)
 			authRouter.Get("/oauth/google/start", authHandler.GoogleOAuthStart)
 			authRouter.Get("/oauth/github/start", authHandler.GitHubOAuthStart)
 			authRouter.Post("/oauth/google/complete", authHandler.CompleteGoogleOAuth)
