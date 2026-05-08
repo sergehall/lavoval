@@ -64,9 +64,6 @@ export default function ContactPage() {
             If you want to collaborate on the platform, discuss product direction, or move through
             backend and frontend improvements together, this is the fastest path to reach me.
           </p>
-          <div className="toolbar">
-            <ContactEmailAction>Email now</ContactEmailAction>
-          </div>
         </div>
 
         <div className="hero__panel stack stack--md">
@@ -98,7 +95,10 @@ export default function ContactPage() {
             <div className="card__title">Email and profiles</div>
             <div className="data-list contact-page__list">
               {directChannels.map((channel) => (
-                <div key={channel.title} className="data-list__item contact-page__item">
+                <div
+                  key={channel.title}
+                  className="data-list__item contact-page__item contact-page__item--interactive"
+                >
                   <div className="stack stack--sm contact-page__item-stack">
                     <strong>{channel.title}</strong>
                     <p className="muted">{channel.note}</p>
