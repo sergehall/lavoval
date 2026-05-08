@@ -1,12 +1,11 @@
 import type { Metadata } from 'next';
 import { Card } from '@/shared/ui/card';
-import { Button } from '@/shared/ui/button';
+import { ContactEmailAction } from './contact-email-action';
 
 const directChannels = [
   {
     title: 'Email',
-    value: 'serge.hall.dev@gmail.com',
-    href: 'mailto:serge.hall.dev@gmail.com',
+    actionLabel: 'Send email',
     note: 'Best for product, partnership, architecture, and delivery conversations.',
   },
 ] as const;
@@ -66,9 +65,7 @@ export default function ContactPage() {
             backend and frontend improvements together, this is the fastest path to reach me.
           </p>
           <div className="toolbar">
-            <a href="mailto:serge.hall.dev@gmail.com">
-              <Button>Email now</Button>
-            </a>
+            <ContactEmailAction>Email now</ContactEmailAction>
           </div>
         </div>
 
@@ -101,15 +98,17 @@ export default function ContactPage() {
             <div className="card__title">Email and profiles</div>
             <div className="data-list contact-page__list">
               {directChannels.map((channel) => (
-                <a
-                  key={channel.title}
-                  href={channel.href}
-                  className="data-list__item contact-page__item contact-page__item--interactive"
-                >
-                  <strong>{channel.title}</strong>
-                  <span className="muted">{channel.value}</span>
-                  <p className="muted">{channel.note}</p>
-                </a>
+                <div key={channel.title} className="data-list__item contact-page__item">
+                  <div className="stack stack--sm contact-page__item-stack">
+                    <strong>{channel.title}</strong>
+                    <p className="muted">{channel.note}</p>
+                    <div className="toolbar">
+                      <ContactEmailAction variant="secondary">
+                        {channel.actionLabel}
+                      </ContactEmailAction>
+                    </div>
+                  </div>
+                </div>
               ))}
               {socialProfiles.map((profile) => (
                 <a
