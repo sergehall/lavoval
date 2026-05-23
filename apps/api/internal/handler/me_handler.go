@@ -45,6 +45,10 @@ func (h *MeHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 		httpx.Error(w, http.StatusBadRequest, "validation_error", err.Error())
 		return
 	}
+	if input.AvatarURL != nil && !service.IsSafeAvatarURL(*input.AvatarURL) {
+		httpx.Error(w, http.StatusBadRequest, "validation_error", "avatarUrl must be an allowed https avatar URL")
+		return
+	}
 
 	profile, err := h.service.Update(r.Context(), claims.UserID, input)
 	if err != nil {

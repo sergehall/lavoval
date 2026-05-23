@@ -131,6 +131,35 @@ func TestMeHandlerUpdateProfileReturnsUpdatedProfile(t *testing.T) {
 	}
 }
 
+func TestMeHandlerUpdateProfileRejectsUnsafeAvatarURL(t *testing.T) {
+	repo := &meHandlerProfileRepoStub{}
+	h := NewMeHandler(
+		validator.New(validator.WithRequiredStructEnabled()),
+		service.NewProfileService(repo),
+		nil,
+	)
+
+	body := `{
+		"firstName":"Serge",
+		"lastName":"Hall",
+		"timezone":"America/Los_Angeles",
+		"avatarUrl":"https://user:pass@avatars.githubusercontent.com/u/60080971"
+	}`
+
+	r := httptest.NewRequest(http.MethodPut, "/api/v1/me/profile", bytes.NewBufferString(body))
+	r = r.WithContext(appmiddleware.WithClaims(r.Context(), &auth.Claims{UserID: "user-123"}))
+	w := httptest.NewRecorder()
+
+	h.UpdateProfile(w, r)
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400 for unsafe avatar URL, got %d", w.Code)
+	}
+	if repo.updatedInput.UserID != "" {
+		t.Fatalf("expected repository not to be called, got %+v", repo.updatedInput)
+	}
+}
+
 func TestMeHandlerUpdateProfileReturnsInternalErrorWhenServiceFails(t *testing.T) {
 	repo := &meHandlerProfileRepoStub{updateErr: errors.New("db unavailable")}
 	h := NewMeHandler(

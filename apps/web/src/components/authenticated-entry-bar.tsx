@@ -1,9 +1,10 @@
 'use client';
 
+/* eslint-disable @next/next/no-img-element -- User avatar URLs must be fetched by the browser, not proxied by next/image. */
+
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
-import type { SessionUser } from '@lavoval/contracts';
+import { isSafeAvatarUrl, type SessionUser } from '@lavoval/contracts';
 import { logoutAction } from '@/features/auth/actions';
 import { canAccessAdmin, roleBadgeLabel } from '@/shared/lib/rbac';
 
@@ -26,6 +27,7 @@ export function AuthenticatedEntryBar({ user }: { user: SessionUser }) {
 
   const displayName = useMemo(() => getDisplayName(user), [user]);
   const initial = useMemo(() => getInitial(user), [user]);
+  const safeAvatarUrl = user.avatarUrl && isSafeAvatarUrl(user.avatarUrl) ? user.avatarUrl : null;
   const roleLabel = roleBadgeLabel(user.role);
 
   useEffect(() => {
@@ -64,12 +66,11 @@ export function AuthenticatedEntryBar({ user }: { user: SessionUser }) {
         aria-expanded={isOpen}
       >
         <span className="account-trigger__avatar">
-          {user.avatarUrl ? (
-            <Image
-              src={user.avatarUrl}
-              alt={displayName}
-              width={40}
-              height={40}
+          {safeAvatarUrl ? (
+            <img
+              src={safeAvatarUrl}
+              referrerPolicy="no-referrer"
+              alt=""
               className="account-trigger__avatar-image"
             />
           ) : (

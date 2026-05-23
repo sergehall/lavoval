@@ -1,6 +1,8 @@
+/* eslint-disable @next/next/no-img-element -- User avatar URLs must be fetched by the browser, not proxied by next/image. */
+
 import type { Metadata } from 'next';
-import Image from 'next/image';
 import Link from 'next/link';
+import { isSafeAvatarUrl } from '@lavoval/contracts';
 import { Badge } from '@/shared/ui/badge';
 import { Card } from '@/shared/ui/card';
 import { ApiError, fetchPublicCreatorProfile } from '@/shared/api/server-client';
@@ -66,6 +68,9 @@ export default async function PublicAuthorPage({ params }: { params: Promise<{ i
     );
   }
 
+  const safeAvatarUrl =
+    profile.avatarUrl && isSafeAvatarUrl(profile.avatarUrl) ? profile.avatarUrl : null;
+
   const linkItems = [
     profile.websiteUrl ? { href: profile.websiteUrl, label: 'Website' } : null,
     profile.linkedinUrl ? { href: profile.linkedinUrl, label: 'LinkedIn' } : null,
@@ -82,13 +87,11 @@ export default async function PublicAuthorPage({ params }: { params: Promise<{ i
             style={{ justifyContent: 'space-between', alignItems: 'flex-start', gap: '20px' }}
           >
             <div className="inline-actions" style={{ alignItems: 'center', gap: '16px' }}>
-              {profile.avatarUrl ? (
-                <Image
-                  src={profile.avatarUrl}
-                  alt={profile.fullName}
-                  width={96}
-                  height={96}
-                  unoptimized
+              {safeAvatarUrl ? (
+                <img
+                  src={safeAvatarUrl}
+                  referrerPolicy="no-referrer"
+                  alt=""
                   style={{
                     width: '96px',
                     height: '96px',

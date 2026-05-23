@@ -206,7 +206,7 @@ export function ProfileForm({ profile }: { profile: Profile }) {
           type="url"
           defaultValue={profile.avatarUrl ?? ''}
           maxLength={2048}
-          placeholder="https://example.com/avatar.png"
+          placeholder="https://avatars.githubusercontent.com/u/123456"
         />
       </label>
 

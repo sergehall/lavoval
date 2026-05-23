@@ -37,6 +37,7 @@ func (s profileRepoStub) SoftDeleteByUserID(_ context.Context, _ string) error {
 
 func TestProfileServiceFindByUserIDReturnsProfile(t *testing.T) {
 	bio := "Go developer"
+	avatarURL := "https://user:pass@avatars.githubusercontent.com/u/60080971"
 	svc := NewProfileService(profileRepoStub{
 		profile: domain.Profile{
 			UserID:    "user-1",
@@ -44,6 +45,7 @@ func TestProfileServiceFindByUserIDReturnsProfile(t *testing.T) {
 			LastName:  "Lovelace",
 			Bio:       &bio,
 			Timezone:  "UTC",
+			AvatarURL: &avatarURL,
 		},
 	})
 
@@ -56,6 +58,9 @@ func TestProfileServiceFindByUserIDReturnsProfile(t *testing.T) {
 	}
 	if profile.Bio == nil || *profile.Bio != "Go developer" {
 		t.Fatalf("expected bio to be preserved, got %v", profile.Bio)
+	}
+	if profile.AvatarURL != nil {
+		t.Fatalf("expected unsafe stored avatar URL to be cleared, got %v", profile.AvatarURL)
 	}
 }
 
@@ -193,6 +198,85 @@ func TestProfileServiceUpdatePersistsMarketplaceFields(t *testing.T) {
 	}
 	if repo.updatedInput.ShowLinkedInURL {
 		t.Fatalf("expected showLinkedInUrl to remain false")
+	}
+}
+
+func TestProfileServiceUpdateClearsUnsafeAvatarURL(t *testing.T) {
+	unsafeAvatarURL := "https://user:pass@avatars.githubusercontent.com/u/60080971"
+	repo := &profileRepoCaptureStub{}
+	svc := NewProfileService(repo)
+
+	updated, err := svc.Update(context.Background(), "user-4", UpdateProfileInput{
+		FirstName: "Serge",
+		LastName:  "Hall",
+		Timezone:  "UTC",
+		AvatarURL: &unsafeAvatarURL,
+	})
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if updated.AvatarURL != nil {
+		t.Fatalf("expected unsafe avatar URL to be cleared, got %v", updated.AvatarURL)
+	}
+	if repo.updatedInput.AvatarURL != nil {
+		t.Fatalf("expected repository input avatar URL to be cleared, got %v", repo.updatedInput.AvatarURL)
+	}
+}
+
+func TestIsSafeAvatarURL(t *testing.T) {
+	tests := []struct {
+		name  string
+		value string
+		want  bool
+	}{
+		{
+			name:  "github avatar",
+			value: "https://avatars.githubusercontent.com/u/60080971?v=4",
+			want:  true,
+		},
+		{
+			name:  "gravatar",
+			value: "https://secure.gravatar.com/avatar/hash?s=96",
+			want:  true,
+		},
+		{
+			name:  "http rejected",
+			value: "http://avatars.githubusercontent.com/u/60080971",
+			want:  false,
+		},
+		{
+			name:  "credentials rejected",
+			value: "https://user:pass@avatars.githubusercontent.com/u/60080971",
+			want:  false,
+		},
+		{
+			name:  "custom port rejected",
+			value: "https://avatars.githubusercontent.com:8443/u/60080971",
+			want:  false,
+		},
+		{
+			name:  "unlisted host rejected",
+			value: "https://example.com/avatar.png",
+			want:  false,
+		},
+		{
+			name:  "host suffix rejected",
+			value: "https://avatars.githubusercontent.com.evil.test/avatar.png",
+			want:  false,
+		},
+		{
+			name:  "data URL rejected",
+			value: "data:image/png;base64,abcd",
+			want:  false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := IsSafeAvatarURL(tt.value); got != tt.want {
+				t.Fatalf("IsSafeAvatarURL(%q) = %v, want %v", tt.value, got, tt.want)
+			}
+		})
 	}
 }
 

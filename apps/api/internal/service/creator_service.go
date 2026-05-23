@@ -59,7 +59,7 @@ func (s *CreatorService) FindPublicByUserID(ctx context.Context, userID string) 
 		LastName:           profile.LastName,
 		FullName:           profile.FirstName + " " + profile.LastName,
 		Username:           profile.Username,
-		AvatarURL:          visibleString(profile.AvatarURL, profile.ShowAvatar),
+		AvatarURL:          visibleString(safeAvatarURL(profile.AvatarURL), profile.ShowAvatar),
 		Bio:                visibleString(profile.Bio, profile.ShowBio),
 		Location:           visibleString(profile.Location, profile.ShowLocation),
 		Skills:             visibleStrings(profile.Skills, profile.ShowSkills),

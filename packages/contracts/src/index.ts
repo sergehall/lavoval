@@ -89,10 +89,56 @@ export type VerificationResponse = z.infer<typeof verificationResponseSchema>;
 export const availabilityStatusSchema = z.enum(['open', 'limited', 'closed']);
 export type AvailabilityStatus = z.infer<typeof availabilityStatusSchema>;
 
+export const avatarUrlAllowedHosts = [
+  'avatars.githubusercontent.com',
+  'secure.gravatar.com',
+  'www.gravatar.com',
+  'lh3.googleusercontent.com',
+] as const;
+
+export const avatarFallbackColorSchema = z.enum([
+  'matrix',
+  'cyan',
+  'violet',
+  'amber',
+  'rose',
+  'slate',
+  'blue',
+  'coral',
+]);
+export type AvatarFallbackColor = z.infer<typeof avatarFallbackColorSchema>;
+
+export function isSafeAvatarUrl(value: string): boolean {
+  if (value.length > 2048) {
+    return false;
+  }
+
+  try {
+    const url = new URL(value);
+    return (
+      url.protocol === 'https:' &&
+      url.hostname.length > 0 &&
+      url.port === '' &&
+      url.username === '' &&
+      url.password === '' &&
+      avatarUrlAllowedHosts.includes(
+        url.hostname.toLowerCase() as (typeof avatarUrlAllowedHosts)[number],
+      )
+    );
+  } catch {
+    return false;
+  }
+}
+
 const httpUrl = z.string().url().max(2048).refine(
   (v) => /^https?:\/\//i.test(v),
   { message: 'URL must start with http:// or https://' }
 );
+
+const avatarUrl = z.string().max(2048).refine(isSafeAvatarUrl, {
+  message:
+    'Avatar URL must use https:// and one of: avatars.githubusercontent.com, secure.gravatar.com, www.gravatar.com, lh3.googleusercontent.com',
+});
 
 export const profileSchema = z.object({
   userId: z.string().uuid(),
@@ -102,7 +148,7 @@ export const profileSchema = z.object({
   bio: z.string().max(500).nullable(),
   timezone: z.string().default('UTC'),
   username: z.string().nullable(),
-  avatarUrl: z.string().nullable(),
+  avatarUrl: avatarUrl.nullable(),
   location: z.string().nullable(),
   skills: z.array(z.string()).nullable(),
   languages: z.array(z.string()).nullable(),
@@ -144,7 +190,7 @@ export const publicProfileSchema = z.object({
   lastName: z.string().min(1),
   fullName: z.string().min(1),
   username: z.string().nullable(),
-  avatarUrl: z.string().nullable(),
+  avatarUrl: avatarUrl.nullable(),
   bio: z.string().nullable(),
   location: z.string().nullable(),
   skills: z.array(z.string()).nullable(),
@@ -436,7 +482,7 @@ export const profileUpdateSchema = z.object({
     .regex(/^[a-zA-Z0-9_-]+$/, 'Only letters, digits, - and _ are allowed')
     .nullable()
     .optional(),
-  avatarUrl: httpUrl.nullable().optional(),
+  avatarUrl: avatarUrl.nullable().optional(),
   websiteUrl: httpUrl.nullable().optional(),
   linkedinUrl: httpUrl
     .refine((v) => /linkedin\.com\//i.test(v), { message: 'Must be a LinkedIn URL' })

@@ -84,7 +84,7 @@ func (s creatorSkillRepoStub) SoftDelete(context.Context, string) error {
 func TestCreatorServiceFindPublicByUserIDReturnsVisibleFieldsAndPublicSkills(t *testing.T) {
 	now := time.Now().UTC()
 	username := "sergehall"
-	avatarURL := "https://example.com/avatar.png"
+	avatarURL := "https://avatars.githubusercontent.com/u/60080971?v=4"
 	bio := "Builds systems."
 	location := "Los Angeles"
 	websiteURL := "https://sergioartg.com"
@@ -162,11 +162,40 @@ func TestCreatorServiceFindPublicByUserIDReturnsVisibleFieldsAndPublicSkills(t *
 	if profile.AvailabilityStatus == nil || *profile.AvailabilityStatus != domain.AvailabilityOpen {
 		t.Fatalf("expected visible availability status, got %v", profile.AvailabilityStatus)
 	}
+	if profile.AvatarURL == nil || *profile.AvatarURL != avatarURL {
+		t.Fatalf("expected safe avatar URL to be visible, got %v", profile.AvatarURL)
+	}
 	if len(profile.PublicSkills) != 1 {
 		t.Fatalf("expected exactly one public skill, got %d", len(profile.PublicSkills))
 	}
 	if profile.PublicSkills[0].Slug != "typescript-contracts" {
 		t.Fatalf("expected public skill slug typescript-contracts, got %s", profile.PublicSkills[0].Slug)
+	}
+}
+
+func TestCreatorServiceFindPublicByUserIDClearsUnsafeAvatarURL(t *testing.T) {
+	avatarURL := "https://example.com/avatar.png"
+
+	svc := NewCreatorService(
+		creatorProfileRepoStub{
+			profile: domain.Profile{
+				UserID:          "user-1",
+				FirstName:       "Serge",
+				LastName:        "Hall",
+				AvatarURL:       &avatarURL,
+				IsPublicProfile: true,
+				ShowAvatar:      true,
+			},
+		},
+		creatorSkillRepoStub{},
+	)
+
+	profile, err := svc.FindPublicByUserID(context.Background(), "user-1")
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if profile.AvatarURL != nil {
+		t.Fatalf("expected unsafe avatar URL to be cleared, got %v", profile.AvatarURL)
 	}
 }
 

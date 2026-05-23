@@ -9,10 +9,15 @@ ALTER TABLE lavoval_profiles
     CONSTRAINT profiles_username_format
       CHECK (username IS NULL OR username ~ '^[a-zA-Z0-9_-]{3,30}$'),
 
-  -- Avatar: must be an http(s) URL, max 2048 chars.
+  -- Avatar: must be HTTPS, max 2048 chars, and on the trusted image host allowlist.
   ADD COLUMN IF NOT EXISTS avatar_url TEXT
     CONSTRAINT profiles_avatar_url_format
-      CHECK (avatar_url IS NULL OR (length(avatar_url) <= 2048 AND avatar_url ~* '^https?://')),
+      CHECK (
+        avatar_url IS NULL OR (
+          length(avatar_url) <= 2048
+          AND avatar_url ~* '^https://(avatars\.githubusercontent\.com|secure\.gravatar\.com|www\.gravatar\.com|lh3\.googleusercontent\.com)([/?#]|$)'
+        )
+      ),
 
   -- Free-text location: 2-100 chars when present.
   ADD COLUMN IF NOT EXISTS location TEXT

@@ -32,7 +32,7 @@ function createContentSecurityPolicy(nonce: string) {
     "font-src 'self' data:",
     "form-action 'self'",
     "frame-ancestors 'none'",
-    "img-src 'self' data: blob: https://avatars.githubusercontent.com",
+    "img-src 'self' data: https://avatars.githubusercontent.com https://secure.gravatar.com https://www.gravatar.com https://lh3.googleusercontent.com",
     "object-src 'none'",
     `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'${devScriptSource}`,
     `style-src 'self' 'nonce-${nonce}'`,

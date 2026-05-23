@@ -3,10 +3,19 @@ package service
 import (
 	"context"
 	"fmt"
+	"net/url"
+	"strings"
 
 	"github.com/sergehall/lavoval/apps/api/internal/domain"
 	"github.com/sergehall/lavoval/apps/api/internal/repository"
 )
+
+var allowedAvatarURLHosts = map[string]struct{}{
+	"avatars.githubusercontent.com": {},
+	"secure.gravatar.com":           {},
+	"www.gravatar.com":              {},
+	"lh3.googleusercontent.com":     {},
+}
 
 type ProfileService struct {
 	profiles repository.ProfileStore
@@ -28,9 +37,10 @@ type UpdateProfileInput struct {
 	// The DB also enforces the character set via a CHECK constraint.
 	Username *string `json:"username" validate:"omitempty,min=3,max=30"`
 
-	// URLs: go-playground/validator's "url" tag rejects anything that is
-	// not a well-formed absolute URL, preventing e.g. javascript: URIs.
-	AvatarURL   *string `json:"avatarUrl"   validate:"omitempty,url,max=2048"`
+	// AvatarURL is hardened separately from general profile links: only
+	// HTTPS URLs on the avatar allowlist are accepted, and credentials are
+	// never allowed in the URL authority.
+	AvatarURL   *string `json:"avatarUrl"   validate:"omitempty,max=2048"`
 	WebsiteURL  *string `json:"websiteUrl"  validate:"omitempty,url,max=2048"`
 	LinkedInURL *string `json:"linkedinUrl" validate:"omitempty,url,max=2048"`
 	GitHubURL   *string `json:"githubUrl"   validate:"omitempty,url,max=2048"`
@@ -65,11 +75,42 @@ func NewProfileService(profiles repository.ProfileStore) *ProfileService {
 	return &ProfileService{profiles: profiles}
 }
 
+func IsSafeAvatarURL(value string) bool {
+	if value == "" || len(value) > 2048 {
+		return false
+	}
+
+	parsed, err := url.Parse(value)
+	if err != nil {
+		return false
+	}
+
+	host := strings.ToLower(parsed.Hostname())
+	if parsed.Scheme != "https" || host == "" || parsed.Port() != "" {
+		return false
+	}
+
+	if parsed.User != nil {
+		return false
+	}
+
+	_, ok := allowedAvatarURLHosts[host]
+	return ok
+}
+
+func safeAvatarURL(value *string) *string {
+	if value == nil || !IsSafeAvatarURL(*value) {
+		return nil
+	}
+	return value
+}
+
 func (s *ProfileService) FindByUserID(ctx context.Context, userID string) (domain.Profile, error) {
 	profile, err := s.profiles.FindByUserID(ctx, userID)
 	if err != nil {
 		return domain.Profile{}, fmt.Errorf("load profile: %w", err)
 	}
+	profile.AvatarURL = safeAvatarURL(profile.AvatarURL)
 	return profile, nil
 }
 
@@ -86,7 +127,7 @@ func (s *ProfileService) Update(ctx context.Context, userID string, input Update
 		Bio:                input.Bio,
 		Timezone:           input.Timezone,
 		Username:           input.Username,
-		AvatarURL:          input.AvatarURL,
+		AvatarURL:          safeAvatarURL(input.AvatarURL),
 		Location:           input.Location,
 		Skills:             input.Skills,
 		Languages:          input.Languages,

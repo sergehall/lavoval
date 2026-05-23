@@ -68,10 +68,15 @@ function expectNonceBasedScriptPolicy(contentSecurityPolicy: string | null) {
 
 function expectProductionOnlySecureSources(contentSecurityPolicy: string | null) {
   const connectSource = contentSecurityPolicy?.match(/connect-src[^;]*/)?.[0];
+  const imageSource = contentSecurityPolicy?.match(/img-src[^;]*/)?.[0];
 
   expect(connectSource).toBe("connect-src 'self' https://api.lavoval.com");
+  expect(imageSource).toBe(
+    "img-src 'self' data: https://avatars.githubusercontent.com https://secure.gravatar.com https://www.gravatar.com https://lh3.googleusercontent.com",
+  );
   expect(contentSecurityPolicy).not.toContain('http://');
   expect(contentSecurityPolicy).not.toContain('ws://');
+  expect(contentSecurityPolicy).not.toContain('blob:');
   expect(contentSecurityPolicy).not.toContain("'unsafe-eval'");
 }
 
