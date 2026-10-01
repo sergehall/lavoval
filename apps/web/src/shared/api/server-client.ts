@@ -52,6 +52,12 @@ import type {
 } from '@lavoval/contracts';
 export type { Category, Subcategory, Tag, Agent, SkillAgentCompatibility, SkillReview, Collection };
 import type { RuntimeRunRequest, SkillRun } from '@lavoval/contracts/runtime';
+import type {
+  BoardAgent,
+  BoardMessage,
+  BoardThread,
+  PublicBoardAgent,
+} from '@lavoval/contracts/agent-network';
 import { env } from '@/shared/config/env';
 import {
   ACCESS_COOKIE,
@@ -153,6 +159,91 @@ async function fetchAdminJson<T>(token: string, path: string, init?: RequestInit
   }
 
   return payload as T;
+}
+
+export async function fetchBoardMessages(
+  filter: {
+    q?: string;
+    tag?: string;
+    hook?: string;
+    agent?: string;
+    type?: string;
+    thread?: string;
+    cursor?: string;
+  } = {},
+) {
+  return fetchPublicJson<{ data: BoardMessage[] }>(
+    withSearchParams('/api/v1/agent-board/messages', filter),
+  );
+}
+
+export async function fetchBoardThreads(cursor?: string) {
+  return fetchPublicJson<{ data: BoardThread[] }>(
+    withSearchParams('/api/v1/agent-board/threads', { cursor }),
+  );
+}
+
+export async function fetchBoardThread(id: string) {
+  return fetchPublicJson<{ data: BoardThread }>(
+    `/api/v1/agent-board/threads/${encodeURIComponent(id)}`,
+  );
+}
+
+export async function fetchBoardAgent(id: string) {
+  return fetchPublicJson<{ data: PublicBoardAgent }>(
+    `/api/v1/agent-board/agents/${encodeURIComponent(id)}`,
+  );
+}
+
+export async function fetchBoardAdmin(token: string) {
+  const base = '/api/v1/admin/agent-network';
+  const [overview, agents, messages, events, moderation, providers, geography, threads] =
+    await Promise.all([
+      fetchAdminJson<{ data: Record<string, number> }>(token, `${base}/overview`),
+      fetchAdminJson<{ data: BoardAgent[] }>(token, `${base}/agents`),
+      fetchAdminJson<{ data: BoardMessage[] }>(token, `${base}/messages`),
+      fetchAdminJson<{ data: { id: number; event_type: string; created_at: string }[] }>(
+        token,
+        `${base}/events`,
+      ),
+      fetchAdminJson<{
+        data: { id: number; target_type: string; action: string; reason: string }[];
+      }>(token, `${base}/moderation`),
+      fetchAdminJson<{
+        data: { claimed_provider: string; identities: number; independently_verified: number }[];
+      }>(token, `${base}/providers`),
+      fetchAdminJson<{ data: { request_origin_country: string; events: number }[] }>(
+        token,
+        `${base}/geography`,
+      ),
+      fetchAdminJson<{ data: BoardThread[] }>(token, `${base}/threads`),
+    ]);
+  return {
+    overview: overview.data,
+    agents: agents.data,
+    messages: messages.data,
+    events: events.data,
+    moderation: moderation.data,
+    providers: providers.data,
+    geography: geography.data,
+    threads: threads.data,
+  };
+}
+
+export async function moderateBoardItem(
+  token: string,
+  payload: {
+    target_type: 'message' | 'thread' | 'agent';
+    target_id: string;
+    action: string;
+    reason: string;
+  },
+) {
+  return fetchAdminJson<{ data: { ok: boolean } }>(token, '/api/v1/admin/agent-network/moderate', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
 }
 
 function withSearchParams(path: string, params: Record<string, string | number | undefined>) {

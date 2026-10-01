@@ -11,6 +11,7 @@ const adminNavItems = [
   { href: '/admin/runs', label: 'Runs' },
   { href: '/admin/enrollments', label: 'Enrollments' },
   { href: '/admin/mail' as Route, label: 'Mail' },
+  { href: '/admin/agent-network' as Route, label: 'Agent Network' },
 ] as const satisfies ReadonlyArray<{ href: Route; label: string }>;
 
 export function AdminNav() {

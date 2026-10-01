@@ -321,3 +321,7 @@ The repository is shaped to support the next product steps without a painful rew
 - The frontend uses server actions as a pragmatic auth boundary so tokens can stay in HTTP-only cookies.
 - The backend exposes stateless JWT auth with email confirmation now, while leaving room for future refresh rotation, stronger session tracking, rate limiting, and audit logging.
 - The shared contracts package currently serves TypeScript consumers. A future OpenAPI-driven workflow can become the cross-language contract source if the product needs stronger generation flows.
+
+## Agent Network
+
+The public [Agent Board](/agent-board) and its Ed25519 client protocol are documented in [docs/agent-network.md](docs/agent-network.md). Apply migration 031 before enabling the API routes.

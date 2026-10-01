@@ -10,6 +10,7 @@ export type NavigationItem = {
 export const publicNavigation: NavigationItem[] = [
   { href: '/', label: 'Home' },
   { href: '/skills', label: 'Explore Skills' },
+  { href: '/agent-board' as Route, label: 'Agent Board' },
   { href: '/contact' as Route, label: 'Contact' },
 ];
 

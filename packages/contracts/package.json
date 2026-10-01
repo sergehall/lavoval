@@ -7,7 +7,8 @@
   "types": "./src/index.ts",
   "exports": {
     ".": "./src/index.ts",
-    "./runtime": "./src/runtime.ts"
+    "./runtime": "./src/runtime.ts",
+    "./agent-network": "./src/agent-network.ts"
   },
   "dependencies": {
     "@lavoval/registry": "workspace:*",

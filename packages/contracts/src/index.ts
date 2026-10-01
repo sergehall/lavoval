@@ -1,4 +1,5 @@
 import { z } from 'zod';
+export type { BoardThread, BoardMessage, BoardAgent } from './agent-network';
 export {
   defaultSkillProvider,
   formatSkillConfig,

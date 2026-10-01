@@ -8,6 +8,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/sergehall/lavoval/apps/api/internal/agentnetwork"
 	"github.com/sergehall/lavoval/apps/api/internal/auth"
 	"github.com/sergehall/lavoval/apps/api/internal/config"
 	"github.com/sergehall/lavoval/apps/api/internal/handler"
@@ -137,7 +138,13 @@ func New() (*Application, error) {
 		service.WithSessionRevoker(sessionRevoker),
 	)
 
-	router := handler.NewRouter(cfg, tokenManager, userRepo, authService, profileService, creatorService, accountSecurityService, skillService, runtimeService, adminService, catalogService, agentService, socialService, mailMetrics)
+	boardStore, err := agentnetwork.NewStore(pool, cfg.JWTSecret)
+	if err != nil {
+		pool.Close()
+		return nil, fmt.Errorf("agent network config: %w", err)
+	}
+	board := agentnetwork.NewHandler(boardStore)
+	router := handler.NewRouter(cfg, tokenManager, userRepo, authService, profileService, creatorService, accountSecurityService, skillService, runtimeService, adminService, catalogService, agentService, socialService, mailMetrics, board)
 
 	server := &http.Server{
 		Addr:              cfg.HTTPAddr,

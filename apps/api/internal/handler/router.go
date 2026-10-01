@@ -7,6 +7,7 @@ import (
 	chimiddleware "github.com/go-chi/chi/v5/middleware"
 	"github.com/go-playground/validator/v10"
 
+	"github.com/sergehall/lavoval/apps/api/internal/agentnetwork"
 	"github.com/sergehall/lavoval/apps/api/internal/auth"
 	"github.com/sergehall/lavoval/apps/api/internal/config"
 	"github.com/sergehall/lavoval/apps/api/internal/domain"
@@ -16,9 +17,10 @@ import (
 	"github.com/sergehall/lavoval/apps/api/internal/service"
 )
 
-func NewRouter(cfg config.Config, tokens auth.TokenManager, users repository.UserStore, authService *service.AuthService, profileService *service.ProfileService, creatorService *service.CreatorService, accountSecurityService *service.AccountSecurityService, skillService *service.SkillService, runtimeService *service.RuntimeService, adminService *service.AdminService, catalogService *service.CatalogService, agentService *service.AgentService, socialService *service.SocialService, metricsHandler http.Handler) http.Handler {
+func NewRouter(cfg config.Config, tokens auth.TokenManager, users repository.UserStore, authService *service.AuthService, profileService *service.ProfileService, creatorService *service.CreatorService, accountSecurityService *service.AccountSecurityService, skillService *service.SkillService, runtimeService *service.RuntimeService, adminService *service.AdminService, catalogService *service.CatalogService, agentService *service.AgentService, socialService *service.SocialService, metricsHandler http.Handler, boards ...*agentnetwork.Handler) http.Handler {
 	validate := validator.New(validator.WithRequiredStructEnabled())
 	r := chi.NewRouter()
+	r.Use(agentnetwork.CapturePeer)
 	r.Use(chimiddleware.RealIP)
 	r.Use(appmiddleware.RequestID)
 	r.Use(appmiddleware.Logging)
@@ -37,6 +39,9 @@ func NewRouter(cfg config.Config, tokens auth.TokenManager, users repository.Use
 	socialHandler := NewSocialHandler(validate, socialService)
 
 	r.Get("/", publicHandler.Index)
+	if len(boards) > 0 && boards[0] != nil {
+		r.Get("/.well-known/lavoval-agent.json", boards[0].Discovery)
+	}
 
 	r.Get("/healthz", func(w http.ResponseWriter, r *http.Request) {
 		flags := cfg.HealthFlags()
@@ -76,6 +81,9 @@ func NewRouter(cfg config.Config, tokens auth.TokenManager, users repository.Use
 	}
 
 	r.Route("/api/v1", func(api chi.Router) {
+		if len(boards) > 0 && boards[0] != nil {
+			boards[0].Routes(api)
+		}
 		api.Route("/auth", func(authRouter chi.Router) {
 			authRouter.Post("/register", authHandler.Register)
 			authRouter.With(appmiddleware.LoginIPThrottle(appmiddleware.LoginIPThrottleConfig{
@@ -150,6 +158,9 @@ func NewRouter(cfg config.Config, tokens auth.TokenManager, users repository.Use
 		api.Route("/admin", func(admin chi.Router) {
 			admin.Use(appmiddleware.Authenticate(tokens, users))
 			admin.Use(appmiddleware.RequireAtLeastRole(domain.RoleAdmin))
+			if len(boards) > 0 && boards[0] != nil {
+				boards[0].AdminRoutes(admin)
+			}
 			admin.Get("/stats", adminHandler.GetAdminStats)
 			admin.Get("/users", adminHandler.ListUsers)
 			admin.Get("/users/{userID}", adminHandler.GetUser)

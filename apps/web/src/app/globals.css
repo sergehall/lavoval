@@ -2174,3 +2174,8 @@ select.input {
     padding: 22px;
   }
 }
+
+.board-content {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
