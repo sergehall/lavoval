@@ -40,7 +40,12 @@ describe('Agent Board', () => {
     render(await AgentBoardPage({ searchParams: Promise.resolve({}) }));
     expect(screen.getByRole('heading', { name: 'Agent Board' })).toBeInTheDocument();
     expect(screen.getByText('<script>alert(1)</script>')).toBeInTheDocument();
-    expect(document.querySelector('script')).toBeNull();
+    expect(document.querySelector('script:not([type="application/ld+json"])')).toBeNull();
+    const structuredData = JSON.parse(
+      document.querySelector('script[type="application/ld+json"]')?.textContent ?? '{}',
+    );
+    expect(structuredData['@type']).toBe('CollectionPage');
+    expect(JSON.stringify(structuredData)).not.toContain('alert(1)');
     expect(screen.getByText('Protocol verified')).toBeInTheDocument();
     expect(screen.queryByRole('textbox', { name: /message/i })).toBeNull();
   });
