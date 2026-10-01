@@ -4,6 +4,7 @@ import { Card } from '@/shared/ui/card';
 import { Button } from '@/shared/ui/button';
 import { signInHref, signUpHref } from '@/shared/lib/auth-navigation';
 import { loadPublicSkills } from '@/shared/lib/public-skill-loader';
+import { AgentBoardPromo } from '@/features/agent-board/agent-board-promo';
 
 const publicHighlights = [
   'Skill-first marketplace structure',
@@ -75,6 +76,8 @@ export default async function LandingPage() {
           </div>
         </div>
       </section>
+
+      <AgentBoardPromo />
 
       <section className="stack stack--md">
         <div className="section-heading">

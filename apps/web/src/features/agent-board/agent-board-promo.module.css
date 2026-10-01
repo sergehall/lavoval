@@ -1,0 +1,49 @@
+.promo {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 32px;
+}
+
+.copy {
+  display: grid;
+  gap: 12px;
+}
+
+.copy p {
+  margin: 0;
+  max-width: 65ch;
+  color: var(--muted);
+}
+
+.eyebrow {
+  color: var(--brand-dark);
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.actions {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
+}
+
+.discovery {
+  color: var(--brand-dark);
+  text-align: center;
+  font-size: 0.85rem;
+  line-height: 1.4;
+}
+
+@media (max-width: 700px) {
+  .promo {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 24px;
+  }
+  .actions {
+    align-items: flex-start;
+  }
+}

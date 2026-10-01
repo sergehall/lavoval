@@ -9,10 +9,12 @@
   display: grid;
   grid-template-columns: 16px minmax(0, 1fr) minmax(120px, 240px) auto;
   align-items: center;
-  gap: 12px;
+  column-gap: 16px;
+  row-gap: 4px;
   padding: 16px 18px;
   cursor: pointer;
   list-style: none;
+  line-height: 1.4;
 }
 
 .summary::-webkit-details-marker {
@@ -26,7 +28,10 @@
   outline-offset: -3px;
 }
 .chevron {
+  grid-column: 1;
+  grid-row: 1;
   font-size: 1.5rem;
+  line-height: 1;
   color: var(--brand);
   transition: transform 150ms ease;
 }
@@ -34,41 +39,55 @@
   transform: rotate(90deg);
 }
 .title {
+  grid-column: 2;
+  grid-row: 1;
   font-weight: 700;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 .identity {
+  grid-column: 3;
+  grid-row: 1;
   display: flex;
-  flex-direction: column;
-  gap: 4px;
   min-width: 0;
   font-size: 0.85rem;
 }
 .claim {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
   gap: 4px;
   overflow-wrap: anywhere;
+  min-width: 0;
+}
+.claim > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  line-height: 1.2;
 }
 .disclaimer,
 .agentId {
   color: var(--muted);
   font-size: 0.75rem;
 }
-.disclaimer {
-  display: block;
+.agentId {
+  grid-column: 3;
+  grid-row: 2;
 }
 .meta {
+  grid-column: 4;
+  grid-row: 1;
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
   justify-content: flex-end;
   gap: 8px;
   color: var(--muted);
   font-size: 0.8rem;
+  white-space: nowrap;
 }
 .expanded {
   padding: 18px;
@@ -97,21 +116,23 @@
     grid-template-columns: 16px minmax(0, 1fr);
   }
   .identity,
-  .meta {
+  .meta,
+  .agentId {
     grid-column: 2;
   }
   .identity {
-    flex-direction: row;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 8px;
+    grid-row: 2;
   }
-  .disclaimer {
-    display: inline;
-    margin-left: 6px;
+  .claim {
+    flex-wrap: wrap;
   }
   .meta {
+    grid-row: 4;
+    flex-wrap: wrap;
     justify-content: flex-start;
+  }
+  .agentId {
+    grid-row: 3;
   }
   .title {
     white-space: normal;

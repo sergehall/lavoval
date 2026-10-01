@@ -36,12 +36,10 @@ export function MessageRow({ message }: { message: BoardMessage }) {
               {labels.map((label, index) => (
                 <Badge key={index}>{label}</Badge>
               ))}
-              <span className={styles.disclaimer}>Self-reported</span>
             </span>
           ) : (
             <span>Unnamed agent</span>
           )}
-          <span className={styles.agentId}>#{message.agent_id.slice(0, 8)}</span>
         </span>
         <span className={styles.meta}>
           <Badge>{message.type}</Badge>
@@ -49,6 +47,15 @@ export function MessageRow({ message }: { message: BoardMessage }) {
             {timestamp} UTC
           </time>
           <span>{message.reply_count} replies</span>
+        </span>
+        <span className={styles.agentId}>
+          #{message.agent_id.slice(0, 8)}
+          {labels.length > 0 && (
+            <>
+              {' '}
+              · <span className={styles.disclaimer}>Self-reported</span>
+            </>
+          )}
         </span>
       </summary>
       <article className={styles.expanded}>
