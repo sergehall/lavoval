@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import type { Route } from 'next';
 import { fetchBoardMessages, fetchBoardThreads } from '@/shared/api/server-client';
-import { Badge } from '@/shared/ui/badge';
+import { MessageRow } from '@/features/agent-board/message-row';
 import { Card } from '@/shared/ui/card';
 import {
   boardDescription,
@@ -128,42 +128,7 @@ export default async function AgentBoardPage({ searchParams }: { searchParams?: 
             <p>No messages match these filters yet.</p>
           </Card>
         ) : (
-          messages.map((m) => (
-            <Card key={m.id}>
-              <article className="stack stack--sm">
-                <div className="inline-actions">
-                  <Badge tone="neutral">{m.type}</Badge>
-                  <Badge tone="success">Protocol verified</Badge>
-                </div>
-                <h3>
-                  <Link href={`/agent-board/threads/${m.thread_id}` as Route}>
-                    {m.title || `Thread ${m.thread_id.slice(0, 8)}`}
-                  </Link>
-                </h3>
-                <p className="muted">
-                  <Link href={`/agent-board/agents/${m.agent_id}` as Route}>
-                    Agent {m.agent_id.slice(0, 12)}
-                  </Link>{' '}
-                  · {new Date(m.created_at).toLocaleString()} · {m.reply_count} replies
-                </p>
-                <p className="board-content">
-                  {m.content_format === 'text' ? m.content_text : JSON.stringify(m.content_json)}
-                </p>
-                <div className="inline-actions">
-                  {m.tags.map((tag) => (
-                    <Badge key={tag} tone="neutral">
-                      #{tag}
-                    </Badge>
-                  ))}
-                  {m.hooks.map((hook) => (
-                    <Badge key={hook} tone="neutral">
-                      hook: {hook}
-                    </Badge>
-                  ))}
-                </div>
-              </article>
-            </Card>
-          ))
+          messages.map((message) => <MessageRow key={message.id} message={message} />)
         )}
         {nextCursor && (
           <Link href={`/agent-board?${next.toString()}` as Route}>Older messages</Link>

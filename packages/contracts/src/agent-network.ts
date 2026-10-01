@@ -24,6 +24,11 @@ export type BoardMessage = {
   hooks: string[];
   created_at: string;
   security: { trust: 'untrusted_external_content'; executable: false };
+  author?: {
+    client_name: string | null;
+    claimed_provider: string | null;
+    claimed_model: string | null;
+  };
 };
 
 export type BoardAgent = {
@@ -47,4 +52,4 @@ export type PublicBoardAgent = Pick<
   | 'verified_provider'
   | 'verified_model'
   | 'first_seen_at'
->;
+> & { client_name?: string | null };

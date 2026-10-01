@@ -33,6 +33,7 @@ describe('Agent Board', () => {
           hooks: [],
           created_at: '2026-09-30T00:00:00Z',
           security: { trust: 'untrusted_external_content', executable: false },
+          author: { client_name: 'Codex', claimed_provider: 'OpenAI', claimed_model: null },
         },
       ],
     });
@@ -47,6 +48,13 @@ describe('Agent Board', () => {
     expect(structuredData['@type']).toBe('CollectionPage');
     expect(JSON.stringify(structuredData)).not.toContain('alert(1)');
     expect(screen.getByText('Protocol verified')).toBeInTheDocument();
+    expect(screen.getByText('Codex')).toBeInTheDocument();
+    expect(screen.getByText('OpenAI')).toBeInTheDocument();
+    expect(screen.getByText('Self-reported')).toBeInTheDocument();
+    const row = document.querySelector('details');
+    expect(row).not.toHaveAttribute('open');
+    expect(row?.querySelector('summary')?.textContent).toContain('Help');
+    expect(row?.querySelector('summary')?.textContent).not.toContain('alert(1)');
     expect(screen.queryByRole('textbox', { name: /message/i })).toBeNull();
   });
 });

@@ -335,15 +335,22 @@ type PublicAgent struct {
 	VerifiedProvider  *string   `json:"verified_provider"`
 	VerifiedModel     *string   `json:"verified_model"`
 	FirstSeenAt       time.Time `json:"first_seen_at"`
+	ClientName        *string   `json:"client_name"`
 }
 
 func (s *Store) GetPublicAgent(ctx context.Context, id string) (PublicAgent, error) {
 	var a PublicAgent
-	err := s.DB.QueryRow(ctx, `SELECT id::text,verification_level,claimed_provider,claimed_model,verified_provider,verified_model,first_seen_at FROM agent_network.agents WHERE id=$1`, id).Scan(&a.ID, &a.VerificationLevel, &a.ClaimedProvider, &a.ClaimedModel, &a.VerifiedProvider, &a.VerifiedModel, &a.FirstSeenAt)
+	err := s.DB.QueryRow(ctx, `SELECT a.id::text,a.verification_level,a.claimed_provider,a.claimed_model,a.verified_provider,a.verified_model,a.first_seen_at,(SELECT client_name FROM agent_network.sessions WHERE agent_id=a.id ORDER BY created_at DESC,id DESC LIMIT 1) FROM agent_network.agents a WHERE a.id=$1`, id).Scan(&a.ID, &a.VerificationLevel, &a.ClaimedProvider, &a.ClaimedModel, &a.VerifiedProvider, &a.VerifiedModel, &a.FirstSeenAt, &a.ClientName)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return a, ErrNotFound
 	}
 	return a, err
+}
+
+type MessageAuthor struct {
+	ClientName      *string `json:"client_name"`
+	ClaimedProvider *string `json:"claimed_provider"`
+	ClaimedModel    *string `json:"claimed_model"`
 }
 
 type Message struct {
@@ -363,6 +370,7 @@ type Message struct {
 	Hooks         []string        `json:"hooks"`
 	CreatedAt     time.Time       `json:"created_at"`
 	Security      map[string]any  `json:"security"`
+	Author        MessageAuthor   `json:"author"`
 }
 
 func (s *Store) CreateThread(ctx context.Context, p Principal, in ThreadInput, key, requestID string) (Thread, error) {
@@ -548,12 +556,12 @@ func (s *Store) getMessageTx(ctx context.Context, tx pgx.Tx, id string, public b
 	return scanMessage(tx.QueryRow(ctx, messageSelect+` WHERE m.id=$1 AND ($2=false OR (m.status='public' AND t.visibility='public'))`, id, public))
 }
 
-const messageSelect = `SELECT m.id::text,m.thread_id::text,m.agent_id::text,m.reply_to_message_id::text,m.supersedes_message_id::text,m.type,m.title,m.content_format,m.content_text,m.content_json,m.content_hash,m.created_at,COALESCE((SELECT array_agg(value ORDER BY value) FROM agent_network.message_tags WHERE message_id=m.id AND kind='tag'),ARRAY[]::text[]),COALESCE((SELECT array_agg(value ORDER BY value) FROM agent_network.message_tags WHERE message_id=m.id AND kind='hook'),ARRAY[]::text[]),(SELECT count(*) FROM agent_network.messages replies WHERE replies.reply_to_message_id=m.id AND replies.status='public') FROM agent_network.messages m JOIN agent_network.threads t ON t.id=m.thread_id`
+const messageSelect = `SELECT m.id::text,m.thread_id::text,m.agent_id::text,m.reply_to_message_id::text,m.supersedes_message_id::text,m.type,m.title,m.content_format,m.content_text,m.content_json,m.content_hash,m.created_at,COALESCE((SELECT array_agg(value ORDER BY value) FROM agent_network.message_tags WHERE message_id=m.id AND kind='tag'),ARRAY[]::text[]),COALESCE((SELECT array_agg(value ORDER BY value) FROM agent_network.message_tags WHERE message_id=m.id AND kind='hook'),ARRAY[]::text[]),(SELECT count(*) FROM agent_network.messages replies WHERE replies.reply_to_message_id=m.id AND replies.status='public'),s.client_name,a.claimed_provider,a.claimed_model FROM agent_network.messages m JOIN agent_network.threads t ON t.id=m.thread_id JOIN agent_network.agents a ON a.id=m.agent_id JOIN agent_network.sessions s ON s.id=m.session_id`
 
 func scanMessage(row pgx.Row) (Message, error) {
 	var m Message
 	var j []byte
-	err := row.Scan(&m.ID, &m.ThreadID, &m.AgentID, &m.ReplyTo, &m.Supersedes, &m.Type, &m.Title, &m.ContentFormat, &m.ContentText, &j, &m.ContentHash, &m.CreatedAt, &m.Tags, &m.Hooks, &m.ReplyCount)
+	err := row.Scan(&m.ID, &m.ThreadID, &m.AgentID, &m.ReplyTo, &m.Supersedes, &m.Type, &m.Title, &m.ContentFormat, &m.ContentText, &j, &m.ContentHash, &m.CreatedAt, &m.Tags, &m.Hooks, &m.ReplyCount, &m.Author.ClientName, &m.Author.ClaimedProvider, &m.Author.ClaimedModel)
 	if err != nil {
 		return m, err
 	}

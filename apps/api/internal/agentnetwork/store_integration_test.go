@@ -36,7 +36,7 @@ func TestAgentNetworkPostgresFlow(t *testing.T) {
 		t.Fatal(err)
 	}
 	verify := func(ch Challenge, signature []byte) (SessionCredential, error) {
-		return s.Verify(ctx, VerifyInput{ChallengeID: ch.ID, PublicKey: base64.RawURLEncoding.EncodeToString(pub), Signature: base64.RawURLEncoding.EncodeToString(signature), ClaimedProvider: "self reported"}, origin, "test-request")
+		return s.Verify(ctx, VerifyInput{ChallengeID: ch.ID, PublicKey: base64.RawURLEncoding.EncodeToString(pub), Signature: base64.RawURLEncoding.EncodeToString(signature), ClaimedProvider: "self reported", ClientName: "TestCodex"}, origin, "test-request")
 	}
 	ch, err := s.Challenge(ctx, origin)
 	if err != nil {
@@ -50,7 +50,7 @@ func TestAgentNetworkPostgresFlow(t *testing.T) {
 		t.Fatal(credential.VerificationLevel)
 	}
 	publicAgent, err := s.GetPublicAgent(ctx, credential.AgentID)
-	if err != nil || publicAgent.ClaimedProvider == nil || *publicAgent.ClaimedProvider != "self reported" || publicAgent.VerifiedProvider != nil {
+	if err != nil || publicAgent.ClaimedProvider == nil || *publicAgent.ClaimedProvider != "self reported" || publicAgent.VerifiedProvider != nil || publicAgent.ClientName == nil || *publicAgent.ClientName != "TestCodex" {
 		t.Fatalf("public provenance: %+v %v", publicAgent, err)
 	}
 	if _, err = verify(ch, ed25519.Sign(priv, []byte(ch.SigningPayload))); !errors.Is(err, ErrExpired) {
@@ -99,8 +99,23 @@ func TestAgentNetworkPostgresFlow(t *testing.T) {
 	if msg.AgentID != p.AgentID || !strings.Contains(*msg.ContentText, "DROP TABLE") || msg.Security["executable"] != false {
 		t.Fatal("content or identity changed")
 	}
+	if msg.Author.ClientName == nil || *msg.Author.ClientName != "TestCodex" || msg.Author.ClaimedProvider == nil || *msg.Author.ClaimedProvider != "self reported" || msg.Author.ClaimedModel != nil {
+		t.Fatalf("message author metadata: %+v", msg.Author)
+	}
+	nextChallenge, err := s.Challenge(ctx, origin)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = s.Verify(ctx, VerifyInput{ChallengeID: nextChallenge.ID, PublicKey: base64.RawURLEncoding.EncodeToString(pub), Signature: base64.RawURLEncoding.EncodeToString(ed25519.Sign(priv, []byte(nextChallenge.SigningPayload))), ClientName: "OtherClient"}, origin, "test-request")
+	if err != nil {
+		t.Fatal(err)
+	}
+	original, err := s.GetMessage(ctx, msg.ID, true)
+	if err != nil || original.Author.ClientName == nil || *original.Author.ClientName != "TestCodex" {
+		t.Fatalf("message must retain its own session's client label: %+v %v", original.Author, err)
+	}
 	search, err := s.ListMessages(ctx, "", "", "tag", "", "", "DROP TABLE", "", true)
-	if err != nil || len(search) == 0 {
+	if err != nil || len(search) == 0 || search[0].Author.ClientName == nil || *search[0].Author.ClientName != "TestCodex" {
 		t.Fatalf("search failed: %v", err)
 	}
 	reply := MessageInput{ThreadID: thread.ID, ReplyTo: msg.ID, Type: "response", Content: Content{Format: "text", Body: json.RawMessage(`"This is a reply"`)}}

@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { fetchBoardAgent, fetchBoardMessages } from '@/shared/api/server-client';
 import { Badge } from '@/shared/ui/badge';
 import { Card } from '@/shared/ui/card';
+import { MessageRow } from '@/features/agent-board/message-row';
 
 export const dynamic = 'force-dynamic';
 export const metadata: Metadata = { title: 'Agent Board identity — Lavoval' };
@@ -15,7 +16,8 @@ export default async function AgentIdentityPage({ params }: { params: Promise<{ 
   return (
     <main className="stack stack--lg">
       <Card>
-        <h1>Agent {agent.id.slice(0, 12)}</h1>
+        <h1>{agent.client_name || `Agent ${agent.id.slice(0, 12)}`}</h1>
+        <p className="muted">Agent {agent.id} · Client name is self-reported.</p>
         <Badge tone="success">{agent.verification_level.replaceAll('_', ' ')}</Badge>
         <p>Claimed provider: {agent.claimed_provider || 'Unknown'}</p>
         <p>Claimed model: {agent.claimed_model || 'Unknown'}</p>
@@ -26,14 +28,11 @@ export default async function AgentIdentityPage({ params }: { params: Promise<{ 
       <Card>
         <h2>Public messages</h2>
         <p>{messages.length} recent messages</p>
-        <ul>
-          {messages.map((m) => (
-            <li key={m.id}>
-              {m.title || m.type}:{' '}
-              {m.content_format === 'text' ? m.content_text : JSON.stringify(m.content_json)}
-            </li>
+        <div className="stack stack--sm">
+          {messages.map((message) => (
+            <MessageRow key={message.id} message={message} />
           ))}
-        </ul>
+        </div>
       </Card>
     </main>
   );
