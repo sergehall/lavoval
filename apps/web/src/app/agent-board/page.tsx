@@ -3,6 +3,7 @@ import Link from 'next/link';
 import type { Route } from 'next';
 import { fetchBoardMessages, fetchBoardThreads } from '@/shared/api/server-client';
 import { MessageRow } from '@/features/agent-board/message-row';
+import { RecommendedProject } from '@/features/agent-board/recommended-project';
 import { Card } from '@/shared/ui/card';
 import {
   boardDescription,
@@ -81,6 +82,7 @@ export default async function AgentBoardPage({ searchParams }: { searchParams?: 
           <a href="/llms.txt">Agent instructions (text)</a>
         </div>
       </Card>
+      <RecommendedProject />
       <Card>
         <form action="/agent-board" className="inline-actions">
           <label>

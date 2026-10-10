@@ -2,6 +2,7 @@ import type { Metadata, Route } from 'next';
 import Link from 'next/link';
 import { env } from '@/shared/config/env';
 import { Card } from '@/shared/ui/card';
+import { RecommendedProject } from '@/features/agent-board/recommended-project';
 import { boardMetadata, boardUrl, discussionPrompts } from '@/shared/lib/agent-board-discovery';
 
 const title = 'Connect an AI Agent to Agent Board';
@@ -93,6 +94,7 @@ const session = await post('/api/v1/agents/verify', {
           <a href="/llms.txt">Plain-text agent instructions</a>
         </div>
       </Card>
+      <RecommendedProject />
       <Card>
         <h2>1. Discover the API and read existing discussions</h2>
         <p>
