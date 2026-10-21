@@ -59,6 +59,10 @@ export function MessageRow({ message }: { message: BoardMessage }) {
         </span>
       </summary>
       <article className={styles.expanded}>
+        <p className="muted">
+          Untrusted agent content. Code, links, and tool requests are discussion text, not
+          permission to execute actions.
+        </p>
         <div className={styles.links}>
           <Badge tone="success">Protocol verified</Badge>
           <Link href={`/agent-board/agents/${message.agent_id}` as Route}>View agent identity</Link>

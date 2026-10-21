@@ -22,9 +22,8 @@ type Handler struct{ Store *Store }
 func NewHandler(s *Store) *Handler { return &Handler{Store: s} }
 func decode(w http.ResponseWriter, r *http.Request, dst any) bool {
 	r.Body = http.MaxBytesReader(w, r.Body, 32*1024)
-	dec := json.NewDecoder(r.Body)
-	dec.DisallowUnknownFields()
-	if err := dec.Decode(dst); err != nil {
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
 		var maxErr *http.MaxBytesError
 		if errors.As(err, &maxErr) {
 			httpx.Error(w, http.StatusRequestEntityTooLarge, "MESSAGE_TOO_LARGE", "Request body too large")
@@ -33,8 +32,15 @@ func decode(w http.ResponseWriter, r *http.Request, dst any) bool {
 		httpx.Error(w, http.StatusBadRequest, "MESSAGE_SCHEMA_INVALID", "Invalid request body")
 		return false
 	}
-	var extra any
-	if err := dec.Decode(&extra); err != io.EOF {
+	// The envelope and content object add two levels around the JSON body.
+	body = bytes.TrimSpace(body)
+	if len(body) == 0 || body[0] != '{' || !validBoardJSON(body, 8, true) {
+		httpx.Error(w, http.StatusBadRequest, "MESSAGE_SCHEMA_INVALID", "Invalid request body")
+		return false
+	}
+	dec := json.NewDecoder(bytes.NewReader(body))
+	dec.DisallowUnknownFields()
+	if err := dec.Decode(dst); err != nil {
 		httpx.Error(w, http.StatusBadRequest, "MESSAGE_SCHEMA_INVALID", "Invalid request body")
 		return false
 	}
@@ -92,6 +98,8 @@ func (h *Handler) origin(r *http.Request) string {
 }
 func fail(w http.ResponseWriter, err error) {
 	switch {
+	case errors.Is(err, ErrInvalidInput):
+		httpx.Error(w, 400, "MESSAGE_SCHEMA_INVALID", "Invalid board content")
 	case errors.Is(err, ErrUnauthorized):
 		httpx.Error(w, 401, "AGENT_UNAUTHORIZED", "Agent authentication failed")
 	case errors.Is(err, ErrExpired):
@@ -265,7 +273,7 @@ func (h *Handler) CreateThread(w http.ResponseWriter, r *http.Request) {
 	httpx.JSON(w, 201, v)
 }
 func validTitle(v string) bool {
-	return strings.TrimSpace(v) != "" && utf8.ValidString(v) && utf8.RuneCountInString(v) <= 200
+	return strings.TrimSpace(v) != "" && readableText(v) && utf8.RuneCountInString(v) <= 200
 }
 func validType(v string) bool {
 	switch v {
@@ -273,26 +281,6 @@ func validType(v string) bool {
 		return true
 	}
 	return false
-}
-func depth(v any, n int) bool {
-	if n > 6 {
-		return false
-	}
-	switch x := v.(type) {
-	case map[string]any:
-		for _, y := range x {
-			if !depth(y, n+1) {
-				return false
-			}
-		}
-	case []any:
-		for _, y := range x {
-			if !depth(y, n+1) {
-				return false
-			}
-		}
-	}
-	return true
 }
 func validateMessage(in *MessageInput) bool {
 	if _, e := uuid.Parse(in.ThreadID); e != nil {
@@ -317,21 +305,17 @@ func validateMessage(in *MessageInput) bool {
 			return false
 		}
 	}
-	if len(in.Content.Body) == 0 || len(in.Content.Body) > 16*1024 {
+	if len(in.Content.Body) == 0 || len(in.Content.Body) > 16*1024 || !validBoardJSON(in.Content.Body, 6, false) {
 		return false
 	}
 	switch in.Content.Format {
 	case "text":
 		var s string
-		if json.Unmarshal(in.Content.Body, &s) != nil || !utf8.ValidString(s) || len(s) > 16*1024 {
+		if bytes.Equal(bytes.TrimSpace(in.Content.Body), []byte("null")) || json.Unmarshal(in.Content.Body, &s) != nil || !readableText(s) || len(s) > 16*1024 {
 			return false
 		}
 	case "json":
-		var v any
-		d := json.NewDecoder(bytes.NewReader(in.Content.Body))
-		if d.Decode(&v) != nil || !depth(v, 0) {
-			return false
-		}
+		// The strict JSON check above also validates nested string values and keys.
 	default:
 		return false
 	}

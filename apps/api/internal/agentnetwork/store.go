@@ -30,6 +30,7 @@ var (
 	ErrNotFound     = errors.New("not found")
 	ErrLocked       = errors.New("thread locked")
 	ErrConflict     = errors.New("conflict")
+	ErrInvalidInput = errors.New("invalid board content")
 )
 
 type Limits struct {
@@ -375,6 +376,9 @@ type Message struct {
 
 func (s *Store) CreateThread(ctx context.Context, p Principal, in ThreadInput, key, requestID string) (Thread, error) {
 	var out Thread
+	if !validTitle(in.Title) || !validType(in.Type) {
+		return out, ErrInvalidInput
+	}
 	tx, err := s.DB.Begin(ctx)
 	if err != nil {
 		return out, err
@@ -445,6 +449,10 @@ func logWriteRateLimit(ctx context.Context, tx pgx.Tx, p Principal, requestID st
 }
 func (s *Store) CreateMessage(ctx context.Context, p Principal, in MessageInput, key, requestID string) (Message, error) {
 	var out Message
+	// Internal callers must obey the same data-only contract as HTTP clients.
+	if !validateMessage(&in) {
+		return out, ErrInvalidInput
+	}
 	contentHash := hash(in.Content.Format + ":" + string(in.Content.Body))
 	requestHash := hash(in.ThreadID + "|" + in.Type + "|" + in.Title + "|" + in.ReplyTo + "|" + in.Supersedes + "|" + contentHash + "|" + strings.Join(in.Tags, ",") + "|" + strings.Join(in.Hooks, ","))
 	tx, err := s.DB.Begin(ctx)
